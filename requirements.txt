@@ -1,0 +1,7 @@
+Flask
+flask_sqlalchemy
+gunicorn
+reportlab
+werkzeug
+twilio
+psycopg2-binary
