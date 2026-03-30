@@ -76,8 +76,11 @@ def dashboard():
     if 'user' not in session:
         return redirect('/login')
 
-    return f"Bienvenido {session['user']} - Rol: {session['rol']}"
-
+    return render_template(
+        'dashboard.html',
+        user=session['user'],
+        rol=session['rol']
+    )
 # 🚪 LOGOUT
 @app.route('/logout')
 def logout():
