@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, session
-from models import db, Usuario, Credito, Cuota
+from models import db, Usuario, Credito, Cuota, Pago
 from datetime import datetime
 import calendar
 import os
@@ -47,6 +47,7 @@ def generar_cuotas(credito_id, monto, interes, cuotas):
             capital=capital,
             interes=interes_mes,
             saldo_restante=max(saldo, 0),
+	    saldo_pendiente=cuota_fija,
             estado='PENDIENTE'
         )
         db.session.add(nueva_cuota)
@@ -129,6 +130,7 @@ def dashboard():
 def logout():
     session.clear()
     return redirect('/login')
+
 @app.route('/ver_creditos')
 def ver_creditos():
     if 'user' not in session:
@@ -146,3 +148,35 @@ def ver_cuotas(credito_id):
     cuotas = Cuota.query.filter_by(credito_id=credito_id).order_by(Cuota.numero).all()
 
     return render_template('ver_cuotas.html', credito=credito, cuotas=cuotas)
+
+@app.route('/pagar_cuota/<int:cuota_id>', methods=['GET', 'POST'])
+def pagar_cuota(cuota_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    cuota = Cuota.query.get_or_404(cuota_id)
+
+    if request.method == 'POST':
+        valor_pago = float(request.form['valor'])
+
+        if valor_pago <= 0:
+            return "El pago debe ser mayor que cero"
+
+        pago = Pago(
+            cuota_id=cuota.id,
+            valor=valor_pago
+        )
+        db.session.add(pago)
+
+        cuota.saldo_pendiente = round(cuota.saldo_pendiente - valor_pago, 2)
+
+        if cuota.saldo_pendiente <= 0:
+            cuota.saldo_pendiente = 0
+            cuota.estado = 'PAGADA'
+        else:
+            cuota.estado = 'ABONO'
+
+        db.session.commit()
+        return redirect(f'/ver_cuotas/{cuota.credito_id}')
+
+    return render_template('pagar_cuota.html', cuota=cuota)
