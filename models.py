@@ -14,7 +14,9 @@ class Usuario(db.Model):
 class Credito(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     cliente = db.Column(db.String(100), nullable=False)
-    monto = db.Column(db.Float, nullable=False)
+    monto = db.Column(db.Float, nullable=False)  # valor original solicitado
+    abono_inicial = db.Column(db.Float, default=0)
+    monto_financiado = db.Column(db.Float, nullable=False)  # monto real a financiar
     interes = db.Column(db.Float, nullable=False)
     cuotas = db.Column(db.Integer, nullable=False)
     cuota_mensual = db.Column(db.Float)
@@ -37,5 +39,6 @@ class Cuota(db.Model):
 class Pago(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     cuota_id = db.Column(db.Integer, db.ForeignKey('cuota.id'), nullable=False)
-    fecha = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     valor = db.Column(db.Float, nullable=False)
+    medio_pago = db.Column(db.String(50), nullable=False)

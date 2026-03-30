@@ -11,6 +11,14 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
+@app.template_filter('cop')
+def formato_cop(valor):
+    if valor is None:
+        return "$ 0"
+    valor_redondeado = int(round(valor))
+    texto = f"{valor_redondeado:,}".replace(",", ".")
+    return f"$ {texto}"
+
 # 🔢 FUNCIÓN DE CÁLCULO
 def calcular_cuota(monto, interes, cuotas):
     i = interes / 100
@@ -25,14 +33,12 @@ def sumar_meses(fecha, meses):
     return fecha.replace(year=anio, month=mes, day=dia)
 
 
-def generar_cuotas(credito_id, monto, interes, cuotas):
+def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
     saldo = monto
     tasa = interes / 100
     cuota_fija = calcular_cuota(monto, interes, cuotas)
 
-    fecha_base = datetime.utcnow()
-
-    for n in range(1, cuotas + 1):
+    for n in range(cuotas):
         interes_mes = round(saldo * tasa, 2)
         capital = round(cuota_fija - interes_mes, 2)
         saldo = round(saldo - capital, 2)
@@ -41,13 +47,13 @@ def generar_cuotas(credito_id, monto, interes, cuotas):
 
         nueva_cuota = Cuota(
             credito_id=credito_id,
-            numero=n,
+            numero=n + 1,
             fecha_pago=fecha_pago,
             valor_cuota=cuota_fija,
             capital=capital,
             interes=interes_mes,
             saldo_restante=max(saldo, 0),
-	    saldo_pendiente=cuota_fija,
+            saldo_pendiente=cuota_fija,
             estado='PENDIENTE'
         )
         db.session.add(nueva_cuota)
@@ -85,6 +91,7 @@ def login():
     return render_template('login.html')
 
 # 📊 DASHBOARD
+
 @app.route('/crear_credito', methods=['GET', 'POST'])
 def crear_credito():
     if 'user' not in session:
@@ -95,26 +102,40 @@ def crear_credito():
         monto = float(request.form['monto'])
         interes = float(request.form['interes'])
         cuotas = int(request.form['cuotas'])
+        fecha_credito = datetime.strptime(request.form['fecha_credito'], '%Y-%m-%d')
 
-        cuota = calcular_cuota(monto, interes, cuotas)
+        abono_inicial_texto = request.form.get('abono_inicial', '').strip()
+        abono_inicial = float(abono_inicial_texto) if abono_inicial_texto else 0
+
+        monto_financiado = monto - abono_inicial
+
+        if monto_financiado <= 0:
+            return "El monto financiado debe ser mayor que cero"
+
+        cuota = calcular_cuota(monto_financiado, interes, cuotas)
 
         nuevo = Credito(
             cliente=cliente,
             monto=monto,
+            abono_inicial=abono_inicial,
+            monto_financiado=monto_financiado,
             interes=interes,
             cuotas=cuotas,
-            cuota_mensual=cuota
+            cuota_mensual=cuota,
+            fecha_creacion=fecha_credito
         )
 
         db.session.add(nuevo)
         db.session.commit()
 
-        generar_cuotas(nuevo.id, monto, interes, cuotas)
+        generar_cuotas(nuevo.id, monto_financiado, interes, cuotas, fecha_credito)
         db.session.commit()
 
         return redirect('/ver_creditos')
 
     return render_template('crear_credito.html')
+
+
 @app.route('/dashboard')
 def dashboard():
     if 'user' not in session:
@@ -158,13 +179,23 @@ def pagar_cuota(cuota_id):
 
     if request.method == 'POST':
         valor_pago = float(request.form['valor'])
+        fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d')
+        medio_pago = request.form['medio_pago']
+
+        if medio_pago == 'OTRO':
+            medio_pago_otro = request.form.get('medio_pago_otro', '').strip()
+            if not medio_pago_otro:
+                return "Debes escribir el otro medio de pago"
+            medio_pago = medio_pago_otro
 
         if valor_pago <= 0:
             return "El pago debe ser mayor que cero"
 
         pago = Pago(
             cuota_id=cuota.id,
-            valor=valor_pago
+            fecha=fecha_pago,
+            valor=valor_pago,
+            medio_pago=medio_pago
         )
         db.session.add(pago)
 
