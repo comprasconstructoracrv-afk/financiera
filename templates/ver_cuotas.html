@@ -26,6 +26,7 @@
             border-bottom: 1px solid #ddd;
             text-align: center;
             font-size: 14px;
+            vertical-align: top;
         }
         a {
             display: inline-block;
@@ -34,6 +35,11 @@
             color: white;
             text-decoration: none;
             border-radius: 6px;
+        }
+        .historial {
+            font-size: 12px;
+            text-align: left;
+            line-height: 1.5;
         }
     </style>
 </head>
@@ -45,6 +51,7 @@
         <p><strong>Monto solicitado:</strong> {{ credito.monto | cop }}</p>
         <p><strong>Abono inicial:</strong> {{ credito.abono_inicial | cop }}</p>
         <p><strong>Monto financiado:</strong> {{ credito.monto_financiado | cop }}</p>
+	<p><strong>Saldo actual del crédito:</strong> {{ credito.saldo_actual | cop }}</p>
         <p><strong>Interés:</strong> {{ credito.interes }}%</p>
 
         <table>
@@ -58,6 +65,7 @@
                     <th>Saldo restante</th>
                     <th>Saldo pendiente</th>
                     <th>Estado</th>
+                    <th>Historial pagos</th>
                     <th>Acción</th>
                 </tr>
             </thead>
@@ -72,6 +80,19 @@
                     <td>{{ cuota.saldo_restante | cop }}</td>
                     <td>{{ cuota.saldo_pendiente | cop }}</td>
                     <td>{{ cuota.estado }}</td>
+                    <td class="historial">
+                        {% if pagos_por_cuota[cuota.id] %}
+                            {% for pago in pagos_por_cuota[cuota.id] %}
+                                <div>
+                                    {{ pago.fecha.strftime('%Y-%m-%d') }} -
+                                    {{ pago.valor | cop }} -
+                                    {{ pago.medio_pago }}
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            Sin pagos
+                        {% endif %}
+                    </td>
                     <td>
                         {% if cuota.estado != 'PAGADA' %}
                             <a href="/pagar_cuota/{{ cuota.id }}">Pagar</a>
