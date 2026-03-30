@@ -1,10 +1,91 @@
-<h2>Crear Crédito</h2>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Crear Crédito</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            padding: 30px;
+        }
 
-<form method="POST">
-    Cliente: <input type="text" name="cliente"><br><br>
-    Monto: <input type="number" name="monto"><br><br>
-    Interés mensual (%): <input type="number" name="interes"><br><br>
-    Cuotas: <input type="number" name="cuotas"><br><br>
+        .contenedor {
+            max-width: 650px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.08);
+        }
 
-    <button type="submit">Crear</button>
-</form>
+        h1 {
+            margin-bottom: 25px;
+        }
+
+        label {
+            font-weight: bold;
+            display: block;
+            margin-top: 15px;
+            margin-bottom: 6px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+
+        .botones {
+            margin-top: 25px;
+        }
+
+        button, a {
+            display: inline-block;
+            padding: 10px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+        }
+
+        a {
+            background: #6c757d;
+            color: white;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+        <h1>Crear Crédito</h1>
+
+        <form method="POST">
+            <label>Cliente:</label>
+            <input type="text" name="cliente" required>
+
+            <label>Monto:</label>
+            <input type="number" name="monto" step="0.01" required>
+
+            <label>Interés mensual (%):</label>
+            <input type="number" name="interes" step="0.01" required>
+
+            <label>Cuotas:</label>
+            <input type="number" name="cuotas" required>
+
+            <div class="botones">
+                <button type="submit">Crear</button>
+                <a href="/dashboard">Volver</a>
+            </div>
+        </form>
+    </div>
+</body>
+</html>
