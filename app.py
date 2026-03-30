@@ -1,10 +1,11 @@
 from flask import Flask, render_template, request, redirect, session
-from models import db, Usuario, Credito
+from models import db, Usuario, Credito, Cuota
+from datetime import datetime, timedelta
+import os
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
-
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///financiera.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///financiera.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
@@ -14,6 +15,30 @@ def calcular_cuota(monto, interes, cuotas):
     i = interes / 100
     cuota = monto * (i * (1 + i) ** cuotas) / ((1 + i) ** cuotas - 1)
     return round(cuota, 2)
+
+def generar_cuotas(credito_id, monto, interes, cuotas):
+    saldo = monto
+    tasa = interes / 100
+    cuota_fija = calcular_cuota(monto, interes, cuotas)
+
+    for n in range(1, cuotas + 1):
+        interes_mes = round(saldo * tasa, 2)
+        capital = round(cuota_fija - interes_mes, 2)
+        saldo = round(saldo - capital, 2)
+
+        fecha_pago = datetime.utcnow() + timedelta(days=30 * n)
+
+        nueva_cuota = Cuota(
+            credito_id=credito_id,
+            numero=n,
+            fecha_pago=fecha_pago,
+            valor_cuota=cuota_fija,
+            capital=capital,
+            interes=interes_mes,
+            saldo_restante=max(saldo, 0),
+            estado='PENDIENTE'
+        )
+        db.session.add(nueva_cuota)
 
 # 🧱 CREAR BD + USUARIO ADMIN
 with app.app_context():
@@ -49,6 +74,9 @@ def login():
 # 📊 DASHBOARD
 @app.route('/crear_credito', methods=['GET', 'POST'])
 def crear_credito():
+    if 'user' not in session:
+        return redirect('/login')
+
     if request.method == 'POST':
         cliente = request.form['cliente']
         monto = float(request.form['monto'])
@@ -68,7 +96,10 @@ def crear_credito():
         db.session.add(nuevo)
         db.session.commit()
 
-        return f"Crédito creado correctamente. Cuota: {cuota}"
+        generar_cuotas(nuevo.id, monto, interes, cuotas)
+        db.session.commit()
+
+        return redirect('/ver_creditos')
 
     return render_template('crear_credito.html')
 @app.route('/dashboard')
@@ -93,3 +124,13 @@ def ver_creditos():
 
     creditos = Credito.query.all()
     return render_template('ver_creditos.html', creditos=creditos)
+
+@app.route('/ver_cuotas/<int:credito_id>')
+def ver_cuotas(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+    cuotas = Cuota.query.filter_by(credito_id=credito_id).order_by(Cuota.numero).all()
+
+    return render_template('ver_cuotas.html', credito=credito, cuotas=cuotas)
