@@ -17,10 +17,12 @@ class Credito(db.Model):
     monto = db.Column(db.Float, nullable=False)  # valor original solicitado
     abono_inicial = db.Column(db.Float, default=0)
     monto_financiado = db.Column(db.Float, nullable=False)  # monto real a financiar
+    saldo_actual = db.Column(db.Float, nullable=False)
     interes = db.Column(db.Float, nullable=False)
     cuotas = db.Column(db.Integer, nullable=False)
     cuota_mensual = db.Column(db.Float)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    
 
 # CUOTAS
 class Cuota(db.Model):

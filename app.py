@@ -58,6 +58,49 @@ def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
         )
         db.session.add(nueva_cuota)
 
+def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
+    cuotas_pendientes = Cuota.query.filter(
+        Cuota.credito_id == credito.id,
+        Cuota.numero > cuota_actual_numero,
+        Cuota.estado != 'PAGADA'
+    ).order_by(Cuota.numero).all()
+
+    cantidad_pendientes = len(cuotas_pendientes)
+
+    if cantidad_pendientes <= 0:
+        credito.cuota_mensual = 0
+        return
+
+    for cuota in cuotas_pendientes:
+        db.session.delete(cuota)
+
+    db.session.flush()
+
+    saldo = credito.saldo_actual
+    tasa = credito.interes / 100
+    nueva_cuota = calcular_cuota(saldo, credito.interes, cantidad_pendientes)
+    credito.cuota_mensual = nueva_cuota
+
+    for i in range(cantidad_pendientes):
+        interes_mes = round(saldo * tasa, 2)
+        capital = round(nueva_cuota - interes_mes, 2)
+        saldo = round(saldo - capital, 2)
+
+        fecha_pago = sumar_meses(fecha_base, i + 1)
+
+        nueva = Cuota(
+            credito_id=credito.id,
+            numero=cuota_actual_numero + i + 1,
+            fecha_pago=fecha_pago,
+            valor_cuota=nueva_cuota,
+            capital=capital,
+            interes=interes_mes,
+            saldo_restante=max(saldo, 0),
+            saldo_pendiente=nueva_cuota,
+            estado='PENDIENTE'
+        )
+        db.session.add(nueva)
+
 
 # 🧱 CREAR BD + USUARIO ADMIN
 with app.app_context():
@@ -119,6 +162,7 @@ def crear_credito():
             monto=monto,
             abono_inicial=abono_inicial,
             monto_financiado=monto_financiado,
+	    saldo_actual=monto_financiado,
             interes=interes,
             cuotas=cuotas,
             cuota_mensual=cuota,
@@ -160,6 +204,7 @@ def ver_creditos():
     creditos = Credito.query.all()
     return render_template('ver_creditos.html', creditos=creditos)
 
+
 @app.route('/ver_cuotas/<int:credito_id>')
 def ver_cuotas(credito_id):
     if 'user' not in session:
@@ -168,7 +213,18 @@ def ver_cuotas(credito_id):
     credito = Credito.query.get_or_404(credito_id)
     cuotas = Cuota.query.filter_by(credito_id=credito_id).order_by(Cuota.numero).all()
 
-    return render_template('ver_cuotas.html', credito=credito, cuotas=cuotas)
+    pagos_por_cuota = {}
+    for cuota in cuotas:
+        pagos = Pago.query.filter_by(cuota_id=cuota.id).order_by(Pago.fecha).all()
+        pagos_por_cuota[cuota.id] = pagos
+
+    return render_template(
+        'ver_cuotas.html',
+        credito=credito,
+        cuotas=cuotas,
+        pagos_por_cuota=pagos_por_cuota
+    )
+
 
 @app.route('/pagar_cuota/<int:cuota_id>', methods=['GET', 'POST'])
 def pagar_cuota(cuota_id):
@@ -176,6 +232,7 @@ def pagar_cuota(cuota_id):
         return redirect('/login')
 
     cuota = Cuota.query.get_or_404(cuota_id)
+    credito = Credito.query.get_or_404(cuota.credito_id)
 
     if request.method == 'POST':
         valor_pago = float(request.form['valor'])
@@ -199,13 +256,34 @@ def pagar_cuota(cuota_id):
         )
         db.session.add(pago)
 
-        cuota.saldo_pendiente = round(cuota.saldo_pendiente - valor_pago, 2)
-
-        if cuota.saldo_pendiente <= 0:
-            cuota.saldo_pendiente = 0
-            cuota.estado = 'PAGADA'
-        else:
+        # Caso 1: pago parcial
+        if valor_pago < cuota.saldo_pendiente:
+            cuota.saldo_pendiente = round(cuota.saldo_pendiente - valor_pago, 2)
             cuota.estado = 'ABONO'
+            db.session.commit()
+            return redirect(f'/ver_cuotas/{cuota.credito_id}')
+
+        # Caso 2 y 3: paga cuota completa o más
+        excedente = round(valor_pago - cuota.saldo_pendiente, 2)
+
+        # descontar del saldo actual del crédito el capital de esta cuota
+        credito.saldo_actual = round(credito.saldo_actual - cuota.capital, 2)
+
+        cuota.saldo_pendiente = 0
+        cuota.estado = 'PAGADA'
+
+        # si pagó más, el excedente va a capital
+        if excedente > 0:
+            credito.saldo_actual = round(credito.saldo_actual - excedente, 2)
+
+        if credito.saldo_actual < 0:
+            credito.saldo_actual = 0
+
+        recalcular_cuotas_pendientes(
+            credito=credito,
+            cuota_actual_numero=cuota.numero,
+            fecha_base=cuota.fecha_pago
+        )
 
         db.session.commit()
         return redirect(f'/ver_cuotas/{cuota.credito_id}')
