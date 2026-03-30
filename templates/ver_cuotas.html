@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cuotas del crédito</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            padding: 30px;
+        }
+        .contenedor {
+            max-width: 1200px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+            font-size: 14px;
+        }
+        a {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 14px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+        <h1>Cuotas del crédito</h1>
+        <p><strong>Cliente:</strong> {{ credito.cliente }}</p>
+        <p><strong>Monto:</strong> {{ credito.monto }}</p>
+        <p><strong>Interés:</strong> {{ credito.interes }}%</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Número</th>
+                    <th>Fecha de pago</th>
+                    <th>Valor cuota</th>
+                    <th>Capital</th>
+                    <th>Interés</th>
+                    <th>Saldo restante</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cuota in cuotas %}
+                <tr>
+                    <td>{{ cuota.numero }}</td>
+                    <td>{{ cuota.fecha_pago.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ cuota.valor_cuota }}</td>
+                    <td>{{ cuota.capital }}</td>
+                    <td>{{ cuota.interes }}</td>
+                    <td>{{ cuota.saldo_restante }}</td>
+                    <td>{{ cuota.estado }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <a href="/ver_creditos">Volver a créditos</a>
+    </div>
+</body>
+</html>

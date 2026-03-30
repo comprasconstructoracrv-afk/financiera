@@ -54,7 +54,9 @@
                 <th>Interés</th>
                 <th>Cuotas</th>
                 <th>Cuota mensual</th>
+		<th>Acción</th>
             </tr>
+	
         </thead>
         <tbody>
             {% for credito in creditos %}
@@ -65,6 +67,7 @@
                 <td>{{ credito.interes }}%</td>
                 <td>{{ credito.cuotas }}</td>
                 <td>{{ credito.cuota_mensual }}</td>
+		<td><a href="/ver_cuotas/{{ credito.id }}">Ver cuotas</a></td>
             </tr>
             {% endfor %}
         </tbody>
