@@ -86,3 +86,10 @@ def dashboard():
 def logout():
     session.clear()
     return redirect('/login')
+@app.route('/ver_creditos')
+def ver_creditos():
+    if 'user' not in session:
+        return redirect('/login')
+
+    creditos = Credito.query.all()
+    return render_template('ver_creditos.html', creditos=creditos)
