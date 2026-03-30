@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Créditos</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: #f4f6f9;
+            padding: 30px;
+        }
+
+        .contenedor {
+            max-width: 1000px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+        }
+
+        a {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 14px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="contenedor">
+    <h1>Créditos registrados</h1>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Cliente</th>
+                <th>Monto</th>
+                <th>Interés</th>
+                <th>Cuotas</th>
+                <th>Cuota mensual</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for credito in creditos %}
+            <tr>
+                <td>{{ credito.id }}</td>
+                <td>{{ credito.cliente }}</td>
+                <td>{{ credito.monto }}</td>
+                <td>{{ credito.interes }}%</td>
+                <td>{{ credito.cuotas }}</td>
+                <td>{{ credito.cuota_mensual }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <a href="/dashboard">Volver</a>
+</div>
+
+</body>
+</html>
