@@ -29,18 +29,18 @@
         }
         a {
             display: inline-block;
-            margin-top: 20px;
-            padding: 10px 14px;
+            padding: 8px 12px;
             background: #007bff;
             color: white;
             text-decoration: none;
-            border-radius: 8px;
+            border-radius: 6px;
         }
     </style>
 </head>
 <body>
     <div class="contenedor">
         <h1>Cuotas del crédito</h1>
+
         <p><strong>Cliente:</strong> {{ credito.cliente }}</p>
         <p><strong>Monto:</strong> {{ credito.monto }}</p>
         <p><strong>Interés:</strong> {{ credito.interes }}%</p>
@@ -54,7 +54,9 @@
                     <th>Capital</th>
                     <th>Interés</th>
                     <th>Saldo restante</th>
+                    <th>Saldo pendiente</th>
                     <th>Estado</th>
+                    <th>Acción</th>
                 </tr>
             </thead>
             <tbody>
@@ -66,12 +68,21 @@
                     <td>{{ cuota.capital }}</td>
                     <td>{{ cuota.interes }}</td>
                     <td>{{ cuota.saldo_restante }}</td>
+                    <td>{{ cuota.saldo_pendiente }}</td>
                     <td>{{ cuota.estado }}</td>
+                    <td>
+                        {% if cuota.estado != 'PAGADA' %}
+                            <a href="/pagar_cuota/{{ cuota.id }}">Pagar</a>
+                        {% else %}
+                            Pagada
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
 
+        <br><br>
         <a href="/ver_creditos">Volver a créditos</a>
     </div>
 </body>

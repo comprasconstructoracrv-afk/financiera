@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Pagar cuota</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            padding: 30px;
+        }
+        .contenedor {
+            max-width: 500px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.08);
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        button, a {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+        }
+        button {
+            background: #28a745;
+            color: white;
+        }
+        a {
+            background: #6c757d;
+            color: white;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+        <h1>Registrar pago</h1>
+
+        <p><strong>Cuota:</strong> {{ cuota.numero }}</p>
+        <p><strong>Valor cuota:</strong> {{ cuota.valor_cuota }}</p>
+        <p><strong>Saldo pendiente:</strong> {{ cuota.saldo_pendiente }}</p>
+
+        <form method="POST">
+            <label>Valor a pagar:</label>
+            <input type="number" name="valor" step="0.01" required>
+
+            <button type="submit">Registrar pago</button>
+            <a href="/ver_cuotas/{{ cuota.credito_id }}">Volver</a>
+        </form>
+    </div>
+</body>
+</html>
