@@ -10,7 +10,7 @@
             padding: 30px;
         }
         .contenedor {
-            max-width: 1200px;
+            max-width: 1300px;
             margin: auto;
             background: white;
             padding: 30px;
@@ -42,7 +42,9 @@
         <h1>Cuotas del crédito</h1>
 
         <p><strong>Cliente:</strong> {{ credito.cliente }}</p>
-        <p><strong>Monto:</strong> {{ credito.monto }}</p>
+        <p><strong>Monto solicitado:</strong> {{ credito.monto | cop }}</p>
+        <p><strong>Abono inicial:</strong> {{ credito.abono_inicial | cop }}</p>
+        <p><strong>Monto financiado:</strong> {{ credito.monto_financiado | cop }}</p>
         <p><strong>Interés:</strong> {{ credito.interes }}%</p>
 
         <table>
@@ -64,11 +66,11 @@
                 <tr>
                     <td>{{ cuota.numero }}</td>
                     <td>{{ cuota.fecha_pago.strftime('%Y-%m-%d') }}</td>
-                    <td>{{ cuota.valor_cuota }}</td>
-                    <td>{{ cuota.capital }}</td>
-                    <td>{{ cuota.interes }}</td>
-                    <td>{{ cuota.saldo_restante }}</td>
-                    <td>{{ cuota.saldo_pendiente }}</td>
+                    <td>{{ cuota.valor_cuota | cop }}</td>
+                    <td>{{ cuota.capital | cop }}</td>
+                    <td>{{ cuota.interes | cop }}</td>
+                    <td>{{ cuota.saldo_restante | cop }}</td>
+                    <td>{{ cuota.saldo_pendiente | cop }}</td>
                     <td>{{ cuota.estado }}</td>
                     <td>
                         {% if cuota.estado != 'PAGADA' %}

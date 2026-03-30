@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Pagar cuota</title>
+    <title>Registrar pago</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -23,7 +23,7 @@
             margin-bottom: 8px;
             font-weight: bold;
         }
-        input {
+        input, select {
             width: 100%;
             padding: 10px;
             border: 1px solid #ccc;
@@ -49,18 +49,41 @@
             margin-left: 10px;
         }
     </style>
+    <script>
+        function mostrarOtroMedio() {
+            const medio = document.getElementById("medio_pago").value;
+            const otro = document.getElementById("otro_medio_box");
+            otro.style.display = medio === "OTRO" ? "block" : "none";
+        }
+    </script>
 </head>
 <body>
     <div class="contenedor">
         <h1>Registrar pago</h1>
 
         <p><strong>Cuota:</strong> {{ cuota.numero }}</p>
-        <p><strong>Valor cuota:</strong> {{ cuota.valor_cuota }}</p>
-        <p><strong>Saldo pendiente:</strong> {{ cuota.saldo_pendiente }}</p>
+        <p><strong>Valor cuota:</strong> {{ cuota.valor_cuota | cop }}</p>
+        <p><strong>Saldo pendiente:</strong> {{ cuota.saldo_pendiente | cop }}</p>
 
         <form method="POST">
+            <label>Fecha de pago:</label>
+            <input type="date" name="fecha_pago" required>
+
             <label>Valor a pagar:</label>
             <input type="number" name="valor" step="0.01" required>
+
+            <label>Medio de pago:</label>
+            <select name="medio_pago" id="medio_pago" onchange="mostrarOtroMedio()" required>
+                <option value="">Seleccione</option>
+                <option value="Bancolombia">Bancolombia</option>
+                <option value="Efectivo">Efectivo</option>
+                <option value="OTRO">Otro</option>
+            </select>
+
+            <div id="otro_medio_box" style="display:none;">
+                <label>Escriba el otro medio de pago:</label>
+                <input type="text" name="medio_pago_otro">
+            </div>
 
             <button type="submit">Registrar pago</button>
             <a href="/ver_cuotas/{{ cuota.credito_id }}">Volver</a>

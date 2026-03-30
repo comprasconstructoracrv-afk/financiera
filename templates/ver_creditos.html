@@ -5,13 +5,13 @@
     <title>Créditos</title>
     <style>
         body {
-            font-family: Arial;
+            font-family: Arial, sans-serif;
             background: #f4f6f9;
             padding: 30px;
         }
 
         .contenedor {
-            max-width: 1000px;
+            max-width: 1100px;
             margin: auto;
             background: white;
             padding: 30px;
@@ -41,40 +41,40 @@
     </style>
 </head>
 <body>
+    <div class="contenedor">
+        <h1>Créditos registrados</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Cliente</th>
+                    <th>Monto solicitado</th>
+                    <th>Abono inicial</th>
+                    <th>Monto financiado</th>
+                    <th>Interés</th>
+                    <th>Cuotas</th>
+                    <th>Cuota mensual</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for credito in creditos %}
+                <tr>
+                    <td>{{ credito.id }}</td>
+                    <td>{{ credito.cliente }}</td>
+                    <td>{{ credito.monto | cop }}</td>
+                    <td>{{ credito.abono_inicial | cop }}</td>
+                    <td>{{ credito.monto_financiado | cop }}</td>
+                    <td>{{ credito.interes }}%</td>
+                    <td>{{ credito.cuotas }}</td>
+                    <td>{{ credito.cuota_mensual | cop }}</td>
+                    <td><a href="/ver_cuotas/{{ credito.id }}">Ver cuotas</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
 
-<div class="contenedor">
-    <h1>Créditos registrados</h1>
-
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Cliente</th>
-                <th>Monto</th>
-                <th>Interés</th>
-                <th>Cuotas</th>
-                <th>Cuota mensual</th>
-		<th>Acción</th>
-            </tr>
-	
-        </thead>
-        <tbody>
-            {% for credito in creditos %}
-            <tr>
-                <td>{{ credito.id }}</td>
-                <td>{{ credito.cliente }}</td>
-                <td>{{ credito.monto }}</td>
-                <td>{{ credito.interes }}%</td>
-                <td>{{ credito.cuotas }}</td>
-                <td>{{ credito.cuota_mensual }}</td>
-		<td><a href="/ver_cuotas/{{ credito.id }}">Ver cuotas</a></td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
-    <a href="/dashboard">Volver</a>
-</div>
-
+        <a href="/dashboard">Volver</a>
+    </div>
 </body>
 </html>
