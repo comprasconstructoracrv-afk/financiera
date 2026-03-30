@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, session
 from models import db, Usuario, Credito, Cuota
-from datetime import datetime, timedelta
+from datetime import datetime
+import calendar
 import os
 
 app = Flask(__name__)
@@ -16,17 +17,27 @@ def calcular_cuota(monto, interes, cuotas):
     cuota = monto * (i * (1 + i) ** cuotas) / ((1 + i) ** cuotas - 1)
     return round(cuota, 2)
 
+def sumar_meses(fecha, meses):
+    mes = fecha.month - 1 + meses
+    anio = fecha.year + mes // 12
+    mes = mes % 12 + 1
+    dia = min(fecha.day, calendar.monthrange(anio, mes)[1])
+    return fecha.replace(year=anio, month=mes, day=dia)
+
+
 def generar_cuotas(credito_id, monto, interes, cuotas):
     saldo = monto
     tasa = interes / 100
     cuota_fija = calcular_cuota(monto, interes, cuotas)
+
+    fecha_base = datetime.utcnow()
 
     for n in range(1, cuotas + 1):
         interes_mes = round(saldo * tasa, 2)
         capital = round(cuota_fija - interes_mes, 2)
         saldo = round(saldo - capital, 2)
 
-        fecha_pago = datetime.utcnow() + timedelta(days=30 * n)
+        fecha_pago = sumar_meses(fecha_base, n)
 
         nueva_cuota = Cuota(
             credito_id=credito_id,
@@ -39,6 +50,7 @@ def generar_cuotas(credito_id, monto, interes, cuotas):
             estado='PENDIENTE'
         )
         db.session.add(nueva_cuota)
+
 
 # 🧱 CREAR BD + USUARIO ADMIN
 with app.app_context():
