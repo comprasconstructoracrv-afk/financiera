@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>Cuotas del crédito</title>
-
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,16 +11,12 @@
         }
 
         .contenedor {
-            max-width: 1200px;
+            max-width: 1450px;
             margin: auto;
             background: white;
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 0 10px rgba(0,0,0,0.08);
-        }
-
-        h1 {
-            margin-bottom: 20px;
         }
 
         table {
@@ -34,7 +29,8 @@
             padding: 10px;
             border-bottom: 1px solid #ddd;
             text-align: center;
-            font-size: 14px;
+            font-size: 13px;
+            vertical-align: top;
         }
 
         th {
@@ -69,9 +65,14 @@
             text-decoration: none;
             border-radius: 8px;
         }
+
+        .historial {
+            text-align: left;
+            font-size: 12px;
+            line-height: 1.5;
+        }
     </style>
 </head>
-
 <body>
 <div class="contenedor">
 
@@ -85,7 +86,8 @@
         <thead>
             <tr>
                 <th>#</th>
-                <th>Fecha</th>
+                <th>Fecha cuota</th>
+                <th>Saldo inicial</th>
                 <th>Valor cuota</th>
                 <th>Capital</th>
                 <th>Interés</th>
@@ -95,6 +97,7 @@
                 <th>Mora</th>
                 <th>Total a pagar</th>
                 <th>Estado</th>
+                <th>Pagos realizados</th>
                 <th>Acción</th>
             </tr>
         </thead>
@@ -104,21 +107,15 @@
             <tr>
                 <td>{{ cuota.numero }}</td>
                 <td>{{ cuota.fecha_pago.strftime('%Y-%m-%d') }}</td>
+                <td>{{ cuota.saldo_inicial | cop }}</td>
                 <td>{{ cuota.valor_cuota | cop }}</td>
                 <td>{{ cuota.capital | cop }}</td>
                 <td>{{ cuota.interes | cop }}</td>
                 <td>{{ cuota.saldo_restante | cop }}</td>
                 <td>{{ cuota.saldo_pendiente | cop }}</td>
-
                 <td>{{ cuota.dias_mora }}</td>
-
-                <td class="rojo">
-                    {{ cuota.interes_mora | cop }}
-                </td>
-
-                <td class="rojo">
-                    {{ cuota.total_cobro | cop }}
-                </td>
+                <td class="rojo">{{ cuota.interes_mora | cop }}</td>
+                <td class="rojo">{{ cuota.total_cobro | cop }}</td>
 
                 <td>
                     {% if cuota.estado == 'PAGADA' %}
@@ -129,6 +126,21 @@
                         ABONO
                     {% else %}
                         PENDIENTE
+                    {% endif %}
+                </td>
+
+                <td class="historial">
+                    {% if pagos_por_cuota[cuota.id] %}
+                        {% for pago in pagos_por_cuota[cuota.id] %}
+                            <div>
+                                <strong>Fecha:</strong> {{ pago.fecha.strftime('%Y-%m-%d') }}<br>
+                                <strong>Valor:</strong> {{ pago.valor | cop }}<br>
+                                <strong>Medio:</strong> {{ pago.medio_pago }}
+                            </div>
+                            <hr>
+                        {% endfor %}
+                    {% else %}
+                        Sin pagos
                     {% endif %}
                 </td>
 
