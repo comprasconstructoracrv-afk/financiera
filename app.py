@@ -112,7 +112,12 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
 with app.app_context():
     db.create_all()
 
-        if not ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first():
+    if not Usuario.query.filter_by(username='admin').first():
+        nuevo = Usuario(username='admin', password='1234', rol='admin')
+        db.session.add(nuevo)
+        db.session.commit()
+
+    if not ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first():
         tasa_anual = 25.52
         tasa_mensual = convertir_tasa_anual_a_mensual(tasa_anual)
         tasa_diaria = convertir_tasa_mensual_a_diaria(tasa_mensual)
@@ -124,11 +129,6 @@ with app.app_context():
             tasa_diaria=tasa_diaria
         )
         db.session.add(config)
-        db.session.commit()
-
-    if not Usuario.query.filter_by(username='admin').first():
-        nuevo = Usuario(username='admin', password='1234', rol='admin')
-        db.session.add(nuevo)
         db.session.commit()
 
 # 🔐 LOGIN
