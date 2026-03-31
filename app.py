@@ -40,14 +40,18 @@ def convertir_tasa_mensual_a_diaria(tasa_mensual):
 
 
 def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
-    saldo = monto
+    saldo = round(monto, 2)
     tasa = interes / 100
     cuota_fija = calcular_cuota(monto, interes, cuotas)
 
     for n in range(cuotas):
-        interes_mes = round(saldo * tasa, 2)
+        saldo_inicial = round(saldo, 2)
+        interes_mes = round(saldo_inicial * tasa, 2)
         capital = round(cuota_fija - interes_mes, 2)
-        saldo = round(saldo - capital, 2)
+        saldo = round(saldo_inicial - capital, 2)
+
+        if saldo < 0:
+            saldo = 0
 
         fecha_pago = sumar_meses(fecha_base, n)
 
@@ -56,10 +60,14 @@ def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
             numero=n + 1,
             fecha_pago=fecha_pago,
             valor_cuota=cuota_fija,
+            saldo_inicial=saldo_inicial,
             capital=capital,
             interes=interes_mes,
-            saldo_restante=max(saldo, 0),
+            saldo_restante=saldo,
             saldo_pendiente=cuota_fija,
+            dias_mora=0,
+            interes_mora=0,
+            total_cobro=cuota_fija,
             estado='PENDIENTE'
         )
         db.session.add(nueva_cuota)
@@ -112,15 +120,19 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
 
     db.session.flush()
 
-    saldo = credito.saldo_actual
+    saldo = round(credito.saldo_actual, 2)
     tasa = credito.interes / 100
     nueva_cuota = calcular_cuota(saldo, credito.interes, cantidad_pendientes)
     credito.cuota_mensual = nueva_cuota
 
     for i in range(cantidad_pendientes):
-        interes_mes = round(saldo * tasa, 2)
+        saldo_inicial = round(saldo, 2)
+        interes_mes = round(saldo_inicial * tasa, 2)
         capital = round(nueva_cuota - interes_mes, 2)
-        saldo = round(saldo - capital, 2)
+        saldo = round(saldo_inicial - capital, 2)
+
+        if saldo < 0:
+            saldo = 0
 
         fecha_pago = sumar_meses(fecha_base, i + 1)
 
@@ -129,10 +141,14 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
             numero=cuota_actual_numero + i + 1,
             fecha_pago=fecha_pago,
             valor_cuota=nueva_cuota,
+            saldo_inicial=saldo_inicial,
             capital=capital,
             interes=interes_mes,
-            saldo_restante=max(saldo, 0),
+            saldo_restante=saldo,
             saldo_pendiente=nueva_cuota,
+            dias_mora=0,
+            interes_mora=0,
+            total_cobro=nueva_cuota,
             estado='PENDIENTE'
         )
         db.session.add(nueva)
@@ -266,13 +282,25 @@ def ver_cuotas(credito_id):
 
     credito = Credito.query.get_or_404(credito_id)
 
-    
+    # 🔥 recalcula mora antes de mostrar
     actualizar_mora_credito(credito)
     db.session.commit()
 
     cuotas = Cuota.query.filter_by(credito_id=credito_id).order_by(Cuota.numero).all()
 
-    return render_template('ver_cuotas.html', credito=credito, cuotas=cuotas)
+    # 🔥 NUEVO: agrupar pagos por cuota
+    pagos_por_cuota = {}
+
+    for cuota in cuotas:
+        pagos = Pago.query.filter_by(cuota_id=cuota.id).order_by(Pago.fecha).all()
+        pagos_por_cuota[cuota.id] = pagos
+
+    return render_template(
+        'ver_cuotas.html',
+        credito=credito,
+        cuotas=cuotas,
+        pagos_por_cuota=pagos_por_cuota  # 👈 IMPORTANTE
+    )
 
 
 @app.route('/pagar_cuota/<int:cuota_id>', methods=['GET', 'POST'])

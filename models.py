@@ -34,6 +34,7 @@ class Cuota(db.Model):
     numero = db.Column(db.Integer, nullable=False)
     fecha_pago = db.Column(db.DateTime, nullable=False)
     valor_cuota = db.Column(db.Float, nullable=False)
+    saldo_inicial = db.Column(db.Float, nullable=False, default=0)
     capital = db.Column(db.Float, nullable=False)
     interes = db.Column(db.Float, nullable=False)
     saldo_restante = db.Column(db.Float, nullable=False)
