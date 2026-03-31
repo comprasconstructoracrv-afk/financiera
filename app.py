@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, session
-from models import db, Usuario, Credito, Cuota, Pago
+from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa
 from datetime import datetime
 import calendar
 import os
@@ -31,6 +31,12 @@ def sumar_meses(fecha, meses):
     mes = mes % 12 + 1
     dia = min(fecha.day, calendar.monthrange(anio, mes)[1])
     return fecha.replace(year=anio, month=mes, day=dia)
+
+def convertir_tasa_anual_a_mensual(tasa_anual):
+    return round((((1 + (tasa_anual / 100)) ** (1/12)) - 1) * 100, 6)
+
+def convertir_tasa_mensual_a_diaria(tasa_mensual):
+    return round((tasa_mensual / 100) / 30, 10)
 
 
 def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
@@ -106,6 +112,20 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
 with app.app_context():
     db.create_all()
 
+        if not ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first():
+        tasa_anual = 25.52
+        tasa_mensual = convertir_tasa_anual_a_mensual(tasa_anual)
+        tasa_diaria = convertir_tasa_mensual_a_diaria(tasa_mensual)
+
+        config = ConfiguracionTasa(
+            nombre='TASA_MORA',
+            tasa_anual=tasa_anual,
+            tasa_mensual=tasa_mensual,
+            tasa_diaria=tasa_diaria
+        )
+        db.session.add(config)
+        db.session.commit()
+
     if not Usuario.query.filter_by(username='admin').first():
         nuevo = Usuario(username='admin', password='1234', rol='admin')
         db.session.add(nuevo)
@@ -156,6 +176,7 @@ def crear_credito():
             return "El monto financiado debe ser mayor que cero"
 
         cuota = calcular_cuota(monto_financiado, interes, cuotas)
+	config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
 
         nuevo = Credito(
             cliente=cliente,
@@ -166,6 +187,9 @@ def crear_credito():
             interes=interes,
             cuotas=cuotas,
             cuota_mensual=cuota,
+	    tasa_mora_anual=config_tasa.tasa_anual,
+   	    tasa_mora_mensual=config_tasa.tasa_mensual,
+	    tasa_mora_diaria=config_tasa.tasa_diaria,
             fecha_creacion=fecha_credito
         )
 
@@ -289,3 +313,24 @@ def pagar_cuota(cuota_id):
         return redirect(f'/ver_cuotas/{cuota.credito_id}')
 
     return render_template('pagar_cuota.html', cuota=cuota)
+
+@app.route('/configuracion_tasa', methods=['GET', 'POST'])
+def configuracion_tasa():
+    if 'user' not in session:
+        return redirect('/login')
+
+    config = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
+
+    if request.method == 'POST':
+        tasa_anual = float(request.form['tasa_anual'])
+        tasa_mensual = convertir_tasa_anual_a_mensual(tasa_anual)
+        tasa_diaria = convertir_tasa_mensual_a_diaria(tasa_mensual)
+
+        config.tasa_anual = tasa_anual
+        config.tasa_mensual = tasa_mensual
+        config.tasa_diaria = tasa_diaria
+
+        db.session.commit()
+        return redirect('/configuracion_tasa')
+
+    return render_template('configuracion_tasa.html', config=config)

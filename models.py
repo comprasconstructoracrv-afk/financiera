@@ -14,13 +14,16 @@ class Usuario(db.Model):
 class Credito(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     cliente = db.Column(db.String(100), nullable=False)
-    monto = db.Column(db.Float, nullable=False)  # valor original solicitado
+    monto = db.Column(db.Float, nullable=False)
     abono_inicial = db.Column(db.Float, default=0)
-    monto_financiado = db.Column(db.Float, nullable=False)  # monto real a financiar
+    monto_financiado = db.Column(db.Float, nullable=False)
     saldo_actual = db.Column(db.Float, nullable=False)
     interes = db.Column(db.Float, nullable=False)
     cuotas = db.Column(db.Integer, nullable=False)
     cuota_mensual = db.Column(db.Float)
+    tasa_mora_anual = db.Column(db.Float, nullable=False, default=0)
+    tasa_mora_mensual = db.Column(db.Float, nullable=False, default=0)
+    tasa_mora_diaria = db.Column(db.Float, nullable=False, default=0)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
     
 
@@ -35,6 +38,9 @@ class Cuota(db.Model):
     interes = db.Column(db.Float, nullable=False)
     saldo_restante = db.Column(db.Float, nullable=False)
     saldo_pendiente = db.Column(db.Float, nullable=False)
+    dias_mora = db.Column(db.Integer, default=0)
+    interes_mora = db.Column(db.Float, default=0)
+    total_cobro = db.Column(db.Float, default=0)
     estado = db.Column(db.String(20), default='PENDIENTE')
 
 # PAGOS
@@ -44,3 +50,11 @@ class Pago(db.Model):
     fecha = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     valor = db.Column(db.Float, nullable=False)
     medio_pago = db.Column(db.String(50), nullable=False)
+
+class ConfiguracionTasa(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(50), unique=True, nullable=False)
+    tasa_anual = db.Column(db.Float, nullable=False, default=0)
+    tasa_mensual = db.Column(db.Float, nullable=False, default=0)
+    tasa_diaria = db.Column(db.Float, nullable=False, default=0)
+    fecha_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
