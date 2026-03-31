@@ -66,6 +66,9 @@
                     <th>Saldo pendiente</th>
                     <th>Estado</th>
                     <th>Historial pagos</th>
+                    <th>Días mora</th>
+                    <th>Interés mora</th>
+                    <th>Total a pagar</th>
                     <th>Acción</th>
                 </tr>
             </thead>
@@ -80,6 +83,9 @@
                     <td>{{ cuota.saldo_restante | cop }}</td>
                     <td>{{ cuota.saldo_pendiente | cop }}</td>
                     <td>{{ cuota.estado }}</td>
+                    <td>{{ cuota.dias_mora }}</td>
+                    <td>{{ cuota.interes_mora | cop }}</td>
+                    <td>{{ cuota.total_cobro | cop }}</td>
                     <td class="historial">
                         {% if pagos_por_cuota[cuota.id] %}
                             {% for pago in pagos_por_cuota[cuota.id] %}
