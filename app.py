@@ -72,12 +72,13 @@ def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
         )
         db.session.add(nueva_cuota)
 
-def actualizar_mora_credito(credito):
+def actualizar_mora_credito(credito, fecha_corte=None):
+    if fecha_corte is None:
+        fecha_corte = datetime.utcnow().date()
+
     cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero).all()
-    hoy = datetime.utcnow().date()
 
     for cuota in cuotas:
-        # Reset
         cuota.dias_mora = 0
         cuota.interes_mora = 0
         cuota.total_cobro = cuota.saldo_pendiente
@@ -85,20 +86,26 @@ def actualizar_mora_credito(credito):
         if cuota.estado == 'PAGADA':
             continue
 
-        if cuota.fecha_pago.date() < hoy and cuota.saldo_pendiente > 0:
+        fecha_vencimiento = cuota.fecha_pago.date()
 
-            dias = (hoy - cuota.fecha_pago.date()).days
+        # Si la fecha de corte es el mismo día o antes, no hay mora
+        if fecha_corte <= fecha_vencimiento:
+            cuota.dias_mora = 0
+            cuota.interes_mora = 0
+            cuota.total_cobro = cuota.saldo_pendiente
+            continue
+
+        # Si aún debe algo después del vencimiento, hay mora
+        if cuota.saldo_pendiente > 0:
+            dias = (fecha_corte - fecha_vencimiento).days
             cuota.dias_mora = dias
 
             interes_mora = cuota.saldo_pendiente * credito.tasa_mora_diaria * dias
-
             cuota.interes_mora = round(interes_mora, 2)
             cuota.total_cobro = round(cuota.saldo_pendiente + cuota.interes_mora, 2)
 
             if cuota.estado != 'ABONO':
                 cuota.estado = 'EN MORA'
-        else:
-            cuota.total_cobro = cuota.saldo_pendiente
 
 
 
@@ -282,15 +289,13 @@ def ver_cuotas(credito_id):
 
     credito = Credito.query.get_or_404(credito_id)
 
-    # 🔥 recalcula mora antes de mostrar
-    actualizar_mora_credito(credito)
+    # Mora calculada a hoy
+    actualizar_mora_credito(credito, datetime.utcnow().date())
     db.session.commit()
 
     cuotas = Cuota.query.filter_by(credito_id=credito_id).order_by(Cuota.numero).all()
 
-    # 🔥 NUEVO: agrupar pagos por cuota
     pagos_por_cuota = {}
-
     for cuota in cuotas:
         pagos = Pago.query.filter_by(cuota_id=cuota.id).order_by(Pago.fecha).all()
         pagos_por_cuota[cuota.id] = pagos
@@ -299,7 +304,7 @@ def ver_cuotas(credito_id):
         'ver_cuotas.html',
         credito=credito,
         cuotas=cuotas,
-        pagos_por_cuota=pagos_por_cuota  # 👈 IMPORTANTE
+        pagos_por_cuota=pagos_por_cuota
     )
 
 
@@ -310,13 +315,6 @@ def pagar_cuota(cuota_id):
 
     cuota = Cuota.query.get_or_404(cuota_id)
     credito = Credito.query.get_or_404(cuota.credito_id)
-
-    # Recalcular mora antes de mostrar o pagar
-    actualizar_mora_credito(credito)
-    db.session.commit()
-
-    # Volver a cargar la cuota ya actualizada
-    cuota = Cuota.query.get_or_404(cuota_id)
 
     if request.method == 'POST':
         valor_pago = float(request.form['valor'])
@@ -332,6 +330,13 @@ def pagar_cuota(cuota_id):
         if valor_pago <= 0:
             return "El pago debe ser mayor que cero"
 
+        # Recalcular mora con la FECHA REAL DEL PAGO
+        actualizar_mora_credito(credito, fecha_pago.date())
+        db.session.commit()
+
+        # Recargar cuota actualizada con mora a esa fecha
+        cuota = Cuota.query.get_or_404(cuota_id)
+
         pago = Pago(
             cuota_id=cuota.id,
             fecha=fecha_pago,
@@ -340,9 +345,9 @@ def pagar_cuota(cuota_id):
         )
         db.session.add(pago)
 
-        # Primero cubrir mora
         restante = valor_pago
 
+        # 1. Primero cubrir mora
         if cuota.interes_mora > 0:
             if restante >= cuota.interes_mora:
                 restante -= cuota.interes_mora
@@ -351,7 +356,7 @@ def pagar_cuota(cuota_id):
                 cuota.interes_mora = round(cuota.interes_mora - restante, 2)
                 restante = 0
 
-        # Luego cubrir saldo pendiente de cuota
+        # 2. Luego cubrir saldo pendiente de la cuota
         if restante > 0:
             if restante < cuota.saldo_pendiente:
                 cuota.saldo_pendiente = round(cuota.saldo_pendiente - restante, 2)
@@ -363,7 +368,7 @@ def pagar_cuota(cuota_id):
                 cuota.estado = 'PAGADA'
                 credito.saldo_actual = round(credito.saldo_actual - cuota.capital, 2)
 
-        # Si sobra dinero, va a capital y recalcula cuotas futuras
+        # 3. Si sobra, va a capital y recalcula futuras
         if restante > 0:
             credito.saldo_actual = round(credito.saldo_actual - restante, 2)
 
@@ -380,6 +385,11 @@ def pagar_cuota(cuota_id):
 
         db.session.commit()
         return redirect(f'/ver_cuotas/{cuota.credito_id}')
+
+    # Si solo entra a ver la pantalla de pago, mostrar mora a hoy
+    actualizar_mora_credito(credito, datetime.utcnow().date())
+    db.session.commit()
+    cuota = Cuota.query.get_or_404(cuota_id)
 
     return render_template('pagar_cuota.html', cuota=cuota)
 
