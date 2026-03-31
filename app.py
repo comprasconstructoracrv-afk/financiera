@@ -176,20 +176,21 @@ def crear_credito():
             return "El monto financiado debe ser mayor que cero"
 
         cuota = calcular_cuota(monto_financiado, interes, cuotas)
-	config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
+
+        config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
 
         nuevo = Credito(
             cliente=cliente,
             monto=monto,
             abono_inicial=abono_inicial,
             monto_financiado=monto_financiado,
-	    saldo_actual=monto_financiado,
+            saldo_actual=monto_financiado,
             interes=interes,
             cuotas=cuotas,
             cuota_mensual=cuota,
-	    tasa_mora_anual=config_tasa.tasa_anual,
-   	    tasa_mora_mensual=config_tasa.tasa_mensual,
-	    tasa_mora_diaria=config_tasa.tasa_diaria,
+            tasa_mora_anual=config_tasa.tasa_anual,
+            tasa_mora_mensual=config_tasa.tasa_mensual,
+            tasa_mora_diaria=config_tasa.tasa_diaria,
             fecha_creacion=fecha_credito
         )
 
@@ -202,7 +203,6 @@ def crear_credito():
         return redirect('/ver_creditos')
 
     return render_template('crear_credito.html')
-
 
 @app.route('/dashboard')
 def dashboard():
