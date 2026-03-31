@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Configuración de tasa</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            padding: 30px;
+        }
+        .contenedor {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.08);
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        button, a {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+        }
+        button {
+            background: #007bff;
+            color: white;
+        }
+        a {
+            background: #6c757d;
+            color: white;
+            margin-left: 10px;
+        }
+        .dato {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+        <h1>Configuración tasa de mora</h1>
+
+        <form method="POST">
+            <label>Tasa anual (%):</label>
+            <input type="number" name="tasa_anual" step="0.01" value="{{ config.tasa_anual }}" required>
+
+            <button type="submit">Guardar</button>
+            <a href="/dashboard">Volver</a>
+        </form>
+
+        <div class="dato">
+            <strong>Tasa mensual calculada:</strong> {{ config.tasa_mensual }}%
+        </div>
+
+        <div class="dato">
+            <strong>Tasa diaria calculada:</strong> {{ config.tasa_diaria }}
+        </div>
+    </div>
+</body>
+</html>
