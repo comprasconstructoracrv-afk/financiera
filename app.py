@@ -64,6 +64,36 @@ def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
         )
         db.session.add(nueva_cuota)
 
+def actualizar_mora_credito(credito):
+    cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero).all()
+    hoy = datetime.utcnow().date()
+
+    for cuota in cuotas:
+        # Reset
+        cuota.dias_mora = 0
+        cuota.interes_mora = 0
+        cuota.total_cobro = cuota.saldo_pendiente
+
+        if cuota.estado == 'PAGADA':
+            continue
+
+        if cuota.fecha_pago.date() < hoy and cuota.saldo_pendiente > 0:
+
+            dias = (hoy - cuota.fecha_pago.date()).days
+            cuota.dias_mora = dias
+
+            interes_mora = cuota.saldo_pendiente * credito.tasa_mora_diaria * dias
+
+            cuota.interes_mora = round(interes_mora, 2)
+            cuota.total_cobro = round(cuota.saldo_pendiente + cuota.interes_mora, 2)
+
+            if cuota.estado != 'ABONO':
+                cuota.estado = 'EN MORA'
+        else:
+            cuota.total_cobro = cuota.saldo_pendiente
+
+
+
 def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
     cuotas_pendientes = Cuota.query.filter(
         Cuota.credito_id == credito.id,
@@ -235,19 +265,14 @@ def ver_cuotas(credito_id):
         return redirect('/login')
 
     credito = Credito.query.get_or_404(credito_id)
+
+    
+    actualizar_mora_credito(credito)
+    db.session.commit()
+
     cuotas = Cuota.query.filter_by(credito_id=credito_id).order_by(Cuota.numero).all()
 
-    pagos_por_cuota = {}
-    for cuota in cuotas:
-        pagos = Pago.query.filter_by(cuota_id=cuota.id).order_by(Pago.fecha).all()
-        pagos_por_cuota[cuota.id] = pagos
-
-    return render_template(
-        'ver_cuotas.html',
-        credito=credito,
-        cuotas=cuotas,
-        pagos_por_cuota=pagos_por_cuota
-    )
+    return render_template('ver_cuotas.html', credito=credito, cuotas=cuotas)
 
 
 @app.route('/pagar_cuota/<int:cuota_id>', methods=['GET', 'POST'])
