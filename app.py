@@ -283,6 +283,13 @@ def pagar_cuota(cuota_id):
     cuota = Cuota.query.get_or_404(cuota_id)
     credito = Credito.query.get_or_404(cuota.credito_id)
 
+    # Recalcular mora antes de mostrar o pagar
+    actualizar_mora_credito(credito)
+    db.session.commit()
+
+    # Volver a cargar la cuota ya actualizada
+    cuota = Cuota.query.get_or_404(cuota_id)
+
     if request.method == 'POST':
         valor_pago = float(request.form['valor'])
         fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d')
@@ -305,34 +312,43 @@ def pagar_cuota(cuota_id):
         )
         db.session.add(pago)
 
-        # Caso 1: pago parcial
-        if valor_pago < cuota.saldo_pendiente:
-            cuota.saldo_pendiente = round(cuota.saldo_pendiente - valor_pago, 2)
-            cuota.estado = 'ABONO'
-            db.session.commit()
-            return redirect(f'/ver_cuotas/{cuota.credito_id}')
+        # Primero cubrir mora
+        restante = valor_pago
 
-        # Caso 2 y 3: paga cuota completa o más
-        excedente = round(valor_pago - cuota.saldo_pendiente, 2)
+        if cuota.interes_mora > 0:
+            if restante >= cuota.interes_mora:
+                restante -= cuota.interes_mora
+                cuota.interes_mora = 0
+            else:
+                cuota.interes_mora = round(cuota.interes_mora - restante, 2)
+                restante = 0
 
-        # descontar del saldo actual del crédito el capital de esta cuota
-        credito.saldo_actual = round(credito.saldo_actual - cuota.capital, 2)
+        # Luego cubrir saldo pendiente de cuota
+        if restante > 0:
+            if restante < cuota.saldo_pendiente:
+                cuota.saldo_pendiente = round(cuota.saldo_pendiente - restante, 2)
+                cuota.estado = 'ABONO'
+                restante = 0
+            else:
+                restante = round(restante - cuota.saldo_pendiente, 2)
+                cuota.saldo_pendiente = 0
+                cuota.estado = 'PAGADA'
+                credito.saldo_actual = round(credito.saldo_actual - cuota.capital, 2)
 
-        cuota.saldo_pendiente = 0
-        cuota.estado = 'PAGADA'
+        # Si sobra dinero, va a capital y recalcula cuotas futuras
+        if restante > 0:
+            credito.saldo_actual = round(credito.saldo_actual - restante, 2)
 
-        # si pagó más, el excedente va a capital
-        if excedente > 0:
-            credito.saldo_actual = round(credito.saldo_actual - excedente, 2)
+            if credito.saldo_actual < 0:
+                credito.saldo_actual = 0
 
-        if credito.saldo_actual < 0:
-            credito.saldo_actual = 0
+            recalcular_cuotas_pendientes(
+                credito=credito,
+                cuota_actual_numero=cuota.numero,
+                fecha_base=cuota.fecha_pago
+            )
 
-        recalcular_cuotas_pendientes(
-            credito=credito,
-            cuota_actual_numero=cuota.numero,
-            fecha_base=cuota.fecha_pago
-        )
+        cuota.total_cobro = round(cuota.saldo_pendiente + cuota.interes_mora, 2)
 
         db.session.commit()
         return redirect(f'/ver_cuotas/{cuota.credito_id}')
