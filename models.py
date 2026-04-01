@@ -39,6 +39,7 @@ class Cuota(db.Model):
     interes = db.Column(db.Float, nullable=False)
     saldo_restante = db.Column(db.Float, nullable=False)
     saldo_pendiente = db.Column(db.Float, nullable=False)
+    tasa_mora_mensual_cuota = db.Column(db.Float, nullable=False, default=0)
     dias_mora = db.Column(db.Integer, default=0)
     interes_mora = db.Column(db.Float, default=0)
     total_cobro = db.Column(db.Float, default=0)
@@ -59,3 +60,11 @@ class ConfiguracionTasa(db.Model):
     tasa_mensual = db.Column(db.Float, nullable=False, default=0)
     tasa_diaria = db.Column(db.Float, nullable=False, default=0)
     fecha_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class TasaPeriodo(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    anio = db.Column(db.Integer, nullable=False)
+    mes = db.Column(db.Integer, nullable=False)
+    tasa_anual = db.Column(db.Float, nullable=False, default=0)
+    tasa_mensual = db.Column(db.Float, nullable=False, default=0)
+    tasa_diaria = db.Column(db.Float, nullable=False, default=0)

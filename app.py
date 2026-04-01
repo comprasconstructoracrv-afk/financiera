@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, session
-from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa
-from datetime import datetime
+from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo
+from datetime import datetime, date, timedelta
 import calendar
 import os
 
@@ -88,24 +88,43 @@ def actualizar_mora_credito(credito, fecha_corte=None):
 
         fecha_vencimiento = cuota.fecha_pago.date()
 
-        # Si la fecha de corte es el mismo día del vencimiento o antes, no hay mora
-        if fecha_corte <= fecha_vencimiento:
-            cuota.dias_mora = 0
-            cuota.interes_mora = 0
-            cuota.total_cobro = cuota.saldo_pendiente
+        # Mora empieza a contar desde el día siguiente
+        fecha_inicio_mora = fecha_vencimiento + timedelta(days=1)
+
+        if fecha_corte < fecha_inicio_mora:
             continue
 
-        if cuota.saldo_pendiente > 0:
-            # Mora empieza a contar desde el día siguiente al vencimiento
-            dias = (fecha_corte - fecha_vencimiento).days
-            cuota.dias_mora = dias
+        if cuota.saldo_pendiente <= 0:
+            continue
 
-            interes_mora = cuota.saldo_pendiente * credito.tasa_mora_diaria * dias
-            cuota.interes_mora = round(interes_mora, 2)
-            cuota.total_cobro = round(cuota.saldo_pendiente + cuota.interes_mora, 2)
+        dias_mora = (fecha_corte - fecha_inicio_mora).days + 1
+        cuota.dias_mora = dias_mora
 
-            if cuota.estado != 'ABONO':
-                cuota.estado = 'EN MORA'
+        mora_total = 0.0
+        cursor = fecha_inicio_mora
+
+        while cursor <= fecha_corte:
+            inicio_mes = cursor
+            fin_mes = min(ultimo_dia_mes(cursor), fecha_corte)
+
+            dias_tramo = (fin_mes - inicio_mes).days + 1
+
+            tasa_periodo = TasaPeriodo.query.filter_by(
+                anio=inicio_mes.year,
+                mes=inicio_mes.month
+            ).first()
+
+            if tasa_periodo:
+                mora_tramo = cuota.saldo_pendiente * tasa_periodo.tasa_diaria * dias_tramo
+                mora_total += mora_tramo
+
+            cursor = fin_mes + timedelta(days=1)
+
+        cuota.interes_mora = round(mora_total, 2)
+        cuota.total_cobro = round(cuota.saldo_pendiente + cuota.interes_mora, 2)
+
+        if cuota.estado != 'ABONO':
+            cuota.estado = 'EN MORA'
 
 
 
@@ -128,13 +147,15 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
     db.session.flush()
 
     saldo = round(credito.saldo_actual, 2)
-    tasa = credito.interes / 100
+    tasa_credito = credito.interes / 100
     nueva_cuota = calcular_cuota(saldo, credito.interes, cantidad_pendientes)
     credito.cuota_mensual = nueva_cuota
 
+    config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
+
     for i in range(cantidad_pendientes):
         saldo_inicial = round(saldo, 2)
-        interes_mes = round(saldo_inicial * tasa, 2)
+        interes_mes = round(saldo_inicial * tasa_credito, 2)
         capital = round(nueva_cuota - interes_mes, 2)
         saldo = round(saldo_inicial - capital, 2)
 
@@ -142,6 +163,12 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
             saldo = 0
 
         fecha_pago = sumar_meses(fecha_base, i + 1)
+
+        tasa_periodo = obtener_o_crear_tasa_periodo(
+            anio=fecha_pago.year,
+            mes=fecha_pago.month,
+            tasa_anual_base=config_tasa.tasa_anual
+        )
 
         nueva = Cuota(
             credito_id=credito.id,
@@ -153,12 +180,55 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
             interes=interes_mes,
             saldo_restante=saldo,
             saldo_pendiente=nueva_cuota,
+            tasa_mora_mensual_cuota=tasa_periodo.tasa_mensual,
             dias_mora=0,
             interes_mora=0,
             total_cobro=nueva_cuota,
             estado='PENDIENTE'
         )
         db.session.add(nueva)
+
+def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
+    saldo = round(monto, 2)
+    tasa_credito = interes / 100
+    cuota_fija = calcular_cuota(monto, interes, cuotas)
+
+    config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
+
+    for n in range(cuotas):
+        saldo_inicial = round(saldo, 2)
+        interes_mes = round(saldo_inicial * tasa_credito, 2)
+        capital = round(cuota_fija - interes_mes, 2)
+        saldo = round(saldo_inicial - capital, 2)
+
+        if saldo < 0:
+            saldo = 0
+
+        fecha_pago = sumar_meses(fecha_base, n)
+
+        tasa_periodo = obtener_o_crear_tasa_periodo(
+            anio=fecha_pago.year,
+            mes=fecha_pago.month,
+            tasa_anual_base=config_tasa.tasa_anual
+        )
+
+        nueva_cuota = Cuota(
+            credito_id=credito_id,
+            numero=n + 1,
+            fecha_pago=fecha_pago,
+            valor_cuota=cuota_fija,
+            saldo_inicial=saldo_inicial,
+            capital=capital,
+            interes=interes_mes,
+            saldo_restante=saldo,
+            saldo_pendiente=cuota_fija,
+            tasa_mora_mensual_cuota=tasa_periodo.tasa_mensual,
+            dias_mora=0,
+            interes_mora=0,
+            total_cobro=cuota_fija,
+            estado='PENDIENTE'
+        )
+        db.session.add(nueva_cuota)
 
 
 # 🧱 CREAR BD + USUARIO ADMIN
