@@ -85,22 +85,21 @@
     <table>
         <thead>
             <tr>
-                  <th>#</th>
-                  <th>Fecha cuota</th>
-                  <th>Saldo inicial</th>
-                  <th>Valor cuota</th>
-                  <th>Capital</th>
-                  <th>Interés</th>
-                  <th>Saldo restante</th>
-                  <th>Saldo pendiente</th>
-                  <th>% mora mensual</th>
-                  <th>Días mora</th>
-                  <th>Mora</th>
-                  <th>Total a pagar</th>
-                  <th>Estado</th>
-                  <th>Pagos realizados</th>
-                  <th>Acción</th>
-                
+                <th>#</th>
+                <th>Fecha cuota</th>
+                <th>Saldo inicial</th>
+                <th>Valor cuota</th>
+                <th>Capital</th>
+                <th>Interés</th>
+                <th>Saldo restante</th>
+                <th>Saldo pendiente</th>
+                <th>% mora mensual</th>
+                <th>Días mora</th>
+                <th>Mora</th>
+                <th>Total a pagar</th>
+                <th>Estado</th>
+                <th>Pagos realizados</th>
+                <th>Acción</th>
             </tr>
         </thead>
 
@@ -115,13 +114,16 @@
                 <td>{{ cuota.interes | cop }}</td>
                 <td>{{ cuota.saldo_restante | cop }}</td>
                 <td>{{ cuota.saldo_pendiente | cop }}</td>
+
+                <!-- ✅ CORREGIDO -->
                 <td>
-                    {% if cuota.dias_mora > 0 %}
-                        {{ "%.2f"|format(cuota.tasa_mora_mensual_cuota) }}%
+                    {% if cuota.porcentaje_mora_aplicado > 0 %}
+                        {{ "%.2f"|format(cuota.porcentaje_mora_aplicado) }}%
                     {% else %}
                         —
                     {% endif %}
                 </td>
+
                 <td>{{ cuota.dias_mora }}</td>
                 <td class="rojo">{{ cuota.interes_mora | cop }}</td>
                 <td class="rojo">{{ cuota.total_cobro | cop }}</td>
