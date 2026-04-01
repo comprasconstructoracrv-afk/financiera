@@ -91,6 +91,10 @@ def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
         )
         db.session.add(nueva_cuota)
 
+def ultimo_dia_mes(fecha):
+    ultimo = calendar.monthrange(fecha.year, fecha.month)[1]
+    return date(fecha.year, fecha.month, ultimo)
+
 def actualizar_mora_credito(credito, fecha_corte=None):
     if fecha_corte is None:
         fecha_corte = datetime.utcnow().date()
