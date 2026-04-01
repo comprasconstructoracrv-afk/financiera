@@ -38,6 +38,25 @@ def convertir_tasa_anual_a_mensual(tasa_anual):
 def convertir_tasa_mensual_a_diaria(tasa_mensual):
     return round((tasa_mensual / 100) / 30, 10)
 
+def obtener_o_crear_tasa_periodo(anio, mes, tasa_anual_base):
+    tasa = TasaPeriodo.query.filter_by(anio=anio, mes=mes).first()
+
+    if not tasa:
+        tasa_mensual = convertir_tasa_anual_a_mensual(tasa_anual_base)
+        tasa_diaria = convertir_tasa_mensual_a_diaria(tasa_mensual)
+
+        tasa = TasaPeriodo(
+            anio=anio,
+            mes=mes,
+            tasa_anual=tasa_anual_base,
+            tasa_mensual=tasa_mensual,
+            tasa_diaria=tasa_diaria
+        )
+        db.session.add(tasa)
+        db.session.flush()
+
+    return tasa
+
 
 def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
     saldo = round(monto, 2)
