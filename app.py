@@ -102,24 +102,33 @@ def actualizar_mora_credito(credito, fecha_corte=None):
     cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero).all()
 
     for cuota in cuotas:
+        # Reset visual
         cuota.dias_mora = 0
         cuota.interes_mora = 0
         cuota.total_cobro = cuota.saldo_pendiente
 
-        if cuota.estado == 'PAGADA':
+        # Si ya no debe nada, debe quedar PAGADA sí o sí
+        if cuota.saldo_pendiente <= 0:
+            cuota.saldo_pendiente = 0
+            cuota.dias_mora = 0
+            cuota.interes_mora = 0
+            cuota.total_cobro = 0
+            cuota.estado = 'PAGADA'
             continue
 
         fecha_vencimiento = cuota.fecha_pago.date()
-
-        # Mora empieza a contar desde el día siguiente
         fecha_inicio_mora = fecha_vencimiento + timedelta(days=1)
 
+        # Si aún no entra en mora
         if fecha_corte < fecha_inicio_mora:
+            if cuota.estado != 'ABONO':
+                cuota.estado = 'PENDIENTE'
+            cuota.dias_mora = 0
+            cuota.interes_mora = 0
+            cuota.total_cobro = cuota.saldo_pendiente
             continue
 
-        if cuota.saldo_pendiente <= 0:
-            continue
-
+        # Mora por tramos mensuales
         dias_mora = (fecha_corte - fecha_inicio_mora).days + 1
         cuota.dias_mora = dias_mora
 
@@ -127,14 +136,12 @@ def actualizar_mora_credito(credito, fecha_corte=None):
         cursor = fecha_inicio_mora
 
         while cursor <= fecha_corte:
-            inicio_mes = cursor
             fin_mes = min(ultimo_dia_mes(cursor), fecha_corte)
-
-            dias_tramo = (fin_mes - inicio_mes).days + 1
+            dias_tramo = (fin_mes - cursor).days + 1
 
             tasa_periodo = TasaPeriodo.query.filter_by(
-                anio=inicio_mes.year,
-                mes=inicio_mes.month
+                anio=cursor.year,
+                mes=cursor.month
             ).first()
 
             if tasa_periodo:
@@ -400,7 +407,6 @@ def ver_cuotas(credito_id):
         pagos_por_cuota=pagos_por_cuota
     )
 
-
 @app.route('/pagar_cuota/<int:cuota_id>', methods=['GET', 'POST'])
 def pagar_cuota(cuota_id):
     if 'user' not in session:
@@ -474,7 +480,15 @@ def pagar_cuota(cuota_id):
                 fecha_base=cuota.fecha_pago
             )
 
-        cuota.total_cobro = round(cuota.saldo_pendiente + cuota.interes_mora, 2)
+        # 4. Normalizar estado final
+        if cuota.saldo_pendiente <= 0:
+            cuota.saldo_pendiente = 0
+            cuota.dias_mora = 0
+            cuota.interes_mora = 0
+            cuota.total_cobro = 0
+            cuota.estado = 'PAGADA'
+        else:
+            cuota.total_cobro = round(cuota.saldo_pendiente + cuota.interes_mora, 2)
 
         db.session.commit()
         return redirect(f'/ver_cuotas/{cuota.credito_id}')
@@ -485,6 +499,7 @@ def pagar_cuota(cuota_id):
     cuota = Cuota.query.get_or_404(cuota_id)
 
     return render_template('pagar_cuota.html', cuota=cuota)
+
 
 @app.route('/configuracion_tasa', methods=['GET', 'POST'])
 def configuracion_tasa():
