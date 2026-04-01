@@ -88,15 +88,15 @@ def actualizar_mora_credito(credito, fecha_corte=None):
 
         fecha_vencimiento = cuota.fecha_pago.date()
 
-        # Si la fecha de corte es el mismo día o antes, no hay mora
+        # Si la fecha de corte es el mismo día del vencimiento o antes, no hay mora
         if fecha_corte <= fecha_vencimiento:
             cuota.dias_mora = 0
             cuota.interes_mora = 0
             cuota.total_cobro = cuota.saldo_pendiente
             continue
 
-        # Si aún debe algo después del vencimiento, hay mora
         if cuota.saldo_pendiente > 0:
+            # Mora empieza a contar desde el día siguiente al vencimiento
             dias = (fecha_corte - fecha_vencimiento).days
             cuota.dias_mora = dias
 
