@@ -115,7 +115,13 @@
                 <td>{{ cuota.interes | cop }}</td>
                 <td>{{ cuota.saldo_restante | cop }}</td>
                 <td>{{ cuota.saldo_pendiente | cop }}</td>
-                <td>{{ cuota.tasa_mora_mensual_cuota }}%</td>
+                <td>
+                    {% if cuota.dias_mora > 0 %}
+                        {{ "%.2f"|format(cuota.tasa_mora_mensual_cuota) }}%
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
                 <td>{{ cuota.dias_mora }}</td>
                 <td class="rojo">{{ cuota.interes_mora | cop }}</td>
                 <td class="rojo">{{ cuota.total_cobro | cop }}</td>
