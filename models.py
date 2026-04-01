@@ -40,6 +40,7 @@ class Cuota(db.Model):
     saldo_restante = db.Column(db.Float, nullable=False)
     saldo_pendiente = db.Column(db.Float, nullable=False)
     tasa_mora_mensual_cuota = db.Column(db.Float, nullable=False, default=0)
+    porcentaje_mora_aplicado = db.Column(db.Float, nullable=False, default=0)
     dias_mora = db.Column(db.Integer, default=0)
     interes_mora = db.Column(db.Float, default=0)
     total_cobro = db.Column(db.Float, default=0)
