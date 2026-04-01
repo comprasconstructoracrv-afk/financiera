@@ -102,13 +102,8 @@ def actualizar_mora_credito(credito, fecha_corte=None):
     cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero).all()
 
     for cuota in cuotas:
-        # Reset visual
-        cuota.dias_mora = 0
-        cuota.interes_mora = 0
-        cuota.total_cobro = cuota.saldo_pendiente
-
-        # Si ya no debe nada, debe quedar PAGADA sí o sí
-        if cuota.saldo_pendiente <= 0:
+        # Si la cuota ya no debe nada, debe quedar pagada sí o sí
+        if cuota.saldo_pendiente is None or cuota.saldo_pendiente <= 0:
             cuota.saldo_pendiente = 0
             cuota.dias_mora = 0
             cuota.interes_mora = 0
@@ -116,10 +111,15 @@ def actualizar_mora_credito(credito, fecha_corte=None):
             cuota.estado = 'PAGADA'
             continue
 
+        # Reset base
+        cuota.dias_mora = 0
+        cuota.interes_mora = 0
+        cuota.total_cobro = cuota.saldo_pendiente
+
         fecha_vencimiento = cuota.fecha_pago.date()
         fecha_inicio_mora = fecha_vencimiento + timedelta(days=1)
 
-        # Si aún no entra en mora
+        # Si todavía no entra en mora
         if fecha_corte < fecha_inicio_mora:
             if cuota.estado != 'ABONO':
                 cuota.estado = 'PENDIENTE'
@@ -128,10 +128,11 @@ def actualizar_mora_credito(credito, fecha_corte=None):
             cuota.total_cobro = cuota.saldo_pendiente
             continue
 
-        # Mora por tramos mensuales
+        # Calcular días de mora
         dias_mora = (fecha_corte - fecha_inicio_mora).days + 1
         cuota.dias_mora = dias_mora
 
+        # Calcular mora por tramos mensuales
         mora_total = 0.0
         cursor = fecha_inicio_mora
 
