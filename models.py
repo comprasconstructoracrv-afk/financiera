@@ -54,6 +54,15 @@ class Pago(db.Model):
     valor = db.Column(db.Float, nullable=False)
     medio_pago = db.Column(db.String(50), nullable=False)
 
+    # Desglose contable del pago
+    valor_aplicado_mora = db.Column(db.Float, nullable=False, default=0)
+    valor_aplicado_interes = db.Column(db.Float, nullable=False, default=0)
+    valor_aplicado_capital = db.Column(db.Float, nullable=False, default=0)
+    valor_aplicado_prepago_capital = db.Column(db.Float, nullable=False, default=0)
+
+    # Auditoría básica
+    observacion = db.Column(db.String(255), nullable=True)
+
 class ConfiguracionTasa(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(50), unique=True, nullable=False)

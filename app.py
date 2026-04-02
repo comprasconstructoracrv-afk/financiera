@@ -452,61 +452,74 @@ def pagar_cuota(cuota_id):
         cuota = Cuota.query.get_or_404(cuota_id)
 
         # Guardar cuánto debía originalmente de cuota
-        saldo_pendiente_original = cuota.saldo_pendiente
+                saldo_pendiente_original = round(cuota.saldo_pendiente, 2)
 
         pago = Pago(
             cuota_id=cuota.id,
             fecha=fecha_pago,
             valor=valor_pago,
-            medio_pago=medio_pago
+            medio_pago=medio_pago,
+            valor_aplicado_mora=0,
+            valor_aplicado_interes=0,
+            valor_aplicado_capital=0,
+            valor_aplicado_prepago_capital=0
         )
         db.session.add(pago)
 
-        restante = valor_pago
+        restante = round(valor_pago, 2)
         hubo_abono_extra_capital = False
 
-        # CASO ESPECIAL:
-        # Si la cuota ya estaba pagada y solo queda mora,
-        # este pago NO debe tocar capital ni recalcular cuotas
+        # Caso 1: cuota ya cubierta y solo queda mora
         if cuota.saldo_pendiente <= 0 and cuota.interes_mora > 0:
-            if restante >= cuota.interes_mora:
-                restante -= cuota.interes_mora
-                cuota.interes_mora = 0
-            else:
-                cuota.interes_mora = round(cuota.interes_mora - restante, 2)
-                restante = 0
+            aplicado_mora = min(restante, round(cuota.interes_mora, 2))
+            cuota.interes_mora = round(cuota.interes_mora - aplicado_mora, 2)
+            pago.valor_aplicado_mora = round(aplicado_mora, 2)
+            restante = round(restante - aplicado_mora, 2)
 
         else:
-            # 1. Primero cubrir la cuota
-            if restante > 0:
-                if restante < cuota.saldo_pendiente:
-                    cuota.saldo_pendiente = round(cuota.saldo_pendiente - restante, 2)
-                    cuota.estado = 'ABONO'
-                    restante = 0
-                else:
-                    restante = round(restante - cuota.saldo_pendiente, 2)
-                    cuota.saldo_pendiente = 0
-                    credito.saldo_actual = round(credito.saldo_actual - cuota.capital, 2)
+            # Descomposición financiera de la cuota
+            interes_pendiente_cuota = min(round(cuota.interes, 2), round(cuota.saldo_pendiente, 2))
+            capital_pendiente_cuota = round(cuota.saldo_pendiente - interes_pendiente_cuota, 2)
 
-            # 2. Luego cubrir mora
+            if capital_pendiente_cuota < 0:
+                capital_pendiente_cuota = 0
+
+            # 1. Primero cubrir mora
             if restante > 0 and cuota.interes_mora > 0:
-                if restante >= cuota.interes_mora:
-                    restante -= cuota.interes_mora
-                    cuota.interes_mora = 0
-                else:
-                    cuota.interes_mora = round(cuota.interes_mora - restante, 2)
-                    restante = 0
+                aplicado_mora = min(restante, round(cuota.interes_mora, 2))
+                cuota.interes_mora = round(cuota.interes_mora - aplicado_mora, 2)
+                pago.valor_aplicado_mora = round(aplicado_mora, 2)
+                restante = round(restante - aplicado_mora, 2)
 
-            # 3. SOLO si después de cubrir cuota y mora sobra dinero,
-            # ese excedente sí va a capital
-            if restante > 0 and saldo_pendiente_original > 0:
+            # 2. Luego cubrir interés corriente de la cuota
+            if restante > 0 and interes_pendiente_cuota > 0:
+                aplicado_interes = min(restante, interes_pendiente_cuota)
+                pago.valor_aplicado_interes = round(aplicado_interes, 2)
+                cuota.saldo_pendiente = round(cuota.saldo_pendiente - aplicado_interes, 2)
+                interes_pendiente_cuota = round(interes_pendiente_cuota - aplicado_interes, 2)
+                restante = round(restante - aplicado_interes, 2)
+
+            # 3. Luego cubrir capital contractual de la cuota
+            if restante > 0 and capital_pendiente_cuota > 0:
+                aplicado_capital = min(restante, capital_pendiente_cuota)
+                pago.valor_aplicado_capital = round(aplicado_capital, 2)
+                cuota.saldo_pendiente = round(cuota.saldo_pendiente - aplicado_capital, 2)
+                credito.saldo_actual = round(credito.saldo_actual - aplicado_capital, 2)
+                capital_pendiente_cuota = round(capital_pendiente_cuota - aplicado_capital, 2)
+                restante = round(restante - aplicado_capital, 2)
+
+            # 4. Solo si la cuota quedó cubierta y sobra dinero, va como prepago extraordinario
+            if restante > 0 and cuota.saldo_pendiente <= 0:
+                pago.valor_aplicado_prepago_capital = round(restante, 2)
                 credito.saldo_actual = round(credito.saldo_actual - restante, 2)
+                restante = 0
+                hubo_abono_extra_capital = pago.valor_aplicado_prepago_capital > 0
 
-                if credito.saldo_actual < 0:
-                    credito.saldo_actual = 0
+        if credito.saldo_actual < 0:
+            credito.saldo_actual = 0
 
-                hubo_abono_extra_capital = True
-
+        cuota.saldo_pendiente = round(max(cuota.saldo_pendiente, 0), 2)
+        cuota.interes_mora = round(max(cuota.interes_mora, 0), 2)
         # Recalcular cuotas SOLO si sí hubo abono extra a capital
         if hubo_abono_extra_capital:
             recalcular_cuotas_pendientes(
