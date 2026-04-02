@@ -451,8 +451,7 @@ def pagar_cuota(cuota_id):
         # Recargar cuota actualizada
         cuota = Cuota.query.get_or_404(cuota_id)
 
-        # Guardar cuánto debía originalmente de cuota
-                saldo_pendiente_original = round(cuota.saldo_pendiente, 2)
+        saldo_pendiente_original = round(cuota.saldo_pendiente, 2)
 
         pago = Pago(
             cuota_id=cuota.id,
@@ -520,6 +519,7 @@ def pagar_cuota(cuota_id):
 
         cuota.saldo_pendiente = round(max(cuota.saldo_pendiente, 0), 2)
         cuota.interes_mora = round(max(cuota.interes_mora, 0), 2)
+
         # Recalcular cuotas SOLO si sí hubo abono extra a capital
         if hubo_abono_extra_capital:
             recalcular_cuotas_pendientes(
@@ -532,7 +532,6 @@ def pagar_cuota(cuota_id):
         if cuota.saldo_pendiente <= 0 and cuota.interes_mora <= 0:
             cuota.saldo_pendiente = 0
             cuota.dias_mora = 0
-            cuota.interes_mora = 0
             cuota.total_cobro = 0
             cuota.estado = 'PAGADA'
 
@@ -556,6 +555,7 @@ def pagar_cuota(cuota_id):
     cuota = Cuota.query.get_or_404(cuota_id)
 
     return render_template('pagar_cuota.html', cuota=cuota)
+
 
 @app.route('/configuracion_tasa', methods=['GET', 'POST'])
 def configuracion_tasa():
