@@ -104,13 +104,11 @@ def actualizar_mora_credito(credito, fecha_corte=None):
 
     for cuota in cuotas:
 
-        # 🔒 CASO 1: completamente pagada (no cuota ni mora)
-        if cuota.saldo_pendiente <= 0 and cuota.interes_mora <= 0:
-            cuota.saldo_pendiente = 0
-            cuota.dias_mora = 0
-            cuota.interes_mora = 0
+        # 🔒 CUOTA PAGADA → NO recalcular mora
+        if cuota.estado == 'PAGADA':
+            cuota.dias_mora = cuota.dias_mora_historico
+            cuota.interes_mora = cuota.interes_mora_historico
             cuota.total_cobro = 0
-            cuota.estado = 'PAGADA'
             continue
 
         # 🔒 CASO 2: cuota pagada pero mora pendiente → NO recalcular
@@ -139,7 +137,7 @@ def actualizar_mora_credito(credito, fecha_corte=None):
             continue
 
         # 📅 Calcular días de mora
-        dias_mora = (fecha_corte - fecha_inicio_mora).days + 1
+        dias_mora = (fecha_corte - fecha_inicio_mora).days
         cuota.dias_mora = dias_mora
 
         # 💰 Calcular mora por tramos mensuales
@@ -446,6 +444,10 @@ def pagar_cuota(cuota_id):
 
         # Recalcular mora exactamente a la fecha del pago
         actualizar_mora_credito(credito, fecha_pago.date())
+
+        # 🔒 CONGELAR mora a la fecha de pago
+        cuota.dias_mora_historico = cuota.dias_mora
+        cuota.interes_mora_historico = cuota.interes_mora
         db.session.commit()
 
         # Recargar cuota actualizada
@@ -477,7 +479,7 @@ def pagar_cuota(cuota_id):
 
         else:
             # Descomposición financiera de la cuota
-            interes_pendiente_cuota = min(round(cuota.interes, 2), round(cuota.saldo_pendiente, 2))
+            interes_pendiente_cuota = round(cuota.interes, 2) if cuota.saldo_pendiente >= cuota.interes else 0
             capital_pendiente_cuota = round(cuota.saldo_pendiente - interes_pendiente_cuota, 2)
 
             if capital_pendiente_cuota < 0:

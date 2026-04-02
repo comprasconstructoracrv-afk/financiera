@@ -44,6 +44,8 @@ class Cuota(db.Model):
     dias_mora = db.Column(db.Integer, default=0)
     interes_mora = db.Column(db.Float, default=0)
     total_cobro = db.Column(db.Float, default=0)
+    dias_mora_historico = db.Column(db.Integer, default=0)
+    interes_mora_historico = db.Column(db.Float, default=0)
     estado = db.Column(db.String(20), default='PENDIENTE')
 
 # PAGOS
