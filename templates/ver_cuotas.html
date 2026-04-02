@@ -117,7 +117,7 @@
 
                 <!-- ✅ CORREGIDO -->
                 <td>
-                    {% if cuota.porcentaje_mora_aplicado > 0 %}
+                    {% if cuota.interes_mora > 0 or cuota.interes_mora_historico > 0 %}
                         {{ "%.2f"|format(cuota.porcentaje_mora_aplicado) }}%
                     {% else %}
                         —
