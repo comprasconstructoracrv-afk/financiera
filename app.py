@@ -103,7 +103,8 @@ def actualizar_mora_credito(credito, fecha_corte=None):
     cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero).all()
 
     for cuota in cuotas:
-        # Si ya no debe ni cuota ni mora, está totalmente pagada
+
+        # 🔒 CASO 1: completamente pagada (no cuota ni mora)
         if cuota.saldo_pendiente <= 0 and cuota.interes_mora <= 0:
             cuota.saldo_pendiente = 0
             cuota.dias_mora = 0
@@ -112,15 +113,14 @@ def actualizar_mora_credito(credito, fecha_corte=None):
             cuota.estado = 'PAGADA'
             continue
 
-        # Si ya pagó toda la cuota pero quedó debiendo solo mora,
-        # NO se recalculan más días. Se conserva la mora congelada.
+        # 🔒 CASO 2: cuota pagada pero mora pendiente → NO recalcular
         if cuota.saldo_pendiente <= 0 and cuota.interes_mora > 0:
             cuota.saldo_pendiente = 0
             cuota.total_cobro = round(cuota.interes_mora, 2)
             cuota.estado = 'ABONO'
             continue
 
-        # Reset base si todavía debe cuota
+        # 🔄 RESET base si aún debe cuota
         cuota.dias_mora = 0
         cuota.interes_mora = 0
         cuota.total_cobro = cuota.saldo_pendiente
@@ -128,19 +128,21 @@ def actualizar_mora_credito(credito, fecha_corte=None):
         fecha_vencimiento = cuota.fecha_pago.date()
         fecha_inicio_mora = fecha_vencimiento + timedelta(days=1)
 
-        # Si aún no entra en mora
+        # ⏳ Aún no entra en mora
         if fecha_corte < fecha_inicio_mora:
             cuota.dias_mora = 0
             cuota.interes_mora = 0
             cuota.total_cobro = cuota.saldo_pendiente
+
             if cuota.estado != 'ABONO':
                 cuota.estado = 'PENDIENTE'
             continue
 
-        # Mora por tramos mensuales
+        # 📅 Calcular días de mora
         dias_mora = (fecha_corte - fecha_inicio_mora).days + 1
         cuota.dias_mora = dias_mora
 
+        # 💰 Calcular mora por tramos mensuales
         mora_total = 0.0
         cursor = fecha_inicio_mora
 
@@ -162,6 +164,11 @@ def actualizar_mora_credito(credito, fecha_corte=None):
         cuota.interes_mora = round(mora_total, 2)
         cuota.total_cobro = round(cuota.saldo_pendiente + cuota.interes_mora, 2)
 
+        # ✅ GUARDAR % DE MORA USADO (CLAVE PARA TU CASO)
+        if cuota.interes_mora > 0:
+            cuota.porcentaje_mora_aplicado = cuota.tasa_mora_mensual_cuota
+
+        # 🔁 Estado
         if cuota.estado != 'ABONO':
             cuota.estado = 'EN MORA'
 
@@ -437,12 +444,15 @@ def pagar_cuota(cuota_id):
         if valor_pago <= 0:
             return "El pago debe ser mayor que cero"
 
-        # Recalcular mora exactamente a la fecha real del pago
+        # Recalcular mora exactamente a la fecha del pago
         actualizar_mora_credito(credito, fecha_pago.date())
         db.session.commit()
 
-        # Recargar cuota con mora actualizada a esa fecha
+        # Recargar cuota actualizada
         cuota = Cuota.query.get_or_404(cuota_id)
+
+        # Guardar cuánto debía originalmente de cuota
+        saldo_pendiente_original = cuota.saldo_pendiente
 
         pago = Pago(
             cuota_id=cuota.id,
@@ -453,20 +463,12 @@ def pagar_cuota(cuota_id):
         db.session.add(pago)
 
         restante = valor_pago
+        hubo_abono_extra_capital = False
 
-        # 1. Primero cubrir la cuota
-        if restante > 0:
-            if restante < cuota.saldo_pendiente:
-                cuota.saldo_pendiente = round(cuota.saldo_pendiente - restante, 2)
-                cuota.estado = 'ABONO'
-                restante = 0
-            else:
-                restante = round(restante - cuota.saldo_pendiente, 2)
-                cuota.saldo_pendiente = 0
-                credito.saldo_actual = round(credito.saldo_actual - cuota.capital, 2)
-
-        # 2. Luego cubrir la mora
-        if restante > 0 and cuota.interes_mora > 0:
+        # CASO ESPECIAL:
+        # Si la cuota ya estaba pagada y solo queda mora,
+        # este pago NO debe tocar capital ni recalcular cuotas
+        if cuota.saldo_pendiente <= 0 and cuota.interes_mora > 0:
             if restante >= cuota.interes_mora:
                 restante -= cuota.interes_mora
                 cuota.interes_mora = 0
@@ -474,20 +476,46 @@ def pagar_cuota(cuota_id):
                 cuota.interes_mora = round(cuota.interes_mora - restante, 2)
                 restante = 0
 
-        # 3. Si sobra dinero, va a capital y recalcula cuotas futuras
-        if restante > 0:
-            credito.saldo_actual = round(credito.saldo_actual - restante, 2)
+        else:
+            # 1. Primero cubrir la cuota
+            if restante > 0:
+                if restante < cuota.saldo_pendiente:
+                    cuota.saldo_pendiente = round(cuota.saldo_pendiente - restante, 2)
+                    cuota.estado = 'ABONO'
+                    restante = 0
+                else:
+                    restante = round(restante - cuota.saldo_pendiente, 2)
+                    cuota.saldo_pendiente = 0
+                    credito.saldo_actual = round(credito.saldo_actual - cuota.capital, 2)
 
-            if credito.saldo_actual < 0:
-                credito.saldo_actual = 0
+            # 2. Luego cubrir mora
+            if restante > 0 and cuota.interes_mora > 0:
+                if restante >= cuota.interes_mora:
+                    restante -= cuota.interes_mora
+                    cuota.interes_mora = 0
+                else:
+                    cuota.interes_mora = round(cuota.interes_mora - restante, 2)
+                    restante = 0
 
+            # 3. SOLO si después de cubrir cuota y mora sobra dinero,
+            # ese excedente sí va a capital
+            if restante > 0 and saldo_pendiente_original > 0:
+                credito.saldo_actual = round(credito.saldo_actual - restante, 2)
+
+                if credito.saldo_actual < 0:
+                    credito.saldo_actual = 0
+
+                hubo_abono_extra_capital = True
+
+        # Recalcular cuotas SOLO si sí hubo abono extra a capital
+        if hubo_abono_extra_capital:
             recalcular_cuotas_pendientes(
                 credito=credito,
                 cuota_actual_numero=cuota.numero,
                 fecha_base=cuota.fecha_pago
             )
 
-        # 4. Normalizar estado final
+        # Normalizar estado final
         if cuota.saldo_pendiente <= 0 and cuota.interes_mora <= 0:
             cuota.saldo_pendiente = 0
             cuota.dias_mora = 0
@@ -510,7 +538,6 @@ def pagar_cuota(cuota_id):
         db.session.commit()
         return redirect(f'/ver_cuotas/{cuota.credito_id}')
 
-    # Si solo entra a ver la pantalla de pago, mostrar mora a hoy
     actualizar_mora_credito(credito, datetime.utcnow().date())
     db.session.commit()
     cuota = Cuota.query.get_or_404(cuota_id)
