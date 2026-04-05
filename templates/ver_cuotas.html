@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <script>
+    function toggleDeudaFecha() {
+        const panel = document.getElementById('panel-deuda-fecha');
+        if (!panel) return;
+
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            panel.style.display = 'block';
+        } else {
+            panel.style.display = 'none';
+        }
+    }
+</script>
     <meta charset="UTF-8">
     <title>Cuotas del crédito</title>
     <style>
@@ -37,6 +49,13 @@
             background: #f0f0f0;
         }
 
+        thead th {
+                position: sticky;
+                top: 0;
+                background: #f0f0f0;
+                z-index: 1;
+        }
+
         .rojo {
             color: red;
             font-weight: bold;
@@ -54,11 +73,12 @@
 
         a.boton {
             display: inline-block;
-            padding: 6px 10px;
-            background: #007bff;
+            padding: 6px 12px;
+            background: linear-gradient(135deg, #007bff, #0056b3);
             color: white;
             text-decoration: none;
             border-radius: 6px;
+            font-size: 12px;
         }
 
         a.volver {
@@ -81,11 +101,100 @@
 <body>
 <div class="contenedor">
 
-    <h1>Cuotas del crédito</h1>
+    <h1 style="text-transform: uppercase; letter-spacing: 1px;">
+        Tabla de amortización
+    </h1>
 
-    <p><strong>Cliente:</strong> {{ credito.cliente }}</p>
-    <p><strong>Monto:</strong> {{ credito.monto | cop }}</p>
-    <p><strong>Interés:</strong> {{ credito.interes }}%</p>
+    <div style="display:flex; gap:15px; flex-wrap:wrap; margin:20px 0;">
+
+    <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
+        <div style="font-size:12px; color:#6c757d;">CLIENTE</div>
+        <div style="font-size:18px; font-weight:bold;">{{ credito.cliente }}</div>
+    </div>
+
+    <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
+        <div style="font-size:12px; color:#6c757d;">MONTO</div>
+        <div style="font-size:18px; font-weight:bold;">{{ credito.monto | cop }}</div>
+    </div>
+
+    <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
+        <div style="font-size:12px; color:#6c757d;">INTERÉS</div>
+        <div style="font-size:18px; font-weight:bold;">{{ credito.interes }}%</div>
+    </div>
+
+    <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
+        <div style="font-size:12px; color:#6c757d;">FECHA DEL CRÉDITO</div>
+        <div style="font-size:18px; font-weight:bold;">
+            {{ credito.fecha_creacion.strftime('%d/%m/%Y') }}
+        </div>
+    </div>
+
+    <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
+        <div style="font-size:12px; color:#6c757d;">ÚLTIMO PAGO</div>
+        <div style="font-size:18px; font-weight:bold;">
+            {% if ultimo_pago %}
+                {{ ultimo_pago.fecha.strftime('%d/%m/%Y') }}
+            {% else %}
+                Sin pagos
+            {% endif %}
+        </div>
+    </div>
+    
+    <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
+        <div style="font-size:12px; color:#6c757d;">DEUDA A LA FECHA</div>
+        <div style="font-size:18px; font-weight:bold;">{{ deuda_total_fecha | cop }}</div>
+        <button
+            type="button"
+            onclick="toggleDeudaFecha()"
+            style="margin-top:10px; padding:8px 12px; border:none; border-radius:8px; background:#0d6efd; color:white; cursor:pointer;"
+        >
+            Ver detalle
+        </button>
+    </div>
+
+    <div style="padding:16px; border-radius:10px; min-width:200px;
+        {% if estado_credito == 'EN MORA' %}
+            background:#fff5f5; color:#c82333;
+        {% elif estado_credito == 'CANCELADO' %}
+            background:#f0fff4; color:#198754;
+        {% else %}
+            background:#eef6ff; color:#0d6efd;
+        {% endif %}
+    ">
+        <div style="font-size:12px;">ESTADO</div>
+        <div style="font-size:18px; font-weight:bold;">{{ estado_credito }}</div>
+    </div>
+
+</div>
+
+<div
+    id="panel-deuda-fecha"
+    style="display:none; margin:15px 0 25px 0; background:#ffffff; border:1px solid #e5e7eb; border-radius:12px; padding:18px; box-shadow:0 2px 8px rgba(0,0,0,0.05);"
+>
+    <h3 style="margin-top:0; margin-bottom:15px; text-transform:uppercase; font-size:16px;">
+        Deuda a la fecha
+    </h3>
+
+    <div style="display:flex; gap:15px; flex-wrap:wrap;">
+
+        <div style="background:#f8f9fa; padding:14px; border-radius:10px; min-width:220px;">
+            <div style="font-size:12px; color:#6c757d;">Cuota pendiente total</div>
+            <div style="font-size:20px; font-weight:bold;">{{ cuota_pendiente_total | cop }}</div>
+        </div>
+
+        <div style="background:#fff5f5; padding:14px; border-radius:10px; min-width:220px; color:#c82333;">
+            <div style="font-size:12px;">Mora total</div>
+            <div style="font-size:20px; font-weight:bold;">{{ mora_total | cop }}</div>
+        </div>
+
+        <div style="background:#eef6ff; padding:14px; border-radius:10px; min-width:220px; color:#0d6efd;">
+            <div style="font-size:12px;">Deuda total a la fecha</div>
+            <div style="font-size:20px; font-weight:bold;">{{ deuda_total_fecha | cop }}</div>
+        </div>
+
+    </div>
+</div>
+
     <p>
        <a class="volver" href="/liquidar_credito/{{ credito.id }}" style="background:#dc3545;">
           Liquidar crédito
@@ -115,15 +224,25 @@
 
         <tbody>
             {% for cuota in cuotas %}
-            <tr>
+            <tr
+            {% if cuota.estado == 'EN MORA' %}
+                style="background:#fff5f5;"
+            {% elif cuota.estado == 'PAGADA' %}
+                style="background:#f6fff6;"
+            {% elif cuota.estado == 'LIQUIDADA' %}
+                style="background:#f0f4ff;"
+            {% endif %}
+            >
                 <td>{{ cuota.numero }}</td>
-                <td>{{ cuota.fecha_pago.strftime('%Y-%m-%d') }}</td>
+                <td>{{ cuota.fecha_pago.strftime('%d/%m/%Y') }}</td>
                 <td>{{ cuota.saldo_inicial | cop }}</td>
                 <td>{{ cuota.valor_cuota | cop }}</td>
                 <td>{{ cuota.capital | cop }}</td>
                 <td>{{ cuota.interes | cop }}</td>
                 <td>{{ cuota.saldo_restante | cop }}</td>
-                <td>{{ cuota.saldo_pendiente | cop }}</td>
+                <td style="font-weight:bold;">
+                    {{ cuota.saldo_pendiente | cop }}
+                </td>
 
                 <td>
                     {% if cuota.interes_mora > 0 or cuota.interes_mora_historico > 0 %}
@@ -135,7 +254,9 @@
 
                 <td>{{ cuota.dias_mora }}</td>
                 <td class="rojo">{{ cuota.interes_mora | cop }}</td>
-                <td class="rojo">{{ cuota.total_cobro | cop }}</td>
+                <td class="rojo" style="font-size:14px;">
+                    {{ cuota.total_cobro | cop }}
+                </td>
 
                 <td>
                     {% if cuota.estado == 'PAGADA' %}
@@ -154,8 +275,8 @@
                 <td class="historial">
                     {% if pagos_por_cuota[cuota.id] %}
                         {% for pago in pagos_por_cuota[cuota.id] %}
-                            <div>
-                                <strong>Fecha:</strong> {{ pago.fecha.strftime('%Y-%m-%d') }}<br>
+                            <div style="background:#f8f9fa; padding:8px; border-radius:6px; margin-bottom:5px;">
+                                <strong>Fecha:</strong> {{ pago.fecha.strftime('%d/%m/%Y') }}<br>
                                 <strong>Valor:</strong> {{ pago.valor | cop }}<br>
                                 <strong>Medio:</strong> {{ pago.medio_pago }}
                             </div>

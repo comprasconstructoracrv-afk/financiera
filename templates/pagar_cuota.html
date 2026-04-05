@@ -1,6 +1,68 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <script>
+    function soloDigitos(valor) {
+        return valor.replace(/\D/g, '');
+    }
+
+    function formatearCOP(valor) {
+        if (!valor) return '';
+        return '$ ' + Number(valor).toLocaleString('es-CO');
+    }
+
+    function alEscribirMoneda(input) {
+        const digitos = soloDigitos(input.value);
+
+        if (digitos === '') {
+            input.value = '';
+            return;
+        }
+
+        input.value = formatearCOP(digitos);
+    }
+
+    function limpiarMonedaAntesDeEnviar(form) {
+        const camposMoneda = form.querySelectorAll('.input-moneda');
+
+        camposMoneda.forEach(input => {
+            input.value = soloDigitos(input.value);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const camposMoneda = document.querySelectorAll('.input-moneda');
+
+        camposMoneda.forEach(input => {
+            if (input.value && input.value.trim() !== '') {
+                const limpio = soloDigitos(input.value);
+                if (limpio !== '') {
+                    input.value = formatearCOP(limpio);
+                }
+            }
+
+            input.addEventListener('input', function () {
+                alEscribirMoneda(this);
+            });
+
+            input.addEventListener('blur', function () {
+                const limpio = soloDigitos(this.value);
+                this.value = limpio ? formatearCOP(limpio) : '';
+            });
+
+            input.addEventListener('focus', function () {
+                const limpio = soloDigitos(this.value);
+                this.value = limpio;
+            });
+        });
+
+        document.querySelectorAll('form').forEach(form => {
+            form.addEventListener('submit', function () {
+                limpiarMonedaAntesDeEnviar(this);
+            });
+        });
+    });
+</script>
     <meta charset="UTF-8">
     <title>Registrar pago</title>
     <style>
@@ -80,7 +142,7 @@
             <input type="date" name="fecha_pago" required>
 
             <label>Valor a pagar:</label>
-            <input type="number" name="valor" step="0.01" required>
+            <input type="text" name="valor" class="input-moneda" inputmode="numeric" required>
 
             <label>Medio de pago:</label>
             <select name="medio_pago" id="medio_pago" onchange="mostrarOtroMedio()" required>

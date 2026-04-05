@@ -71,15 +71,18 @@
         <form method="POST">
             <label>Cliente:</label>
             <input type="text" name="cliente" required>
+            
+            <label>Número de pagaré:</label>
+            <input type="text" name="numero_pagare" required>
 
             <label>Fecha del crédito:</label>
             <input type="date" name="fecha_credito" required>
 
             <label>Monto solicitado:</label>
-            <input type="number" name="monto" step="0.01" required>
+            <input type="text" name="monto" class="input-moneda" inputmode="numeric" required>
 
             <label>Abono inicial:</label>
-            <input type="number" name="abono_inicial" step="0.01" placeholder="0">
+            <input type="text" name="abono_inicial" class="input-moneda" inputmode="numeric" placeholder="0">
 
             <label>Interés mensual (%):</label>
             <input type="number" name="interes" step="0.01" required>
