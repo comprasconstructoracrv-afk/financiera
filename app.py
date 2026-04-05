@@ -555,3 +555,122 @@ def configuracion_tasa():
         return redirect('/configuracion_tasa')
 
     return render_template('configuracion_tasa.html', config=config)
+
+@app.route('/liquidar_credito/<int:credito_id>', methods=['GET', 'POST'])
+def liquidar_credito(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    cuotas_activas = Cuota.query.filter(
+        Cuota.credito_id == credito.id,
+        Cuota.estado != 'PAGADA'
+    ).order_by(Cuota.numero).all()
+
+    if not cuotas_activas:
+        return "Este crédito ya se encuentra liquidado"
+
+    if request.method == 'POST':
+        fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d')
+        valor_pago = float(request.form['valor'])
+        medio_pago = request.form['medio_pago']
+
+        if medio_pago == 'OTRO':
+            medio_pago_otro = request.form.get('medio_pago_otro', '').strip()
+            if not medio_pago_otro:
+                return "Debes escribir el otro medio de pago"
+            medio_pago = medio_pago_otro
+
+        if valor_pago <= 0:
+            return "El valor de la liquidación debe ser mayor que cero"
+
+        # Recalcular mora a la fecha exacta de liquidación
+        actualizar_mora_credito(credito, fecha_pago.date())
+        db.session.commit()
+
+        # Recargar cuotas activas después de recalcular mora
+        cuotas_activas = Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.estado != 'PAGADA'
+        ).order_by(Cuota.numero).all()
+
+        if not cuotas_activas:
+            return "Este crédito ya quedó liquidado"
+
+        # Primera cuota activa = cuota de referencia para interés corriente
+        cuota_actual = cuotas_activas[0]
+
+        capital_insoluto = round(credito.saldo_actual, 2)
+        interes_corriente = round(cuota_actual.interes, 2)
+
+        total_mora = round(
+            sum(round(c.interes_mora or 0, 2) for c in cuotas_activas),
+            2
+        )
+
+        total_liquidacion = round(capital_insoluto + interes_corriente + total_mora, 2)
+
+        # Recomendación operativa: exigir valor exacto
+        if round(valor_pago, 2) != total_liquidacion:
+            return (
+                f"El valor ingresado no coincide con la liquidación exacta. "
+                f"Debes pagar {total_liquidacion:.2f}"
+            )
+
+        # Registrar el pago sobre la primera cuota activa
+        # (limitación del modelo actual: Pago solo apunta a una cuota)
+        pago = Pago(
+            cuota_id=cuota_actual.id,
+            fecha=fecha_pago,
+            valor=valor_pago,
+            medio_pago=medio_pago
+        )
+        db.session.add(pago)
+
+        # Cerrar todas las cuotas activas
+        for cuota in cuotas_activas:
+            cuota.saldo_pendiente = 0
+            cuota.dias_mora = 0
+            cuota.interes_mora = 0
+            cuota.total_cobro = 0
+            cuota.estado = 'PAGADA'
+
+        # Cerrar crédito
+        credito.saldo_actual = 0
+        credito.cuota_mensual = 0
+
+        db.session.commit()
+        return redirect(f'/ver_cuotas/{credito.id}')
+
+    # GET: calcular vista previa de liquidación a hoy
+    actualizar_mora_credito(credito, datetime.utcnow().date())
+    db.session.commit()
+
+    cuotas_activas = Cuota.query.filter(
+        Cuota.credito_id == credito.id,
+        Cuota.estado != 'PAGADA'
+    ).order_by(Cuota.numero).all()
+
+    if not cuotas_activas:
+        return "Este crédito ya se encuentra liquidado"
+
+    cuota_actual = cuotas_activas[0]
+
+    capital_insoluto = round(credito.saldo_actual, 2)
+    interes_corriente = round(cuota_actual.interes, 2)
+    total_mora = round(
+        sum(round(c.interes_mora or 0, 2) for c in cuotas_activas),
+        2
+    )
+    total_liquidacion = round(capital_insoluto + interes_corriente + total_mora, 2)
+
+    return render_template(
+        'liquidar_credito.html',
+        credito=credito,
+        cuota_actual=cuota_actual,
+        capital_insoluto=capital_insoluto,
+        interes_corriente=interes_corriente,
+        total_mora=total_mora,
+        total_liquidacion=total_liquidacion
+    )
