@@ -431,8 +431,8 @@ def ver_cuotas(credito_id):
 
     cuotas = Cuota.query.filter_by(credito_id=credito_id).order_by(Cuota.numero).all()
 
-        pagos_por_cuota = {}
-        ultimo_pago = None
+    pagos_por_cuota = {}
+    ultimo_pago = None
 
     for cuota in cuotas:
         pagos = Pago.query.filter_by(cuota_id=cuota.id).order_by(Pago.fecha).all()
