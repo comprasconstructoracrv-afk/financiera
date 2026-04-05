@@ -25,6 +25,8 @@ class Credito(db.Model):
     tasa_mora_mensual = db.Column(db.Float, nullable=False, default=0)
     tasa_mora_diaria = db.Column(db.Float, nullable=False, default=0)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_liquidacion = db.Column(db.DateTime, nullable=True)
+    valor_liquidado = db.Column(db.Float, nullable=True)
     
 
 # CUOTAS

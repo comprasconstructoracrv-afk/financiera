@@ -629,16 +629,25 @@ def liquidar_credito(credito_id):
         db.session.add(pago)
 
         # Cerrar todas las cuotas activas
-        for cuota in cuotas_activas:
+        for i, cuota in enumerate(cuotas_activas):
+
             cuota.saldo_pendiente = 0
             cuota.dias_mora = 0
             cuota.interes_mora = 0
             cuota.total_cobro = 0
-            cuota.estado = 'PAGADA'
+
+            if i == 0:
+                # Primera cuota activa = la que estás pagando
+                cuota.estado = 'PAGADA'
+            else:
+                # Cuotas futuras = liquidación anticipada
+                cuota.estado = 'LIQUIDADA'
 
         # Cerrar crédito
         credito.saldo_actual = 0
         credito.cuota_mensual = 0
+        credito.fecha_liquidacion = fecha_pago
+        credito.valor_liquidado = valor_pago
 
         db.session.commit()
         return redirect(f'/ver_cuotas/{credito.id}')
