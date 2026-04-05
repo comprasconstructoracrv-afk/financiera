@@ -47,6 +47,11 @@
             font-weight: bold;
         }
 
+        .azul {
+            color: blue;
+            font-weight: bold;
+        }
+
         a.boton {
             display: inline-block;
             padding: 6px 10px;
@@ -120,7 +125,6 @@
                 <td>{{ cuota.saldo_restante | cop }}</td>
                 <td>{{ cuota.saldo_pendiente | cop }}</td>
 
-                <!-- ✅ CORREGIDO -->
                 <td>
                     {% if cuota.interes_mora > 0 or cuota.interes_mora_historico > 0 %}
                         {{ "%.2f"|format(cuota.porcentaje_mora_aplicado) }}%
@@ -138,6 +142,8 @@
                         <span class="verde">PAGADA</span>
                     {% elif cuota.estado == 'EN MORA' %}
                         <span class="rojo">EN MORA</span>
+                    {% elif cuota.estado == 'LIQUIDADA' %}
+                        <span class="azul">LIQUIDADA</span>
                     {% elif cuota.estado == 'ABONO' %}
                         ABONO
                     {% else %}
@@ -161,8 +167,8 @@
                 </td>
 
                 <td>
-                    {% if cuota.estado != 'PAGADA' %}
-                        <a class="boton" href="/pagar_cuota/{{ cuota.id }}">Pagar</a>
+                    {% if cuota.estado in ['PENDIENTE', 'EN MORA', 'ABONO'] %}
+                        <a href="/pagar_cuota/{{ cuota.id }}">Pagar</a>
                     {% else %}
                         —
                     {% endif %}
