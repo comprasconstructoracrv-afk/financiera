@@ -19,6 +19,18 @@ def formato_cop(valor):
     texto = f"{valor_redondeado:,}".replace(",", ".")
     return f"$ {texto}"
 
+def limpiar_valor_moneda(valor):
+    if valor is None:
+        return 0.0
+
+    texto = str(valor).strip()
+    texto = texto.replace('$', '').replace('.', '').replace(',', '').replace(' ', '')
+
+    if texto == '':
+        return 0.0
+
+    return float(texto)
+
 # 🔢 FUNCIÓN DE CÁLCULO
 def calcular_cuota(monto, interes, cuotas):
     i = interes / 100
@@ -337,13 +349,14 @@ def crear_credito():
 
     if request.method == 'POST':
         cliente = request.form['cliente']
-        monto = float(request.form['monto'])
+        numero_pagare = request.form['numero_pagare'].strip()
+        monto = limpiar_valor_moneda(request.form['monto'])
         interes = float(request.form['interes'])
         cuotas = int(request.form['cuotas'])
         fecha_credito = datetime.strptime(request.form['fecha_credito'], '%Y-%m-%d')
 
         abono_inicial_texto = request.form.get('abono_inicial', '').strip()
-        abono_inicial = float(abono_inicial_texto) if abono_inicial_texto else 0
+        abono_inicial = limpiar_valor_moneda(abono_inicial_texto) if abono_inicial_texto else 0
 
         monto_financiado = monto - abono_inicial
 
@@ -355,6 +368,7 @@ def crear_credito():
         config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
 
         nuevo = Credito(
+            numero_pagare=numero_pagare,
             cliente=cliente,
             monto=monto,
             abono_inicial=abono_inicial,
@@ -417,16 +431,47 @@ def ver_cuotas(credito_id):
 
     cuotas = Cuota.query.filter_by(credito_id=credito_id).order_by(Cuota.numero).all()
 
-    pagos_por_cuota = {}
+        pagos_por_cuota = {}
+        ultimo_pago = None
+
     for cuota in cuotas:
         pagos = Pago.query.filter_by(cuota_id=cuota.id).order_by(Pago.fecha).all()
         pagos_por_cuota[cuota.id] = pagos
+
+        if pagos:
+            ultimo_pago_cuota = pagos[-1]
+            if ultimo_pago is None or ultimo_pago_cuota.fecha > ultimo_pago.fecha:
+                ultimo_pago = ultimo_pago_cuota
+
+    cuota_pendiente_total = round(
+        sum((cuota.saldo_pendiente or 0) for cuota in cuotas),
+        2
+    )
+    mora_total = round(
+        sum((cuota.interes_mora or 0) for cuota in cuotas),
+        2
+    )
+    deuda_total_fecha = round(cuota_pendiente_total + mora_total, 2)
+
+    if any(c.estado == 'EN MORA' for c in cuotas):
+        estado_credito = 'EN MORA'
+    elif all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
+        estado_credito = 'CANCELADO'
+    elif any(c.estado == 'ABONO' for c in cuotas):
+        estado_credito = 'CON ABONOS'
+    else:
+        estado_credito = 'AL DÍA'
 
     return render_template(
         'ver_cuotas.html',
         credito=credito,
         cuotas=cuotas,
-        pagos_por_cuota=pagos_por_cuota
+        pagos_por_cuota=pagos_por_cuota,
+        ultimo_pago=ultimo_pago,
+        estado_credito=estado_credito,
+        cuota_pendiente_total=cuota_pendiente_total,
+        mora_total=mora_total,
+        deuda_total_fecha=deuda_total_fecha
     )
 
 
@@ -439,7 +484,7 @@ def pagar_cuota(cuota_id):
     credito = Credito.query.get_or_404(cuota.credito_id)
 
     if request.method == 'POST':
-        valor_pago = float(request.form['valor'])
+        valor_pago = limpiar_valor_moneda(request.form['valor'])
         fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d')
         medio_pago = request.form['medio_pago']
 
@@ -581,7 +626,7 @@ def liquidar_credito(credito_id):
 
     if request.method == 'POST':
         fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d')
-        valor_pago = float(request.form['valor'])
+        valor_pago = limpiar_valor_moneda(request.form['valor'])
         medio_pago = request.form['medio_pago']
 
         if medio_pago == 'OTRO':
