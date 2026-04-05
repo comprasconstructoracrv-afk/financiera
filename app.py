@@ -117,6 +117,14 @@ def actualizar_mora_credito(credito, fecha_corte=None):
             cuota.total_cobro = round(cuota.interes_mora, 2)
             cuota.estado = 'ABONO'
             continue
+        
+        # 🔒 CUOTA LIQUIDADA ANTICIPADAMENTE → no recalcular ni cambiar estado
+        if cuota.estado == 'LIQUIDADA':
+            cuota.saldo_pendiente = 0
+            cuota.dias_mora = 0
+            cuota.interes_mora = 0
+            cuota.total_cobro = 0
+            continue
 
         # 🔄 RESET base si aún debe cuota
         cuota.dias_mora = 0
@@ -565,7 +573,7 @@ def liquidar_credito(credito_id):
 
     cuotas_activas = Cuota.query.filter(
         Cuota.credito_id == credito.id,
-        Cuota.estado != 'PAGADA'
+        Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
     ).order_by(Cuota.numero).all()
 
     if not cuotas_activas:
@@ -585,41 +593,33 @@ def liquidar_credito(credito_id):
         if valor_pago <= 0:
             return "El valor de la liquidación debe ser mayor que cero"
 
-        # Recalcular mora a la fecha exacta de liquidación
+        # Recalcular mora exacta a la fecha de liquidación
         actualizar_mora_credito(credito, fecha_pago.date())
         db.session.commit()
 
-        # Recargar cuotas activas después de recalcular mora
         cuotas_activas = Cuota.query.filter(
             Cuota.credito_id == credito.id,
-            Cuota.estado != 'PAGADA'
+            Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
         ).order_by(Cuota.numero).all()
 
         if not cuotas_activas:
-            return "Este crédito ya quedó liquidado"
+            return "Este crédito ya se encuentra liquidado"
 
-        # Primera cuota activa = cuota de referencia para interés corriente
         cuota_actual = cuotas_activas[0]
 
         capital_insoluto = round(credito.saldo_actual, 2)
         interes_corriente = round(cuota_actual.interes, 2)
-
-        total_mora = round(
-            sum(round(c.interes_mora or 0, 2) for c in cuotas_activas),
-            2
-        )
+        total_mora = round(sum(round(c.interes_mora or 0, 2) for c in cuotas_activas), 2)
 
         total_liquidacion = round(capital_insoluto + interes_corriente + total_mora, 2)
 
-        # Recomendación operativa: exigir valor exacto
         if round(valor_pago, 2) != total_liquidacion:
             return (
                 f"El valor ingresado no coincide con la liquidación exacta. "
                 f"Debes pagar {total_liquidacion:.2f}"
             )
 
-        # Registrar el pago sobre la primera cuota activa
-        # (limitación del modelo actual: Pago solo apunta a una cuota)
+        # Registrar pago sobre la cuota activa de referencia
         pago = Pago(
             cuota_id=cuota_actual.id,
             fecha=fecha_pago,
@@ -628,37 +628,38 @@ def liquidar_credito(credito_id):
         )
         db.session.add(pago)
 
-        # Cerrar todas las cuotas activas
+        # Marcar cuotas
         for i, cuota in enumerate(cuotas_activas):
-
             cuota.saldo_pendiente = 0
             cuota.dias_mora = 0
             cuota.interes_mora = 0
             cuota.total_cobro = 0
 
             if i == 0:
-                # Primera cuota activa = la que estás pagando
                 cuota.estado = 'PAGADA'
             else:
-                # Cuotas futuras = liquidación anticipada
                 cuota.estado = 'LIQUIDADA'
 
         # Cerrar crédito
         credito.saldo_actual = 0
         credito.cuota_mensual = 0
-        credito.fecha_liquidacion = fecha_pago
-        credito.valor_liquidado = valor_pago
+
+        # Solo si ya agregaste estas columnas en models.py
+        if hasattr(credito, 'fecha_liquidacion'):
+            credito.fecha_liquidacion = fecha_pago
+        if hasattr(credito, 'valor_liquidado'):
+            credito.valor_liquidado = valor_pago
 
         db.session.commit()
         return redirect(f'/ver_cuotas/{credito.id}')
 
-    # GET: calcular vista previa de liquidación a hoy
+    # GET
     actualizar_mora_credito(credito, datetime.utcnow().date())
     db.session.commit()
 
     cuotas_activas = Cuota.query.filter(
         Cuota.credito_id == credito.id,
-        Cuota.estado != 'PAGADA'
+        Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
     ).order_by(Cuota.numero).all()
 
     if not cuotas_activas:
@@ -668,10 +669,7 @@ def liquidar_credito(credito_id):
 
     capital_insoluto = round(credito.saldo_actual, 2)
     interes_corriente = round(cuota_actual.interes, 2)
-    total_mora = round(
-        sum(round(c.interes_mora or 0, 2) for c in cuotas_activas),
-        2
-    )
+    total_mora = round(sum(round(c.interes_mora or 0, 2) for c in cuotas_activas), 2)
     total_liquidacion = round(capital_insoluto + interes_corriente + total_mora, 2)
 
     return render_template(
