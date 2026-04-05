@@ -154,7 +154,8 @@ def actualizar_mora_credito(credito, fecha_corte=None):
             ).first()
 
             if tasa_periodo:
-                mora_tramo = cuota.saldo_pendiente * tasa_periodo.tasa_diaria * dias_tramo
+                base_mora = round(cuota.valor_cuota, 2)
+                mora_tramo = base_mora * tasa_periodo.tasa_diaria * dias_tramo
                 mora_total += mora_tramo
 
             cursor = fin_mes + timedelta(days=1)
@@ -420,6 +421,7 @@ def ver_cuotas(credito_id):
         pagos_por_cuota=pagos_por_cuota
     )
 
+
 @app.route('/pagar_cuota/<int:cuota_id>', methods=['GET', 'POST'])
 def pagar_cuota(cuota_id):
     if 'user' not in session:
@@ -444,85 +446,58 @@ def pagar_cuota(cuota_id):
 
         # Recalcular mora exactamente a la fecha del pago
         actualizar_mora_credito(credito, fecha_pago.date())
-
-        # 🔒 CONGELAR mora a la fecha de pago
-        cuota.dias_mora_historico = cuota.dias_mora
-        cuota.interes_mora_historico = cuota.interes_mora
         db.session.commit()
 
         # Recargar cuota actualizada
         cuota = Cuota.query.get_or_404(cuota_id)
 
-        saldo_pendiente_original = round(cuota.saldo_pendiente, 2)
-
         pago = Pago(
             cuota_id=cuota.id,
             fecha=fecha_pago,
             valor=valor_pago,
-            medio_pago=medio_pago,
-            valor_aplicado_mora=0,
-            valor_aplicado_interes=0,
-            valor_aplicado_capital=0,
-            valor_aplicado_prepago_capital=0
+            medio_pago=medio_pago
         )
         db.session.add(pago)
 
         restante = round(valor_pago, 2)
         hubo_abono_extra_capital = False
 
-        # Caso 1: cuota ya cubierta y solo queda mora
-        if cuota.saldo_pendiente <= 0 and cuota.interes_mora > 0:
+        valor_cuota_hoy = round(cuota.valor_cuota, 2)
+        mora_hoy = round(cuota.interes_mora, 2)
+
+        # 1. Cubrir primero la cuota base
+        if cuota.saldo_pendiente > 0:
+            aplicado_cuota = min(restante, round(cuota.saldo_pendiente, 2))
+            cuota.saldo_pendiente = round(cuota.saldo_pendiente - aplicado_cuota, 2)
+            restante = round(restante - aplicado_cuota, 2)
+
+            # Si ya cubrió la cuota completa, bajar capital contractual exacto
+            if cuota.saldo_pendiente <= 0:
+                cuota.saldo_pendiente = 0
+                credito.saldo_actual = round(credito.saldo_actual - cuota.capital, 2)
+
+        # 2. Luego cubrir mora
+        if restante > 0 and cuota.interes_mora > 0:
             aplicado_mora = min(restante, round(cuota.interes_mora, 2))
             cuota.interes_mora = round(cuota.interes_mora - aplicado_mora, 2)
-            pago.valor_aplicado_mora = round(aplicado_mora, 2)
             restante = round(restante - aplicado_mora, 2)
 
-        else:
-            # Descomposición financiera de la cuota
-            interes_pendiente_cuota = round(cuota.interes, 2) if cuota.saldo_pendiente >= cuota.interes else 0
-            capital_pendiente_cuota = round(cuota.saldo_pendiente - interes_pendiente_cuota, 2)
+        # 3. Solo es prepago real si pagó más de cuota + mora real de esa fecha
+        total_exigible = round(valor_cuota_hoy + mora_hoy, 2)
+        if valor_pago > total_exigible and restante > 0:
+            credito.saldo_actual = round(credito.saldo_actual - restante, 2)
 
-            if capital_pendiente_cuota < 0:
-                capital_pendiente_cuota = 0
+            if credito.saldo_actual < 0:
+                credito.saldo_actual = 0
 
-            # 1. Primero cubrir mora
-            if restante > 0 and cuota.interes_mora > 0:
-                aplicado_mora = min(restante, round(cuota.interes_mora, 2))
-                cuota.interes_mora = round(cuota.interes_mora - aplicado_mora, 2)
-                pago.valor_aplicado_mora = round(aplicado_mora, 2)
-                restante = round(restante - aplicado_mora, 2)
+            hubo_abono_extra_capital = True
+            restante = 0
 
-            # 2. Luego cubrir interés corriente de la cuota
-            if restante > 0 and interes_pendiente_cuota > 0:
-                aplicado_interes = min(restante, interes_pendiente_cuota)
-                pago.valor_aplicado_interes = round(aplicado_interes, 2)
-                cuota.saldo_pendiente = round(cuota.saldo_pendiente - aplicado_interes, 2)
-                interes_pendiente_cuota = round(interes_pendiente_cuota - aplicado_interes, 2)
-                restante = round(restante - aplicado_interes, 2)
-
-            # 3. Luego cubrir capital contractual de la cuota
-            if restante > 0 and capital_pendiente_cuota > 0:
-                aplicado_capital = min(restante, capital_pendiente_cuota)
-                pago.valor_aplicado_capital = round(aplicado_capital, 2)
-                cuota.saldo_pendiente = round(cuota.saldo_pendiente - aplicado_capital, 2)
-                credito.saldo_actual = round(credito.saldo_actual - aplicado_capital, 2)
-                capital_pendiente_cuota = round(capital_pendiente_cuota - aplicado_capital, 2)
-                restante = round(restante - aplicado_capital, 2)
-
-            # 4. Solo si la cuota quedó cubierta y sobra dinero, va como prepago extraordinario
-            if restante > 0 and cuota.saldo_pendiente <= 0:
-                pago.valor_aplicado_prepago_capital = round(restante, 2)
-                credito.saldo_actual = round(credito.saldo_actual - restante, 2)
-                restante = 0
-                hubo_abono_extra_capital = pago.valor_aplicado_prepago_capital > 0
-
-        if credito.saldo_actual < 0:
-            credito.saldo_actual = 0
-
+        # Normalización numérica
         cuota.saldo_pendiente = round(max(cuota.saldo_pendiente, 0), 2)
         cuota.interes_mora = round(max(cuota.interes_mora, 0), 2)
 
-        # Recalcular cuotas SOLO si sí hubo abono extra a capital
+        # Recalcular cuotas SOLO si sí hubo abono extra a capital real
         if hubo_abono_extra_capital:
             recalcular_cuotas_pendientes(
                 credito=credito,
@@ -534,6 +509,7 @@ def pagar_cuota(cuota_id):
         if cuota.saldo_pendiente <= 0 and cuota.interes_mora <= 0:
             cuota.saldo_pendiente = 0
             cuota.dias_mora = 0
+            cuota.interes_mora = 0
             cuota.total_cobro = 0
             cuota.estado = 'PAGADA'
 
