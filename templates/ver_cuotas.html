@@ -81,6 +81,11 @@
     <p><strong>Cliente:</strong> {{ credito.cliente }}</p>
     <p><strong>Monto:</strong> {{ credito.monto | cop }}</p>
     <p><strong>Interés:</strong> {{ credito.interes }}%</p>
+    <p>
+       <a class="volver" href="/liquidar_credito/{{ credito.id }}" style="background:#dc3545;">
+          Liquidar crédito
+       </a>
+    </p>
 
     <table>
         <thead>
