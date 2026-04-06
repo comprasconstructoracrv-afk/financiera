@@ -77,9 +77,13 @@ class ConfiguracionTasa(db.Model):
     fecha_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class TasaPeriodo(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint('anio', 'mes', name='uq_tasa_periodo_anio_mes'),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
     anio = db.Column(db.Integer, nullable=False)
     mes = db.Column(db.Integer, nullable=False)
-    tasa_anual = db.Column(db.Float, nullable=False, default=0)
-    tasa_mensual = db.Column(db.Float, nullable=False, default=0)
-    tasa_diaria = db.Column(db.Float, nullable=False, default=0)
+    tasa_anual = db.Column(db.Float, nullable=False)
+    tasa_mensual = db.Column(db.Float, nullable=False)
+    tasa_diaria = db.Column(db.Float, nullable=False)
