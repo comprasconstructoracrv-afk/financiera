@@ -160,6 +160,70 @@ def actualizar_mora_credito(credito, fecha_corte=None):
             cuota.total_cobro = round(saldo_base)
             cuota.estado = 'PENDIENTE'
 
+def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
+    cuotas_futuras = Cuota.query.filter(
+        Cuota.credito_id == credito.id,
+        Cuota.numero > cuota_actual_numero,
+        Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
+    ).order_by(Cuota.numero).all()
+
+    if not cuotas_futuras:
+        return
+
+    saldo = round(credito.saldo_actual, 2)
+    cantidad_cuotas = len(cuotas_futuras)
+
+    if saldo <= 0 or cantidad_cuotas <= 0:
+        for cuota in cuotas_futuras:
+            cuota.saldo_inicial = 0
+            cuota.capital = 0
+            cuota.interes = 0
+            cuota.valor_cuota = 0
+            cuota.saldo_restante = 0
+            cuota.saldo_pendiente = 0
+            cuota.total_cobro = 0
+            cuota.estado = 'LIQUIDADA'
+        return
+
+    cuota_fija = calcular_cuota(saldo, credito.interes, cantidad_cuotas)
+    tasa_credito = credito.interes / 100
+
+    for i, cuota in enumerate(cuotas_futuras):
+        saldo_inicial = round(saldo, 2)
+        interes_mes = round(saldo_inicial * tasa_credito, 2)
+        capital = round(cuota_fija - interes_mes, 2)
+        saldo = round(saldo_inicial - capital, 2)
+
+        if saldo < 0:
+            capital = round(capital + saldo, 2)
+            saldo = 0
+
+        nueva_fecha = sumar_meses(fecha_base, i + 1)
+
+        cuota.fecha_pago = nueva_fecha
+        cuota.saldo_inicial = saldo_inicial
+        cuota.valor_cuota = cuota_fija
+        cuota.capital = capital
+        cuota.interes = interes_mes
+        cuota.saldo_restante = saldo
+        cuota.saldo_pendiente = cuota_fija
+        cuota.dias_mora = 0
+        cuota.interes_mora = 0
+        cuota.total_cobro = cuota_fija
+        cuota.estado = 'PENDIENTE'
+
+        tasa_periodo = TasaPeriodo.query.filter_by(
+            anio=nueva_fecha.year,
+            mes=nueva_fecha.month
+        ).first()
+
+        config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
+
+        cuota.tasa_mora_mensual_cuota = (
+            tasa_periodo.tasa_mensual if tasa_periodo else config_tasa.tasa_mensual
+        )
+        cuota.porcentaje_mora_aplicado = cuota.tasa_mora_mensual_cuota
+
 
 def calcular_componentes_liquidacion(credito, fecha_corte):
     cuotas_activas = Cuota.query.filter(
