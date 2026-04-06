@@ -108,89 +108,47 @@ def ultimo_dia_mes(fecha):
     ultimo = calendar.monthrange(fecha.year, fecha.month)[1]
     return date(fecha.year, fecha.month, ultimo)
 
+def obtener_tasa_periodo(anio, mes):
+    tasa_periodo = TasaPeriodo.query.filter_by(anio=anio, mes=mes).first()
 
-def actualizar_mora_credito(credito, fecha_corte=None):
-    if fecha_corte is None:
-        fecha_corte = datetime.utcnow().date()
+    if tasa_periodo:
+        return tasa_periodo
 
-    cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero).all()
+    return ConfiguracionTasa.query.first()
 
-    for cuota in cuotas:
 
-        # 🔒 CUOTA PAGADA → NO recalcular mora
-        if cuota.estado == 'PAGADA':
-            cuota.dias_mora = cuota.dias_mora_historico
-            cuota.interes_mora = cuota.interes_mora_historico
-            cuota.total_cobro = 0
-            continue
+def actualizar_mora_credito(credito):
+    hoy = date.today()
 
-        # 🔒 CASO 2: cuota pagada pero mora pendiente → NO recalcular
-        if cuota.saldo_pendiente <= 0 and cuota.interes_mora > 0:
-            cuota.saldo_pendiente = 0
-            cuota.total_cobro = round(cuota.interes_mora, 2)
-            cuota.estado = 'ABONO'
-            continue
-        
-        # 🔒 CUOTA LIQUIDADA ANTICIPADAMENTE → no recalcular ni cambiar estado
-        if cuota.estado == 'LIQUIDADA':
-            cuota.saldo_pendiente = 0
+    for cuota in credito.cuotas:
+        if cuota.estado in ['PAGADA', 'LIQUIDADA']:
             cuota.dias_mora = 0
             cuota.interes_mora = 0
-            cuota.total_cobro = 0
+            cuota.total_cobro = round(cuota.saldo_pendiente or 0)
             continue
 
-        # 🔄 RESET base si aún debe cuota
-        cuota.dias_mora = 0
-        cuota.interes_mora = 0
-        cuota.total_cobro = cuota.saldo_pendiente
+        saldo_base = cuota.saldo_pendiente if cuota.saldo_pendiente and cuota.saldo_pendiente > 0 else cuota.valor_cuota
 
-        fecha_vencimiento = cuota.fecha_pago.date()
-        fecha_inicio_mora = fecha_vencimiento + timedelta(days=1)
+        tasa = obtener_tasa_periodo(cuota.fecha_pago.year, cuota.fecha_pago.month)
+        tasa_mensual = tasa.tasa_mensual if tasa else 0
+        tasa_diaria = tasa.tasa_diaria if tasa else 0
 
-        # ⏳ Aún no entra en mora
-        if fecha_corte < fecha_inicio_mora:
-            cuota.dias_mora = 0
-            cuota.interes_mora = 0
-            cuota.total_cobro = cuota.saldo_pendiente
+        cuota.tasa_mora_mensual_cuota = tasa_mensual
+        cuota.porcentaje_mora_aplicado = tasa_mensual
 
-            if cuota.estado != 'ABONO':
-                cuota.estado = 'PENDIENTE'
-            continue
+        if hoy > cuota.fecha_pago and saldo_base > 0:
+            dias_mora = (hoy - cuota.fecha_pago).days
+            interes_mora = saldo_base * tasa_diaria * dias_mora
 
-        # 📅 Calcular días de mora
-        dias_mora = (fecha_corte - fecha_inicio_mora).days
-        cuota.dias_mora = dias_mora
-
-        # 💰 Calcular mora por tramos mensuales
-        mora_total = 0.0
-        cursor = fecha_inicio_mora
-
-        while cursor <= fecha_corte:
-            fin_mes = min(ultimo_dia_mes(cursor), fecha_corte)
-            dias_tramo = (fin_mes - cursor).days + 1
-
-            tasa_periodo = TasaPeriodo.query.filter_by(
-                anio=cursor.year,
-                mes=cursor.month
-            ).first()
-
-            if tasa_periodo:
-                base_mora = round(cuota.valor_cuota, 2)
-                mora_tramo = base_mora * tasa_periodo.tasa_diaria * dias_tramo
-                mora_total += mora_tramo
-
-            cursor = fin_mes + timedelta(days=1)
-
-        cuota.interes_mora = round(mora_total, 2)
-        cuota.total_cobro = round(cuota.saldo_pendiente + cuota.interes_mora, 2)
-
-        # ✅ GUARDAR % DE MORA USADO (CLAVE PARA TU CASO)
-        if cuota.interes_mora > 0:
-            cuota.porcentaje_mora_aplicado = cuota.tasa_mora_mensual_cuota
-
-        # 🔁 Estado
-        if cuota.estado != 'ABONO':
+            cuota.dias_mora = dias_mora
+            cuota.interes_mora = round(interes_mora)
+            cuota.total_cobro = round(saldo_base + cuota.interes_mora)
             cuota.estado = 'EN MORA'
+        else:
+            cuota.dias_mora = 0
+            cuota.interes_mora = 0
+            cuota.total_cobro = round(saldo_base)
+            cuota.estado = 'PENDIENTE'
 
 
 def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
@@ -427,7 +385,7 @@ def ver_cuotas(credito_id):
     credito = Credito.query.get_or_404(credito_id)
 
     # Mora calculada a hoy
-    actualizar_mora_credito(credito, datetime.utcnow().date())
+    actualizar_mora_credito(credito)
     db.session.commit()
 
     cuotas = Cuota.query.filter_by(credito_id=credito_id).order_by(Cuota.numero).all()
