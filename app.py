@@ -549,32 +549,17 @@ def pagar_cuota(cuota_id):
 
 @app.route('/configuracion_tasa', methods=['GET', 'POST'])
 def configuracion_tasa():
-    configuracion = ConfiguracionTasa.query.first()
+    if 'user' not in session:
+        return redirect('/login')
 
     if request.method == 'POST':
+        anio = int(request.form['anio'])
+        mes = int(request.form['mes'])
         tasa_anual = float(str(request.form['tasa_anual']).replace(',', '.'))
+
         tasa_mensual = convertir_tasa_anual_a_mensual(tasa_anual)
         tasa_diaria = convertir_tasa_mensual_a_diaria(tasa_mensual)
 
-        hoy = date.today()
-        anio = hoy.year
-        mes = hoy.month
-
-        # 1. Actualizar configuración global de respaldo
-        if not configuracion:
-            configuracion = ConfiguracionTasa(
-                nombre='TASA_MORA',
-                tasa_anual=tasa_anual,
-                tasa_mensual=tasa_mensual,
-                tasa_diaria=tasa_diaria
-            )
-            db.session.add(configuracion)
-        else:
-            configuracion.tasa_anual = tasa_anual
-            configuracion.tasa_mensual = tasa_mensual
-            configuracion.tasa_diaria = tasa_diaria
-
-        # 2. Crear o actualizar tasa del mes actual
         tasa_periodo = TasaPeriodo.query.filter_by(anio=anio, mes=mes).first()
 
         if not tasa_periodo:
@@ -591,18 +576,30 @@ def configuracion_tasa():
             tasa_periodo.tasa_mensual = tasa_mensual
             tasa_periodo.tasa_diaria = tasa_diaria
 
+        # respaldo global opcional
+        configuracion = ConfiguracionTasa.query.first()
+        if not configuracion:
+            configuracion = ConfiguracionTasa(
+                nombre='TASA_MORA',
+                tasa_anual=tasa_anual,
+                tasa_mensual=tasa_mensual,
+                tasa_diaria=tasa_diaria
+            )
+            db.session.add(configuracion)
+        else:
+            configuracion.tasa_anual = tasa_anual
+            configuracion.tasa_mensual = tasa_mensual
+            configuracion.tasa_diaria = tasa_diaria
+
         db.session.commit()
-        flash(f'Tasa de mora actualizada para {mes}/{anio}', 'success')
+        flash(f'Tasa guardada correctamente para {mes}/{anio}', 'success')
         return redirect(url_for('configuracion_tasa'))
 
-    tasa_mensual = configuracion.tasa_mensual if configuracion else 0
-    tasa_diaria = configuracion.tasa_diaria if configuracion else 0
+    tasas = TasaPeriodo.query.order_by(TasaPeriodo.anio.desc(), TasaPeriodo.mes.desc()).all()
 
     return render_template(
         'configuracion_tasa.html',
-        configuracion=configuracion,
-        tasa_mensual=tasa_mensual,
-        tasa_diaria=tasa_diaria
+        tasas=tasas
     )
 
 
