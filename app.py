@@ -31,6 +31,7 @@ def limpiar_valor_moneda(valor):
 
     return float(texto)
 
+
 # 🔢 FUNCIÓN DE CÁLCULO
 def calcular_cuota(monto, interes, cuotas):
     i = interes / 100
