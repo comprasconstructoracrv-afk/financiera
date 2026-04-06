@@ -595,7 +595,7 @@ def configuracion_tasa():
         flash(f'Tasa guardada correctamente para {mes}/{anio}', 'success')
         return redirect(url_for('configuracion_tasa'))
 
-    tasas = TasaPeriodo.query.order_by(TasaPeriodo.anio.desc(), TasaPeriodo.mes.desc()).all()
+    tasas = TasaPeriodo.query.order_by(TasaPeriodo.anio.asc(), TasaPeriodo.mes.asc()).all()
 
     return render_template(
         'configuracion_tasa.html',
