@@ -179,11 +179,11 @@ def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
 
         fecha_pago = sumar_meses(fecha_base, n)
 
-        tasa_periodo = obtener_o_crear_tasa_periodo(
+        tasa_periodo = TasaPeriodo.query.filter_by(
             anio=fecha_pago.year,
             mes=fecha_pago.month,
-            tasa_anual_base=config_tasa.tasa_anual
-        )
+          
+        ).first()
 
         nueva_cuota = Cuota(
             credito_id=credito_id,
@@ -195,7 +195,7 @@ def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
             interes=interes_mes,
             saldo_restante=saldo,
             saldo_pendiente=cuota_fija,
-            tasa_mora_mensual_cuota=tasa_periodo.tasa_mensual,
+            tasa_mora_mensual_cuota=tasa_periodo.tasa_mensual if tasa_periodo else config_tasa.tasa_mensual,
             dias_mora=0,
             interes_mora=0,
             total_cobro=cuota_fija,
