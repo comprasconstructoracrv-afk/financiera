@@ -155,15 +155,20 @@
 
     <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
         <div style="font-size:12px; color:#6c757d;">DEUDA A LA FECHA</div>
-        <div style="font-size:18px; font-weight:bold;">{{ deuda_total_fecha | cop }}</div>
-        <button
-            type="button"
-            onclick="toggleDeudaFecha()"
-            style="margin-top:10px; padding:8px 12px; border:none; border-radius:8px; background:#0d6efd; color:white; cursor:pointer;"
-        >
-            Ver detalle
-        </button>
-    </div>
+
+        {% if esta_al_dia %}
+            <div style="font-size:18px; font-weight:bold; color:green;">AL DÍA</div>
+        {% else %}
+            <div style="font-size:18px; font-weight:bold;">{{ deuda_total_fecha | cop }}</div>
+            <button
+                type="button"
+                onclick="toggleDeudaFecha()"
+                style="margin-top:10px; padding:8px 12px; border:none; border-radius:8px; background:#0d6efd; color:white; cursor:pointer;"
+            >
+                  Ver detalle
+            </button>
+       {% endif %}
+   </div>
 
     <div style="
         padding:16px;
@@ -185,6 +190,60 @@
 
 </div>
 
+
+<div id="panel-deuda-fecha" style="display:none; margin:20px 0; background:#f8f9fa; border:1px solid #dee2e6; border-radius:10px; padding:20px;">
+    <h3 style="margin-top:0;">Detalle deuda a la fecha</h3>
+
+    {% if esta_al_dia %}
+        <p style="color:green; font-weight:bold; margin:0;">El crédito se encuentra al día.</p>
+    {% else %}
+        <div style="display:flex; gap:15px; flex-wrap:wrap;">
+            <div style="background:white; padding:14px; border-radius:8px; min-width:220px; border:1px solid #e9ecef;">
+                <div style="font-size:12px; color:#6c757d;">CUOTAS EXIGIBLES A HOY</div>
+                <div style="font-size:20px; font-weight:bold;">{{ cuota_pendiente_total | cop }}</div>
+            </div>
+
+            <div style="background:white; padding:14px; border-radius:8px; min-width:220px; border:1px solid #e9ecef;">
+                <div style="font-size:12px; color:#6c757d;">MORA ACUMULADA A HOY</div>
+                <div style="font-size:20px; font-weight:bold; color:#c82333;">{{ mora_total | cop }}</div>
+            </div>
+
+            <div style="background:white; padding:14px; border-radius:8px; min-width:220px; border:1px solid #e9ecef;">
+                <div style="font-size:12px; color:#6c757d;">TOTAL EXIGIBLE A HOY</div>
+                <div style="font-size:20px; font-weight:bold;">{{ deuda_total_fecha | cop }}</div>
+            </div>
+        </div>
+
+        <div style="margin-top:20px;">
+            <h4>Cuotas que debe a la fecha</h4>
+
+            <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Fecha cuota</th>
+                        <th>Saldo pendiente</th>
+                        <th>Mora</th>
+                        <th>Total exigible</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cuota in cuotas_exigibles_hoy %}
+                    <tr>
+                        <td>{{ cuota.numero }}</td>
+                        <td>{{ cuota.fecha_pago.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ cuota.saldo_pendiente | cop }}</td>
+                        <td>{{ cuota.interes_mora | cop }}</td>
+                        <td>{{ cuota.total_cobro | cop }}</td>
+                        <td>{{ cuota.estado }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
 
     <p>
        <a class="volver" href="/liquidar_credito/{{ credito.id }}" style="background:#dc3545;">
