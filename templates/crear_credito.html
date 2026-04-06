@@ -63,6 +63,69 @@
             margin-left: 10px;
         }
     </style>
+
+    <script>
+        function soloDigitos(valor) {
+            return valor.replace(/\D/g, '');
+        }
+
+        function formatearCOP(valor) {
+            if (!valor) return '';
+            return '$ ' + Number(valor).toLocaleString('es-CO');
+        }
+
+        function alEscribirMoneda(input) {
+            const digitos = soloDigitos(input.value);
+
+            if (digitos === '') {
+                input.value = '';
+                return;
+            }
+
+            input.value = formatearCOP(digitos);
+        }
+
+        function limpiarMonedaAntesDeEnviar(form) {
+            const camposMoneda = form.querySelectorAll('.input-moneda');
+
+            camposMoneda.forEach(input => {
+                input.value = soloDigitos(input.value);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const camposMoneda = document.querySelectorAll('.input-moneda');
+
+            camposMoneda.forEach(input => {
+                if (input.value && input.value.trim() !== '') {
+                    const limpio = soloDigitos(input.value);
+                    if (limpio !== '') {
+                        input.value = formatearCOP(limpio);
+                    }
+                }
+
+                input.addEventListener('input', function () {
+                    alEscribirMoneda(this);
+                });
+
+                input.addEventListener('blur', function () {
+                    const limpio = soloDigitos(this.value);
+                    this.value = limpio ? formatearCOP(limpio) : '';
+                });
+
+                input.addEventListener('focus', function () {
+                    const limpio = soloDigitos(this.value);
+                    this.value = limpio;
+                });
+            });
+
+            document.querySelectorAll('form').forEach(form => {
+                form.addEventListener('submit', function () {
+                    limpiarMonedaAntesDeEnviar(this);
+                });
+            });
+        });
+    </script>
 </head>
 <body>
     <div class="contenedor">
@@ -71,7 +134,7 @@
         <form method="POST">
             <label>Cliente:</label>
             <input type="text" name="cliente" required>
-            
+
             <label>Número de pagaré:</label>
             <input type="text" name="numero_pagare" required>
 
