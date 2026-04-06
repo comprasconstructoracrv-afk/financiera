@@ -591,24 +591,62 @@ def pagar_cuota(cuota_id):
 
 @app.route('/configuracion_tasa', methods=['GET', 'POST'])
 def configuracion_tasa():
-    if 'user' not in session:
-        return redirect('/login')
-
-    config = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
+    configuracion = ConfiguracionTasa.query.first()
 
     if request.method == 'POST':
-        tasa_anual = float(request.form['tasa_anual'])
+        tasa_anual = float(str(request.form['tasa_anual']).replace(',', '.'))
         tasa_mensual = convertir_tasa_anual_a_mensual(tasa_anual)
         tasa_diaria = convertir_tasa_mensual_a_diaria(tasa_mensual)
 
-        config.tasa_anual = tasa_anual
-        config.tasa_mensual = tasa_mensual
-        config.tasa_diaria = tasa_diaria
+        hoy = date.today()
+        anio = hoy.year
+        mes = hoy.month
+
+        # 1. Actualizar configuración global de respaldo
+        if not configuracion:
+            configuracion = ConfiguracionTasa(
+                nombre='TASA_MORA',
+                tasa_anual=tasa_anual,
+                tasa_mensual=tasa_mensual,
+                tasa_diaria=tasa_diaria
+            )
+            db.session.add(configuracion)
+        else:
+            configuracion.tasa_anual = tasa_anual
+            configuracion.tasa_mensual = tasa_mensual
+            configuracion.tasa_diaria = tasa_diaria
+
+        # 2. Crear o actualizar tasa del mes actual
+        tasa_periodo = TasaPeriodo.query.filter_by(anio=anio, mes=mes).first()
+
+        if not tasa_periodo:
+            tasa_periodo = TasaPeriodo(
+                anio=anio,
+                mes=mes,
+                tasa_anual=tasa_anual,
+                tasa_mensual=tasa_mensual,
+                tasa_diaria=tasa_diaria
+            )
+            db.session.add(tasa_periodo)
+        else:
+            tasa_periodo.tasa_anual = tasa_anual
+            tasa_periodo.tasa_mensual = tasa_mensual
+            tasa_periodo.tasa_diaria = tasa_diaria
 
         db.session.commit()
-        return redirect('/configuracion_tasa')
+        flash(f'Tasa de mora actualizada para {mes}/{anio}', 'success')
+        return redirect(url_for('configuracion_tasa'))
 
-    return render_template('configuracion_tasa.html', config=config)
+    tasa_mensual = configuracion.tasa_mensual if configuracion else 0
+    tasa_diaria = configuracion.tasa_diaria if configuracion else 0
+
+    return render_template(
+        'configuracion_tasa.html',
+        configuracion=configuracion,
+        tasa_mensual=tasa_mensual,
+        tasa_diaria=tasa_diaria
+    )
+
 
 @app.route('/liquidar_credito/<int:credito_id>', methods=['GET', 'POST'])
 def liquidar_credito(credito_id):
