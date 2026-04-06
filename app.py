@@ -397,12 +397,21 @@ def ver_cuotas(credito_id):
             if ultimo_pago is None or ultimo_pago_cuota.fecha > ultimo_pago.fecha:
                 ultimo_pago = ultimo_pago_cuota
 
+    hoy = date.today()
+
+    cuotas_exigibles_hoy = []
+    for cuota in cuotas:
+        fecha_cuota = cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago
+
+        if cuota.estado in ['PENDIENTE', 'EN MORA', 'ABONO'] and fecha_cuota <= hoy:
+            cuotas_exigibles_hoy.append(cuota)
+
     cuota_pendiente_total = round(
-        sum((cuota.saldo_pendiente or 0) for cuota in cuotas),
+        sum((cuota.saldo_pendiente or 0) for cuota in cuotas_exigibles_hoy),
         2
     )
     mora_total = round(
-        sum((cuota.interes_mora or 0) for cuota in cuotas),
+        sum((cuota.interes_mora or 0) for cuota in cuotas_exigibles_hoy),
         2
     )
     deuda_total_fecha = round(cuota_pendiente_total + mora_total, 2)
@@ -416,6 +425,8 @@ def ver_cuotas(credito_id):
     else:
         estado_credito = 'AL DÍA'
 
+    esta_al_dia = deuda_total_fecha <= 0
+
     return render_template(
         'ver_cuotas.html',
         credito=credito,
@@ -425,7 +436,9 @@ def ver_cuotas(credito_id):
         estado_credito=estado_credito,
         cuota_pendiente_total=cuota_pendiente_total,
         mora_total=mora_total,
-        deuda_total_fecha=deuda_total_fecha
+        deuda_total_fecha=deuda_total_fecha,
+        esta_al_dia=esta_al_dia,
+        cuotas_exigibles_hoy=cuotas_exigibles_hoy
     )
 
 
