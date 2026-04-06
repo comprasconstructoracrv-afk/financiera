@@ -161,6 +161,51 @@ def actualizar_mora_credito(credito, fecha_corte=None):
             cuota.estado = 'PENDIENTE'
 
 
+def calcular_componentes_liquidacion(credito, fecha_corte):
+    cuotas_activas = Cuota.query.filter(
+        Cuota.credito_id == credito.id,
+        Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
+    ).order_by(Cuota.numero).all()
+
+    if not cuotas_activas:
+        return {
+            'cuota_actual': None,
+            'capital_insoluto': 0,
+            'interes_corriente': 0,
+            'total_mora': 0,
+            'total_liquidacion': 0
+        }
+
+    cuotas_vencidas_o_del_mes = []
+
+    for cuota in cuotas_activas:
+        fecha_vencimiento = cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago
+
+        if fecha_vencimiento <= fecha_corte:
+            cuotas_vencidas_o_del_mes.append(cuota)
+
+    # Si no hay vencidas todavía, tomar la primera cuota activa como referencia
+    if not cuotas_vencidas_o_del_mes:
+        cuota_actual = cuotas_activas[0]
+        interes_corriente = round(cuota_actual.interes, 2)
+        total_mora = round(sum(round(c.interes_mora or 0, 2) for c in cuotas_activas), 2)
+    else:
+        cuota_actual = cuotas_vencidas_o_del_mes[0]
+        interes_corriente = round(sum(round(c.interes, 2) for c in cuotas_vencidas_o_del_mes), 2)
+        total_mora = round(sum(round(c.interes_mora or 0, 2) for c in cuotas_vencidas_o_del_mes), 2)
+
+    capital_insoluto = round(credito.saldo_actual, 2)
+    total_liquidacion = round(capital_insoluto + interes_corriente + total_mora, 2)
+
+    return {
+        'cuota_actual': cuota_actual,
+        'capital_insoluto': capital_insoluto,
+        'interes_corriente': interes_corriente,
+        'total_mora': total_mora,
+        'total_liquidacion': total_liquidacion
+    }
+
+
 def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
     saldo = round(monto, 2)
     tasa_credito = interes / 100
@@ -594,13 +639,13 @@ def liquidar_credito(credito_id):
         if not cuotas_activas:
             return "Este crédito ya se encuentra liquidado"
 
-        cuota_actual = cuotas_activas[0]
+        componentes = calcular_componentes_liquidacion(credito, fecha_pago.date())
 
-        capital_insoluto = round(credito.saldo_actual, 2)
-        interes_corriente = round(cuota_actual.interes, 2)
-        total_mora = round(sum(round(c.interes_mora or 0, 2) for c in cuotas_activas), 2)
-
-        total_liquidacion = round(capital_insoluto + interes_corriente + total_mora, 2)
+        cuota_actual = componentes['cuota_actual']
+        capital_insoluto = componentes['capital_insoluto']
+        interes_corriente = componentes['interes_corriente']
+        total_mora = componentes['total_mora']
+        total_liquidacion = componentes['total_liquidacion']
 
         if round(valor_pago, 2) != total_liquidacion:
             return (
@@ -654,12 +699,13 @@ def liquidar_credito(credito_id):
     if not cuotas_activas:
         return "Este crédito ya se encuentra liquidado"
 
-    cuota_actual = cuotas_activas[0]
+    componentes = calcular_componentes_liquidacion(credito, datetime.utcnow().date())
 
-    capital_insoluto = round(credito.saldo_actual, 2)
-    interes_corriente = round(cuota_actual.interes, 2)
-    total_mora = round(sum(round(c.interes_mora or 0, 2) for c in cuotas_activas), 2)
-    total_liquidacion = round(capital_insoluto + interes_corriente + total_mora, 2)
+    cuota_actual = componentes['cuota_actual']
+    capital_insoluto = componentes['capital_insoluto']
+    interes_corriente = componentes['interes_corriente']
+    total_mora = componentes['total_mora']
+    total_liquidacion = componentes['total_liquidacion']
 
     return render_template(
         'liquidar_credito.html',
