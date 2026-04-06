@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session
+from flask import Flask, render_template, request, redirect, session, flash, url_for
 from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo
 from datetime import datetime, date, timedelta
 import calendar
@@ -122,8 +122,9 @@ def actualizar_mora_credito(credito):
         credito = Credito.query.get_or_404(credito)
 
     hoy = date.today()
+    cuotas_credito = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero).all()
 
-    for cuota in credito.cuotas:
+    for cuota in cuotas_credito:
         if cuota.estado in ['PAGADA', 'LIQUIDADA']:
             cuota.dias_mora = 0
             cuota.interes_mora = 0
@@ -153,66 +154,6 @@ def actualizar_mora_credito(credito):
             cuota.total_cobro = round(saldo_base)
             cuota.estado = 'PENDIENTE'
 
-
-def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
-    cuotas_pendientes = Cuota.query.filter(
-        Cuota.credito_id == credito.id,
-        Cuota.numero > cuota_actual_numero,
-        Cuota.estado != 'PAGADA'
-    ).order_by(Cuota.numero).all()
-
-    cantidad_pendientes = len(cuotas_pendientes)
-
-    if cantidad_pendientes <= 0:
-        credito.cuota_mensual = 0
-        return
-
-    for cuota in cuotas_pendientes:
-        db.session.delete(cuota)
-
-    db.session.flush()
-
-    saldo = round(credito.saldo_actual, 2)
-    tasa_credito = credito.interes / 100
-    nueva_cuota = calcular_cuota(saldo, credito.interes, cantidad_pendientes)
-    credito.cuota_mensual = nueva_cuota
-
-    config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
-
-    for i in range(cantidad_pendientes):
-        saldo_inicial = round(saldo, 2)
-        interes_mes = round(saldo_inicial * tasa_credito, 2)
-        capital = round(nueva_cuota - interes_mes, 2)
-        saldo = round(saldo_inicial - capital, 2)
-
-        if saldo < 0:
-            saldo = 0
-
-        fecha_pago = sumar_meses(fecha_base, i + 1)
-
-        tasa_periodo = obtener_o_crear_tasa_periodo(
-            anio=fecha_pago.year,
-            mes=fecha_pago.month,
-            tasa_anual_base=config_tasa.tasa_anual
-        )
-
-        nueva = Cuota(
-            credito_id=credito.id,
-            numero=cuota_actual_numero + i + 1,
-            fecha_pago=fecha_pago,
-            valor_cuota=nueva_cuota,
-            saldo_inicial=saldo_inicial,
-            capital=capital,
-            interes=interes_mes,
-            saldo_restante=saldo,
-            saldo_pendiente=nueva_cuota,
-            tasa_mora_mensual_cuota=tasa_periodo.tasa_mensual,
-            dias_mora=0,
-            interes_mora=0,
-            total_cobro=nueva_cuota,
-            estado='PENDIENTE'
-        )
-        db.session.add(nueva)
 
 def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
     saldo = round(monto, 2)
