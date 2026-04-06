@@ -119,7 +119,7 @@ def obtener_tasa_periodo(anio, mes):
 
 def actualizar_mora_credito(credito):
     if isinstance(credito, int):
-        credito = Credito.query.get(credito)
+        credito = Credito.query.get_or_404(credito)
 
     hoy = date.today()
 
