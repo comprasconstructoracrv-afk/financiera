@@ -2,79 +2,175 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Configuración de tasa</title>
+    <title>Configuración tasa de mora</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             background: #f4f6f9;
+            margin: 0;
             padding: 30px;
         }
+
         .contenedor {
-            max-width: 600px;
+            max-width: 1100px;
             margin: auto;
             background: white;
             padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.08);
+            border-radius: 14px;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.08);
         }
+
+        h1 {
+            margin-bottom: 25px;
+        }
+
+        form {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 15px;
+            align-items: end;
+            margin-bottom: 30px;
+        }
+
         label {
-            display: block;
-            margin-top: 15px;
-            margin-bottom: 8px;
             font-weight: bold;
+            display: block;
+            margin-bottom: 6px;
         }
-        input {
+
+        input, select {
             width: 100%;
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 8px;
-            box-sizing: border-box;
+            font-size: 14px;
         }
-        button, a {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 10px 16px;
-            border-radius: 8px;
-            text-decoration: none;
+
+        button, .btn-volver {
+            padding: 10px 18px;
             border: none;
+            border-radius: 8px;
             cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            display: inline-block;
         }
+
         button {
-            background: #007bff;
+            background: #1677ff;
             color: white;
         }
-        a {
+
+        .btn-volver {
             background: #6c757d;
             color: white;
-            margin-left: 10px;
+            margin-left: 8px;
         }
-        .dato {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 8px;
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
             margin-top: 10px;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+        }
+
+        th {
+            background: #f1f3f5;
+        }
+
+        .flash {
+            background: #e8f7e8;
+            color: #1f6b1f;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
         }
     </style>
 </head>
 <body>
     <div class="contenedor">
-        <h1>Configuración tasa de mora</h1>
+        <h1>Configuración tasa de mora por mes</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
 
         <form method="POST">
-            <label>Tasa anual (%):</label>
-            <input type="number" name="tasa_anual" step="0.01" value="{{ config.tasa_anual }}" required>
+            <div>
+                <label for="anio">Año</label>
+                <input type="number" name="anio" id="anio" value="2026" required>
+            </div>
 
-            <button type="submit">Guardar</button>
-            <a href="/dashboard">Volver</a>
+            <div>
+                <label for="mes">Mes</label>
+                <select name="mes" id="mes" required>
+                    <option value="1">Enero</option>
+                    <option value="2">Febrero</option>
+                    <option value="3">Marzo</option>
+                    <option value="4">Abril</option>
+                    <option value="5">Mayo</option>
+                    <option value="6">Junio</option>
+                    <option value="7">Julio</option>
+                    <option value="8">Agosto</option>
+                    <option value="9">Septiembre</option>
+                    <option value="10">Octubre</option>
+                    <option value="11">Noviembre</option>
+                    <option value="12">Diciembre</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="tasa_anual">Tasa anual (%)</label>
+                <input type="text" name="tasa_anual" id="tasa_anual" placeholder="Ej: 26.76" required>
+            </div>
+
+            <div>
+                <button type="submit">Guardar</button>
+                <a href="/dashboard" class="btn-volver">Volver</a>
+            </div>
         </form>
 
-        <div class="dato">
-            <strong>Tasa mensual calculada:</strong> {{ config.tasa_mensual }}%
-        </div>
-
-        <div class="dato">
-            <strong>Tasa diaria calculada:</strong> {{ config.tasa_diaria }}
-        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Año</th>
+                    <th>Mes</th>
+                    <th>Tasa anual (%)</th>
+                    <th>Tasa mensual (%)</th>
+                    <th>Tasa diaria</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tasa in tasas %}
+                <tr>
+                    <td>{{ tasa.anio }}</td>
+                    <td>
+                        {% if tasa.mes == 1 %}Enero{% elif tasa.mes == 2 %}Febrero{% elif tasa.mes == 3 %}Marzo
+                        {% elif tasa.mes == 4 %}Abril{% elif tasa.mes == 5 %}Mayo{% elif tasa.mes == 6 %}Junio
+                        {% elif tasa.mes == 7 %}Julio{% elif tasa.mes == 8 %}Agosto{% elif tasa.mes == 9 %}Septiembre
+                        {% elif tasa.mes == 10 %}Octubre{% elif tasa.mes == 11 %}Noviembre{% elif tasa.mes == 12 %}Diciembre
+                        {% endif %}
+                    </td>
+                    <td>{{ '%.2f'|format(tasa.tasa_anual) }}</td>
+                    <td>{{ '%.6f'|format(tasa.tasa_mensual) }}</td>
+                    <td>{{ '%.10f'|format(tasa.tasa_diaria) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5">No hay tasas registradas.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </body>
 </html>
