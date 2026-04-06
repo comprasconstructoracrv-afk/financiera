@@ -117,14 +117,20 @@ def obtener_tasa_periodo(anio, mes):
     return ConfiguracionTasa.query.first()
 
 
-def actualizar_mora_credito(credito):
+def actualizar_mora_credito(credito, fecha_corte=None):
     if isinstance(credito, int):
         credito = Credito.query.get_or_404(credito)
 
-    hoy = date.today()
-    cuotas_credito = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero).all()
+    if fecha_corte is None:
+        fecha_corte = date.today()
+
+    cuotas_credito = Cuota.query.filter_by(
+        credito_id=credito.id
+    ).order_by(Cuota.numero).all()
 
     for cuota in cuotas_credito:
+        fecha_vencimiento = cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago
+
         if cuota.estado in ['PAGADA', 'LIQUIDADA']:
             cuota.dias_mora = 0
             cuota.interes_mora = 0
@@ -133,15 +139,15 @@ def actualizar_mora_credito(credito):
 
         saldo_base = cuota.saldo_pendiente if cuota.saldo_pendiente and cuota.saldo_pendiente > 0 else cuota.valor_cuota
 
-        tasa = obtener_tasa_periodo(cuota.fecha_pago.year, cuota.fecha_pago.month)
+        tasa = obtener_tasa_periodo(fecha_vencimiento.year, fecha_vencimiento.month)
         tasa_mensual = tasa.tasa_mensual if tasa else 0
         tasa_diaria = tasa.tasa_diaria if tasa else 0
 
         cuota.tasa_mora_mensual_cuota = tasa_mensual
         cuota.porcentaje_mora_aplicado = tasa_mensual
 
-        if hoy > cuota.fecha_pago and saldo_base > 0:
-            dias_mora = (hoy - cuota.fecha_pago).days
+        if fecha_corte > fecha_vencimiento and saldo_base > 0:
+            dias_mora = (fecha_corte - fecha_vencimiento).days
             interes_mora = saldo_base * tasa_diaria * dias_mora
 
             cuota.dias_mora = dias_mora
