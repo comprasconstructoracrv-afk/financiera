@@ -81,6 +81,20 @@
             otro.style.display = medio === "OTRO" ? "block" : "none";
         }
     </script>
+    <script>
+    function formatearMoneda(input) {
+        let valor = input.value.replace(/\D/g, "");
+
+        if (valor === "") {
+            input.value = "";
+            return;
+        }
+
+        let numero = parseInt(valor, 10);
+
+        input.value = "$ " + numero.toLocaleString("es-CO");
+}
+</script>
 </head>
 <body>
     <div class="contenedor">
@@ -120,7 +134,7 @@
             <input type="date" name="fecha_pago" required>
 
             <label>Valor a pagar:</label>
-            <input type="text" name="valor" required>
+            <input type="text" name="valor" id="valor" required oninput="formatearMoneda(this)">
 
             <label>Medio de pago:</label>
             <select name="medio_pago" id="medio_pago" onchange="mostrarOtroMedio()" required>
