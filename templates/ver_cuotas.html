@@ -27,6 +27,18 @@
      }
      </script>
 
+    <script>
+    function toggleDetalleCliente() {
+        const panel = document.getElementById('panel-detalle-cliente');
+        if (!panel) return;
+
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            panel.style.display = 'block';
+        } else {
+            panel.style.display = 'none';
+        }
+    }
+    </script>
 
     <meta charset="UTF-8">
     <title>Cuotas del crédito</title>
@@ -133,6 +145,14 @@
     <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
         <div style="font-size:12px; color:#6c757d;">CLIENTE</div>
         <div style="font-size:18px; font-weight:bold;">{{ credito.cliente }}</div>
+
+        <button
+            type="button"
+            onclick="toggleDetalleCliente()"
+            style="margin-top:10px; padding:8px 12px; border:none; border-radius:8px; background:#0d6efd; color:white; cursor:pointer;"
+        >
+            Ver detalle
+        </button>
     </div>
 
     <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
@@ -258,6 +278,47 @@
             </table>
         </div>
     {% endif %}
+</div>
+
+<div id="panel-detalle-cliente" style="display:none; margin:20px 0; background:#f8f9fa; border:1px solid #dee2e6; border-radius:10px; padding:20px;">
+    <h3 style="margin-top:0;">Detalle del cliente</h3>
+
+    <div style="display:flex; gap:15px; flex-wrap:wrap;">
+        <div style="background:white; padding:14px; border-radius:8px; min-width:220px; border:1px solid #e9ecef;">
+            <div style="font-size:12px; color:#6c757d;">CÉDULA</div>
+            <div style="font-size:18px; font-weight:bold;">
+                {{ credito.cedula_cliente if credito.cedula_cliente else 'No registrada' }}
+            </div>
+        </div>
+
+        <div style="background:white; padding:14px; border-radius:8px; min-width:220px; border:1px solid #e9ecef;">
+            <div style="font-size:12px; color:#6c757d;">TELÉFONO 1</div>
+            <div style="font-size:18px; font-weight:bold;">
+                {{ credito.telefono_1 if credito.telefono_1 else 'No registrado' }}
+            </div>
+        </div>
+
+        <div style="background:white; padding:14px; border-radius:8px; min-width:220px; border:1px solid #e9ecef;">
+            <div style="font-size:12px; color:#6c757d;">TELÉFONO 2</div>
+            <div style="font-size:18px; font-weight:bold;">
+                {{ credito.telefono_2 if credito.telefono_2 else 'No registrado' }}
+            </div>
+        </div>
+
+        <div style="background:white; padding:14px; border-radius:8px; min-width:220px; border:1px solid #e9ecef;">
+            <div style="font-size:12px; color:#6c757d;">DIRECCIÓN</div>
+            <div style="font-size:18px; font-weight:bold;">
+                {{ credito.direccion_cliente if credito.direccion_cliente else 'No registrada' }}
+            </div>
+        </div>
+
+        <div style="background:white; padding:14px; border-radius:8px; min-width:220px; border:1px solid #e9ecef;">
+            <div style="font-size:12px; color:#6c757d;">CORREO</div>
+            <div style="font-size:18px; font-weight:bold;">
+                {{ credito.correo_cliente if credito.correo_cliente else 'No registrado' }}
+            </div>
+        </div>
+    </div>
 </div>
 
     <p>
