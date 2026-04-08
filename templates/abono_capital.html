@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Abono a capital</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            padding: 30px;
+        }
+        .contenedor {
+            max-width: 750px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.08);
+        }
+        .dato {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .alerta {
+            background: #fff3cd;
+            border: 1px solid #ffe69c;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        button, a {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+        }
+        button {
+            background: #198754;
+            color: white;
+        }
+        a {
+            background: #6c757d;
+            color: white;
+            margin-left: 10px;
+        }
+    </style>
+
+    <script>
+        function mostrarOtroMedio() {
+            const medio = document.getElementById("medio_pago").value;
+            const otro = document.getElementById("otro_medio_box");
+            otro.style.display = medio === "OTRO" ? "block" : "none";
+        }
+
+        function formatearMoneda(input) {
+            let valor = input.value.replace(/\D/g, "");
+
+            if (valor === "") {
+                input.value = "";
+                return;
+            }
+
+            let numero = parseInt(valor, 10);
+            input.value = "$ " + numero.toLocaleString("es-CO");
+        }
+    </script>
+</head>
+<body>
+    <div class="contenedor">
+        <h1>Abono a capital</h1>
+
+        <div class="dato"><strong>Cliente:</strong> {{ credito.cliente }}</div>
+        <div class="dato"><strong>Saldo actual del crédito:</strong> {{ credito.saldo_actual | cop }}</div>
+
+        {% if deuda_total_fecha > 0 %}
+            <div class="alerta">
+                No puedes hacer abono a capital porque el crédito tiene deuda exigible a la fecha por {{ deuda_total_fecha | cop }}.
+            </div>
+        {% else %}
+            <div class="alerta" style="background:#e8f7e8; border:1px solid #b7e4c7;">
+                El crédito está al día. Puedes registrar un abono directo a capital.
+            </div>
+        {% endif %}
+
+        <form method="POST">
+            <label>Fecha de pago:</label>
+            <input type="date" name="fecha_pago" required>
+
+            <label>Valor a abonar:</label>
+            <input type="text" name="valor" oninput="formatearMoneda(this)" required>
+
+            <label>Medio de pago:</label>
+            <select name="medio_pago" id="medio_pago" onchange="mostrarOtroMedio()" required>
+                <option value="">Seleccione</option>
+                <option value="Bancolombia">Bancolombia</option>
+                <option value="Efectivo">Efectivo</option>
+                <option value="OTRO">Otro</option>
+            </select>
+
+            <div id="otro_medio_box" style="display:none;">
+                <label>Escriba el otro medio de pago:</label>
+                <input type="text" name="medio_pago_otro">
+            </div>
+
+            <button type="submit" {% if deuda_total_fecha > 0 %}disabled{% endif %}>Registrar abono</button>
+            <a href="/ver_cuotas/{{ credito.id }}">Volver</a>
+        </form>
+    </div>
+</body>
+</html>
