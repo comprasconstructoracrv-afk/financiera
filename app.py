@@ -611,8 +611,8 @@ def pagar_cuota(cuota_id):
     credito = Credito.query.get_or_404(cuota.credito_id)
 
     if request.method == 'POST':
-        valor_pago = limpiar_valor_moneda(request.form['valor'])
         fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d')
+        valor_pago = limpiar_valor_moneda(request.form['valor'])
         medio_pago = request.form['medio_pago']
 
         if medio_pago == 'OTRO':
@@ -641,7 +641,6 @@ def pagar_cuota(cuota_id):
         valor_aplicado_mora = 0
         valor_aplicado_prepago = 0
 
-
         # 1. Cubrir primero la cuota base
         if cuota.saldo_pendiente > 0:
             aplicado_cuota = min(restante, round(cuota.saldo_pendiente, 2))
@@ -649,7 +648,6 @@ def pagar_cuota(cuota_id):
             cuota.saldo_pendiente = round(cuota.saldo_pendiente - aplicado_cuota, 2)
             restante = round(restante - aplicado_cuota, 2)
 
-            # Si ya cubrió la cuota completa, bajar capital contractual exacto
             if cuota.saldo_pendiente <= 0:
                 cuota.saldo_pendiente = 0
                 credito.saldo_actual = round(credito.saldo_actual - cuota.capital, 2)
@@ -657,7 +655,7 @@ def pagar_cuota(cuota_id):
         # 2. Luego cubrir mora
         if restante > 0 and cuota.interes_mora > 0:
             aplicado_mora = min(restante, round(cuota.interes_mora, 2))
-            valor_aplicado_cuota = round(valor_aplicado_cuota + aplicado_cuota, 2)
+            valor_aplicado_mora = round(valor_aplicado_mora + aplicado_mora, 2)
             cuota.interes_mora = round(cuota.interes_mora - aplicado_mora, 2)
             restante = round(restante - aplicado_mora, 2)
 
@@ -705,23 +703,21 @@ def pagar_cuota(cuota_id):
             else:
                 cuota.estado = 'ABONO'
 
+        pago = Pago(
+            cuota_id=cuota.id,
+            fecha=fecha_pago,
+            valor=valor_pago,
+            medio_pago=medio_pago,
+            valor_aplicado_mora=valor_aplicado_mora,
+            valor_aplicado_capital=valor_aplicado_cuota,
+            valor_aplicado_prepago_capital=valor_aplicado_prepago
+        )
+        db.session.add(pago)
+
         db.session.commit()
         return redirect(f'/ver_cuotas/{cuota.credito_id}')
 
     actualizar_mora_credito(credito, datetime.utcnow().date())
-
-    pago = Pago(
-        cuota_id=cuota.id,
-        fecha=fecha_pago,
-        valor=valor_pago,
-        medio_pago=medio_pago,
-        valor_aplicado_mora=valor_aplicado_mora,
-        valor_aplicado_capital=valor_aplicado_cuota,
-        valor_aplicado_prepago_capital=valor_aplicado_prepago
-    )
-    db.session.add(pago)
-
-
     db.session.commit()
     cuota = Cuota.query.get_or_404(cuota_id)
 
