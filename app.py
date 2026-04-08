@@ -462,12 +462,26 @@ def crear_credito():
         return redirect('/login')
 
     if request.method == 'POST':
-        cliente = request.form['cliente']
+        cliente = request.form['cliente'].strip()
+        cedula_cliente = request.form.get('cedula_cliente', '').strip()
+        telefono_1 = request.form.get('telefono_1', '').strip()
+        telefono_2 = request.form.get('telefono_2', '').strip()
+        direccion_cliente = request.form.get('direccion_cliente', '').strip()
+        correo_cliente = request.form.get('correo_cliente', '').strip()
+
         numero_pagare = request.form['numero_pagare'].strip()
         monto = limpiar_valor_moneda(request.form['monto'])
         interes = float(request.form['interes'])
         cuotas = int(request.form['cuotas'])
         fecha_credito = datetime.strptime(request.form['fecha_credito'], '%Y-%m-%d')
+
+        tiene_codeudor = request.form.get('tiene_codeudor') == 'SI'
+
+        codeudor_nombre = request.form.get('codeudor_nombre', '').strip() if tiene_codeudor else None
+        codeudor_identificacion = request.form.get('codeudor_identificacion', '').strip() if tiene_codeudor else None
+        codeudor_direccion = request.form.get('codeudor_direccion', '').strip() if tiene_codeudor else None
+        codeudor_telefono = request.form.get('codeudor_telefono', '').strip() if tiene_codeudor else None
+        codeudor_correo = request.form.get('codeudor_correo', '').strip() if tiene_codeudor else None
 
         abono_inicial_texto = request.form.get('abono_inicial', '').strip()
         abono_inicial = limpiar_valor_moneda(abono_inicial_texto) if abono_inicial_texto else 0
@@ -484,6 +498,19 @@ def crear_credito():
         nuevo = Credito(
             numero_pagare=numero_pagare,
             cliente=cliente,
+            cedula_cliente=cedula_cliente,
+            telefono_1=telefono_1,
+            telefono_2=telefono_2,
+            direccion_cliente=direccion_cliente,
+            correo_cliente=correo_cliente,
+
+            tiene_codeudor=tiene_codeudor,
+            codeudor_nombre=codeudor_nombre,
+            codeudor_identificacion=codeudor_identificacion,
+            codeudor_direccion=codeudor_direccion,
+            codeudor_telefono=codeudor_telefono,
+            codeudor_correo=codeudor_correo,
+    
             monto=monto,
             abono_inicial=abono_inicial,
             monto_financiado=monto_financiado,
