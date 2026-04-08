@@ -556,7 +556,30 @@ def ver_creditos():
         return redirect('/login')
 
     creditos = Credito.query.all()
-    return render_template('ver_creditos.html', creditos=creditos)
+    hoy = date.today()
+
+    resumen_creditos = []
+
+    for credito in creditos:
+        actualizar_mora_credito(credito, hoy)
+
+        cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+
+        if any(c.estado == 'EN MORA' for c in cuotas):
+            estado_credito = 'EN MORA'
+        elif all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
+            estado_credito = 'CANCELADO'
+        else:
+            estado_credito = 'AL DÍA'
+
+        resumen_creditos.append({
+            'credito': credito,
+            'estado_credito': estado_credito
+        })
+
+    db.session.commit()
+
+    return render_template('ver_creditos.html', resumen_creditos=resumen_creditos)
 
 
 @app.route('/ver_cuotas/<int:credito_id>')
