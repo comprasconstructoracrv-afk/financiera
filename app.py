@@ -631,23 +631,21 @@ def pagar_cuota(cuota_id):
         # Recargar cuota actualizada
         cuota = Cuota.query.get_or_404(cuota_id)
 
-        pago = Pago(
-            cuota_id=cuota.id,
-            fecha=fecha_pago,
-            valor=valor_pago,
-            medio_pago=medio_pago
-        )
-        db.session.add(pago)
-
         restante = round(valor_pago, 2)
         hubo_abono_extra_capital = False
 
         valor_cuota_hoy = round(cuota.valor_cuota, 2)
         mora_hoy = round(cuota.interes_mora, 2)
 
+        valor_aplicado_cuota = 0
+        valor_aplicado_mora = 0
+        valor_aplicado_prepago = 0
+
+
         # 1. Cubrir primero la cuota base
         if cuota.saldo_pendiente > 0:
             aplicado_cuota = min(restante, round(cuota.saldo_pendiente, 2))
+            valor_aplicado_cuota = round(valor_aplicado_cuota + aplicado_cuota, 2)
             cuota.saldo_pendiente = round(cuota.saldo_pendiente - aplicado_cuota, 2)
             restante = round(restante - aplicado_cuota, 2)
 
@@ -659,12 +657,14 @@ def pagar_cuota(cuota_id):
         # 2. Luego cubrir mora
         if restante > 0 and cuota.interes_mora > 0:
             aplicado_mora = min(restante, round(cuota.interes_mora, 2))
+            valor_aplicado_cuota = round(valor_aplicado_cuota + aplicado_cuota, 2)
             cuota.interes_mora = round(cuota.interes_mora - aplicado_mora, 2)
             restante = round(restante - aplicado_mora, 2)
 
         # 3. Solo es prepago real si pagó más de cuota + mora real de esa fecha
         total_exigible = round(valor_cuota_hoy + mora_hoy, 2)
         if valor_pago > total_exigible and restante > 0:
+        valor_aplicado_prepago = round(restante, 2)
             credito.saldo_actual = round(credito.saldo_actual - restante, 2)
 
             if credito.saldo_actual < 0:
@@ -709,6 +709,19 @@ def pagar_cuota(cuota_id):
         return redirect(f'/ver_cuotas/{cuota.credito_id}')
 
     actualizar_mora_credito(credito, datetime.utcnow().date())
+
+    pago = Pago(
+        cuota_id=cuota.id,
+        fecha=fecha_pago,
+        valor=valor_pago,
+        medio_pago=medio_pago,
+        valor_aplicado_mora=valor_aplicado_mora,
+        valor_aplicado_capital=valor_aplicado_cuota,
+        valor_aplicado_prepago_capital=valor_aplicado_prepago
+    )
+    db.session.add(pago)
+
+
     db.session.commit()
     cuota = Cuota.query.get_or_404(cuota_id)
 
