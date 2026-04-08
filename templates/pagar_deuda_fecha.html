@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Pagar deuda a la fecha</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            padding: 30px;
+        }
+        .contenedor {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.08);
+        }
+        .dato {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .total {
+            background: #fff3cd;
+            border: 1px solid #ffe69c;
+            font-weight: bold;
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        button, a {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+        }
+        button {
+            background: #0d6efd;
+            color: white;
+        }
+        a {
+            background: #6c757d;
+            color: white;
+            margin-left: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+        }
+        th {
+            background: #f1f3f5;
+        }
+    </style>
+    <script>
+        function mostrarOtroMedio() {
+            const medio = document.getElementById("medio_pago").value;
+            const otro = document.getElementById("otro_medio_box");
+            otro.style.display = medio === "OTRO" ? "block" : "none";
+        }
+    </script>
+</head>
+<body>
+    <div class="contenedor">
+        <h1>Pagar deuda a la fecha</h1>
+
+        <div class="dato"><strong>Cliente:</strong> {{ credito.cliente }}</div>
+        <div class="dato"><strong>Cuotas exigibles a hoy:</strong> {{ cuotas_exigibles_hoy|length }}</div>
+        <div class="dato"><strong>Cuotas vencidas:</strong> {{ cuota_pendiente_total | cop }}</div>
+        <div class="dato"><strong>Mora acumulada:</strong> {{ mora_total | cop }}</div>
+        <div class="dato total"><strong>Deuda total a la fecha:</strong> {{ deuda_total_fecha | cop }}</div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Fecha</th>
+                    <th>Saldo pendiente</th>
+                    <th>Mora</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cuota in cuotas_exigibles_hoy %}
+                <tr>
+                    <td>{{ cuota.numero }}</td>
+                    <td>{{ cuota.fecha_pago.strftime('%d/%m/%Y') }}</td>
+                    <td>{{ cuota.saldo_pendiente | cop }}</td>
+                    <td>{{ cuota.interes_mora | cop }}</td>
+                    <td>{{ cuota.total_cobro | cop }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <form method="POST">
+            <label>Fecha de pago:</label>
+            <input type="date" name="fecha_pago" required>
+
+            <label>Valor a pagar:</label>
+            <input type="text" name="valor" required>
+
+            <label>Medio de pago:</label>
+            <select name="medio_pago" id="medio_pago" onchange="mostrarOtroMedio()" required>
+                <option value="">Seleccione</option>
+                <option value="Bancolombia">Bancolombia</option>
+                <option value="Efectivo">Efectivo</option>
+                <option value="OTRO">Otro</option>
+            </select>
+
+            <div id="otro_medio_box" style="display:none;">
+                <label>Escriba el otro medio de pago:</label>
+                <input type="text" name="medio_pago_otro">
+            </div>
+
+            <button type="submit">Registrar pago</button>
+            <a href="/ver_cuotas/{{ credito.id }}">Volver</a>
+        </form>
+    </div>
+</body>
+</html>
