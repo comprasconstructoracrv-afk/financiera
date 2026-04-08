@@ -15,6 +15,20 @@ class Credito(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     numero_pagare = db.Column(db.String(50), unique=True, nullable=True)
     cliente = db.Column(db.String(100), nullable=False)
+
+    cedula_cliente = db.Column(db.String(30), nullable=True)
+    telefono_1 = db.Column(db.String(30), nullable=True)
+    telefono_2 = db.Column(db.String(30), nullable=True)
+    direccion_cliente = db.Column(db.String(255), nullable=True)
+    correo_cliente = db.Column(db.String(120), nullable=True)
+
+    tiene_codeudor = db.Column(db.Boolean, default=False)
+    codeudor_nombre = db.Column(db.String(100), nullable=True)
+    codeudor_identificacion = db.Column(db.String(30), nullable=True)
+    codeudor_direccion = db.Column(db.String(255), nullable=True)
+    codeudor_telefono = db.Column(db.String(30), nullable=True)
+    codeudor_correo = db.Column(db.String(120), nullable=True)
+
     monto = db.Column(db.Float, nullable=False)
     abono_inicial = db.Column(db.Float, default=0)
     monto_financiado = db.Column(db.Float, nullable=False)
