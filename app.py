@@ -1020,10 +1020,10 @@ def liquidar_credito(credito_id):
         total_mora = componentes['total_mora']
         total_liquidacion = componentes['total_liquidacion']
 
-        if round(valor_pago, 2) != total_liquidacion:
+        if round(valor_pago) != round(total_liquidacion):
             return (
                 f"El valor ingresado no coincide con la liquidación exacta. "
-                f"Debes pagar {total_liquidacion:.2f}"
+                f"Debes pagar {round(total_liquidacion)}"
             )
 
         # Registrar pago sobre la cuota activa de referencia
