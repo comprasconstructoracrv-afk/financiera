@@ -11,7 +11,7 @@
         }
 
         .contenedor {
-            max-width: 650px;
+            max-width: 750px;
             margin: auto;
             background: white;
             padding: 30px;
@@ -23,6 +23,15 @@
             margin-bottom: 25px;
         }
 
+        h2 {
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 20px;
+            color: #0d6efd;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 8px;
+        }
+
         label {
             font-weight: bold;
             display: block;
@@ -30,7 +39,7 @@
             margin-bottom: 6px;
         }
 
-        input {
+        input, select {
             width: 100%;
             padding: 10px;
             border: 1px solid #ccc;
@@ -62,6 +71,15 @@
             color: white;
             margin-left: 10px;
         }
+
+        #bloque_codeudor {
+            display: none;
+            margin-top: 10px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+        }
     </style>
 
     <script>
@@ -91,6 +109,17 @@
             camposMoneda.forEach(input => {
                 input.value = soloDigitos(input.value);
             });
+        }
+
+        function toggleCodeudor() {
+            const selector = document.getElementById('tiene_codeudor');
+            const bloque = document.getElementById('bloque_codeudor');
+
+            if (selector.value === 'SI') {
+                bloque.style.display = 'block';
+            } else {
+                bloque.style.display = 'none';
+            }
         }
 
         document.addEventListener('DOMContentLoaded', function () {
@@ -124,6 +153,8 @@
                     limpiarMonedaAntesDeEnviar(this);
                 });
             });
+
+            toggleCodeudor();
         });
     </script>
 </head>
@@ -132,8 +163,27 @@
         <h1>Crear Crédito</h1>
 
         <form method="POST">
-            <label>Cliente:</label>
+            <h2>Datos del cliente</h2>
+
+            <label>Nombre completo:</label>
             <input type="text" name="cliente" required>
+
+            <label>Cédula:</label>
+            <input type="text" name="cedula_cliente">
+
+            <label>Teléfono 1:</label>
+            <input type="text" name="telefono_1">
+
+            <label>Teléfono 2:</label>
+            <input type="text" name="telefono_2">
+
+            <label>Dirección:</label>
+            <input type="text" name="direccion_cliente">
+
+            <label>Correo electrónico:</label>
+            <input type="email" name="correo_cliente">
+
+            <h2>Datos del crédito</h2>
 
             <label>Número de pagaré:</label>
             <input type="text" name="numero_pagare" required>
@@ -152,6 +202,31 @@
 
             <label>Cuotas:</label>
             <input type="number" name="cuotas" required>
+
+            <h2>Codeudor</h2>
+
+            <label>¿Tiene codeudor?</label>
+            <select name="tiene_codeudor" id="tiene_codeudor" onchange="toggleCodeudor()">
+                <option value="NO" selected>No</option>
+                <option value="SI">Sí</option>
+            </select>
+
+            <div id="bloque_codeudor">
+                <label>Nombre del codeudor:</label>
+                <input type="text" name="codeudor_nombre">
+
+                <label>Identificación del codeudor:</label>
+                <input type="text" name="codeudor_identificacion">
+
+                <label>Dirección del codeudor:</label>
+                <input type="text" name="codeudor_direccion">
+
+                <label>Teléfono del codeudor:</label>
+                <input type="text" name="codeudor_telefono">
+
+                <label>Correo del codeudor:</label>
+                <input type="email" name="codeudor_correo">
+            </div>
 
             <div class="botones">
                 <button type="submit">Crear</button>
