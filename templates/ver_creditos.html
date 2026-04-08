@@ -1,68 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <script>
-    function soloDigitos(valor) {
-        return valor.replace(/\D/g, '');
-    }
-
-    function formatearCOP(valor) {
-        if (!valor) return '';
-        return '$ ' + Number(valor).toLocaleString('es-CO');
-    }
-
-    function alEscribirMoneda(input) {
-        const digitos = soloDigitos(input.value);
-
-        if (digitos === '') {
-            input.value = '';
-            return;
-        }
-
-        input.value = formatearCOP(digitos);
-    }
-
-    function limpiarMonedaAntesDeEnviar(form) {
-        const camposMoneda = form.querySelectorAll('.input-moneda');
-
-        camposMoneda.forEach(input => {
-            input.value = soloDigitos(input.value);
-        });
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-        const camposMoneda = document.querySelectorAll('.input-moneda');
-
-        camposMoneda.forEach(input => {
-            if (input.value && input.value.trim() !== '') {
-                const limpio = soloDigitos(input.value);
-                if (limpio !== '') {
-                    input.value = formatearCOP(limpio);
-                }
-            }
-
-            input.addEventListener('input', function () {
-                alEscribirMoneda(this);
-            });
-
-            input.addEventListener('blur', function () {
-                const limpio = soloDigitos(this.value);
-                this.value = limpio ? formatearCOP(limpio) : '';
-            });
-
-            input.addEventListener('focus', function () {
-                const limpio = soloDigitos(this.value);
-                this.value = limpio;
-            });
-        });
-
-        document.querySelectorAll('form').forEach(form => {
-            form.addEventListener('submit', function () {
-                limpiarMonedaAntesDeEnviar(this);
-            });
-        });
-    });
-</script>
     <meta charset="UTF-8">
     <title>Créditos</title>
     <style>
@@ -73,7 +11,7 @@
         }
 
         .contenedor {
-            max-width: 1100px;
+            max-width: 1150px;
             margin: auto;
             background: white;
             padding: 30px;
@@ -89,6 +27,7 @@
             padding: 10px;
             border-bottom: 1px solid #ddd;
             text-align: center;
+            vertical-align: middle;
         }
 
         a {
@@ -100,6 +39,21 @@
             text-decoration: none;
             border-radius: 8px;
         }
+
+        .estado-mora {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .estado-dia {
+            color: #198754;
+            font-weight: bold;
+        }
+
+        .estado-cancelado {
+            color: #0d6efd;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -108,7 +62,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>ID</th>
+                    <th>Número de pagaré</th>
                     <th>Cliente</th>
                     <th>Monto solicitado</th>
                     <th>Abono inicial</th>
@@ -116,21 +70,31 @@
                     <th>Interés</th>
                     <th>Cuotas</th>
                     <th>Cuota mensual</th>
+                    <th>Estado</th>
                     <th>Acción</th>
                 </tr>
             </thead>
             <tbody>
-                {% for credito in creditos %}
+                {% for item in resumen_creditos %}
                 <tr>
-                    <td>{{ credito.id }}</td>
-                    <td>{{ credito.cliente }}</td>
-                    <td>{{ credito.monto | cop }}</td>
-                    <td>{{ credito.abono_inicial | cop }}</td>
-                    <td>{{ credito.monto_financiado | cop }}</td>
-                    <td>{{ credito.interes }}%</td>
-                    <td>{{ credito.cuotas }}</td>
-                    <td>{{ credito.cuota_mensual | cop }}</td>
-                    <td><a href="/ver_cuotas/{{ credito.id }}">Ver cuotas</a></td>
+                    <td>{{ item.credito.numero_pagare }}</td>
+                    <td>{{ item.credito.cliente }}</td>
+                    <td>{{ item.credito.monto | cop }}</td>
+                    <td>{{ item.credito.abono_inicial | cop }}</td>
+                    <td>{{ item.credito.monto_financiado | cop }}</td>
+                    <td>{{ item.credito.interes }}%</td>
+                    <td>{{ item.credito.cuotas }}</td>
+                    <td>{{ item.credito.cuota_mensual | cop }}</td>
+                    <td>
+                        {% if item.estado_credito == 'EN MORA' %}
+                            <span class="estado-mora">EN MORA</span>
+                        {% elif item.estado_credito == 'CANCELADO' %}
+                            <span class="estado-cancelado">CANCELADO</span>
+                        {% else %}
+                            <span class="estado-dia">AL DÍA</span>
+                        {% endif %}
+                    </td>
+                    <td><a href="/ver_cuotas/{{ item.credito.id }}">Ver cuotas</a></td>
                 </tr>
                 {% endfor %}
             </tbody>
