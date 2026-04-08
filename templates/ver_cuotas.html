@@ -13,6 +13,21 @@
         }
     }
 </script>
+
+     <script>
+     function toggleDetallePago(id) {
+         const panel = document.getElementById(id);
+         if (!panel) return;
+
+         if (panel.style.display === 'none' || panel.style.display === '') {
+             panel.style.display = 'block';
+         } else {
+             panel.style.display = 'none';
+         }
+     }
+     </script>
+
+
     <meta charset="UTF-8">
     <title>Cuotas del crédito</title>
     <style>
@@ -329,12 +344,24 @@
                 <td class="historial">
                     {% if pagos_por_cuota[cuota.id] %}
                         {% for pago in pagos_por_cuota[cuota.id] %}
-                            <div style="background:#f8f9fa; padding:8px; border-radius:6px; margin-bottom:5px;">
+                            <div style="background:#f8f9fa; padding:8px; border-radius:6px; margin-bottom:8px;">
                                 <strong>Fecha:</strong> {{ pago.fecha.strftime('%d/%m/%Y') }}<br>
                                 <strong>Valor:</strong> {{ pago.valor | cop }}<br>
-                                <strong>Medio:</strong> {{ pago.medio_pago }}
+                                <strong>Medio:</strong> {{ pago.medio_pago }}<br>
+ 
+                                <button type="button"
+                                        onclick="toggleDetallePago('detalle-pago-{{ pago.id }}')"
+                                        style="margin-top:8px; padding:6px 10px; border:none; border-radius:6px; background:#0d6efd; color:white; cursor:pointer;">
+                                    Ver detalle
+                                </button>
+
+                                <div id="detalle-pago-{{ pago.id }}"
+                                     style="display:none; margin-top:8px; padding:8px; background:white; border:1px solid #dee2e6; border-radius:6px; text-align:left;">
+                                     <strong>Aplicado a cuota:</strong> {{ pago.valor_aplicado_capital | cop }}<br>
+                                     <strong>Aplicado a mora:</strong> {{ pago.valor_aplicado_mora | cop }}<br>
+                                     <strong>Prepago a capital:</strong> {{ pago.valor_aplicado_prepago_capital | cop }}
+                                </div>
                             </div>
-                            <hr>
                         {% endfor %}
                     {% else %}
                         Sin pagos
