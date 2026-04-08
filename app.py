@@ -782,6 +782,89 @@ def pagar_deuda_fecha(credito_id):
     )
 
 
+@app.route('/abono_capital/<int:credito_id>', methods=['GET', 'POST'])
+def abono_capital(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    actualizar_mora_credito(credito, datetime.utcnow().date())
+    db.session.commit()
+
+    cuotas_activas = Cuota.query.filter(
+        Cuota.credito_id == credito.id,
+        Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
+    ).order_by(Cuota.numero).all()
+
+    hoy = datetime.utcnow().date()
+    cuotas_exigibles_hoy = [
+        cuota for cuota in cuotas_activas
+        if (cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago) <= hoy
+    ]
+
+    deuda_total_fecha = round(
+        sum((cuota.saldo_pendiente or 0) + (cuota.interes_mora or 0) for cuota in cuotas_exigibles_hoy),
+        2
+    )
+
+    if request.method == 'POST':
+        fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d')
+        valor_pago = limpiar_valor_moneda(request.form['valor'])
+        medio_pago = request.form['medio_pago']
+
+        if medio_pago == 'OTRO':
+            medio_pago_otro = request.form.get('medio_pago_otro', '').strip()
+            if not medio_pago_otro:
+                return "Debes escribir el otro medio de pago"
+            medio_pago = medio_pago_otro
+
+        if deuda_total_fecha > 0:
+            return "No se puede hacer abono a capital mientras existan cuotas exigibles o mora pendiente"
+
+        if valor_pago <= 0:
+            return "El abono a capital debe ser mayor que cero"
+
+        if valor_pago > credito.saldo_actual:
+            return "El abono a capital no puede ser mayor al saldo actual del crédito"
+
+        credito.saldo_actual = round(credito.saldo_actual - valor_pago, 2)
+
+        if credito.saldo_actual < 0:
+            credito.saldo_actual = 0
+
+        cuota_referencia = Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.estado == 'PENDIENTE'
+        ).order_by(Cuota.numero).first()
+
+        if cuota_referencia:
+            recalcular_cuotas_pendientes(
+                credito=credito,
+                cuota_actual_numero=cuota_referencia.numero - 1,
+                fecha_base=sumar_meses(cuota_referencia.fecha_pago, -1)
+            )
+
+            pago = Pago(
+                cuota_id=cuota_referencia.id,
+                fecha=fecha_pago,
+                valor=valor_pago,
+                medio_pago=medio_pago,
+                valor_aplicado_prepago_capital=valor_pago,
+                observacion='ABONO A CAPITAL'
+            )
+            db.session.add(pago)
+
+        db.session.commit()
+        return redirect(f'/ver_cuotas/{credito.id}')
+
+    return render_template(
+        'abono_capital.html',
+        credito=credito,
+        deuda_total_fecha=deuda_total_fecha
+    )
+
+
 @app.route('/configuracion_tasa', methods=['GET', 'POST'])
 def configuracion_tasa():
     if 'user' not in session:
