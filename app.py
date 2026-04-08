@@ -664,7 +664,7 @@ def pagar_cuota(cuota_id):
         # 3. Solo es prepago real si pagó más de cuota + mora real de esa fecha
         total_exigible = round(valor_cuota_hoy + mora_hoy, 2)
         if valor_pago > total_exigible and restante > 0:
-        valor_aplicado_prepago = round(restante, 2)
+            valor_aplicado_prepago = round(restante, 2)
             credito.saldo_actual = round(credito.saldo_actual - restante, 2)
 
             if credito.saldo_actual < 0:
