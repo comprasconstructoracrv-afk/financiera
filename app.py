@@ -225,6 +225,102 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
         cuota.porcentaje_mora_aplicado = cuota.tasa_mora_mensual_cuota
 
 
+def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
+    actualizar_mora_credito(credito, fecha_pago)
+
+    cuotas_exigibles = Cuota.query.filter(
+        Cuota.credito_id == credito.id,
+        Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
+    ).order_by(Cuota.numero).all()
+
+    cuotas_exigibles = [
+        cuota for cuota in cuotas_exigibles
+        if (cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago) <= fecha_pago
+    ]
+
+    restante = round(valor_pago, 2)
+    hubo_abono_extra_capital = False
+    ultima_cuota_tocada = None
+
+    for cuota in cuotas_exigibles:
+        if restante <= 0:
+            break
+
+        ultima_cuota_tocada = cuota
+
+        pago = Pago(
+            cuota_id=cuota.id,
+            fecha=datetime.combine(fecha_pago, datetime.min.time()),
+            valor=0,
+            medio_pago=medio_pago
+        )
+
+        valor_aplicado_cuota = 0
+        valor_aplicado_mora = 0
+
+        # 1. Cubrir cuota primero
+        if cuota.saldo_pendiente > 0 and restante > 0:
+            aplicado_cuota = min(restante, round(cuota.saldo_pendiente, 2))
+            cuota.saldo_pendiente = round(cuota.saldo_pendiente - aplicado_cuota, 2)
+            restante = round(restante - aplicado_cuota, 2)
+            valor_aplicado_cuota = aplicado_cuota
+
+            if cuota.saldo_pendiente <= 0:
+                cuota.saldo_pendiente = 0
+                credito.saldo_actual = round(credito.saldo_actual - cuota.capital, 2)
+
+        # 2. Luego cubrir mora
+        if cuota.interes_mora > 0 and restante > 0:
+            aplicado_mora = min(restante, round(cuota.interes_mora, 2))
+            cuota.interes_mora = round(cuota.interes_mora - aplicado_mora, 2)
+            restante = round(restante - aplicado_mora, 2)
+            valor_aplicado_mora = aplicado_mora
+
+        pago.valor = round(valor_aplicado_cuota + valor_aplicado_mora, 2)
+        pago.valor_aplicado_capital = round(valor_aplicado_cuota, 2)
+        pago.valor_aplicado_mora = round(valor_aplicado_mora, 2)
+
+        if pago.valor > 0:
+            db.session.add(pago)
+
+        cuota.saldo_pendiente = round(max(cuota.saldo_pendiente, 0), 2)
+        cuota.interes_mora = round(max(cuota.interes_mora, 0), 2)
+
+        if cuota.saldo_pendiente <= 0 and cuota.interes_mora <= 0:
+            cuota.saldo_pendiente = 0
+            cuota.dias_mora = 0
+            cuota.interes_mora = 0
+            cuota.total_cobro = 0
+            cuota.estado = 'PAGADA'
+        elif cuota.saldo_pendiente <= 0 and cuota.interes_mora > 0:
+            cuota.saldo_pendiente = 0
+            cuota.total_cobro = round(cuota.interes_mora, 2)
+            cuota.estado = 'ABONO'
+        else:
+            cuota.total_cobro = round(cuota.saldo_pendiente + cuota.interes_mora, 2)
+            if cuota.dias_mora > 0:
+                cuota.estado = 'EN MORA'
+            else:
+                cuota.estado = 'ABONO'
+
+    # Solo si ya cubrió toda la deuda exigible a hoy y sobra dinero, va a capital
+    if restante > 0:
+        credito.saldo_actual = round(credito.saldo_actual - restante, 2)
+        if credito.saldo_actual < 0:
+            credito.saldo_actual = 0
+        hubo_abono_extra_capital = True
+
+    if hubo_abono_extra_capital and ultima_cuota_tocada:
+        recalcular_cuotas_pendientes(
+            credito=credito,
+            cuota_actual_numero=ultima_cuota_tocada.numero,
+            fecha_base=ultima_cuota_tocada.fecha_pago
+        )
+
+    db.session.commit()
+
+
+
 def calcular_componentes_liquidacion(credito, fecha_corte):
     cuotas_activas = Cuota.query.filter(
         Cuota.credito_id == credito.id,
@@ -617,6 +713,64 @@ def pagar_cuota(cuota_id):
     cuota = Cuota.query.get_or_404(cuota_id)
 
     return render_template('pagar_cuota.html', cuota=cuota)
+
+
+@app.route('/pagar_deuda_fecha/<int:credito_id>', methods=['GET', 'POST'])
+def pagar_deuda_fecha(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    if request.method == 'POST':
+        fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d').date()
+        valor_pago = limpiar_valor_moneda(request.form['valor'])
+        medio_pago = request.form['medio_pago']
+
+        if medio_pago == 'OTRO':
+            medio_pago_otro = request.form.get('medio_pago_otro', '').strip()
+            if not medio_pago_otro:
+                return "Debes escribir el otro medio de pago"
+            medio_pago = medio_pago_otro
+
+        if valor_pago <= 0:
+            return "El pago debe ser mayor que cero"
+
+        aplicar_pago_deuda_fecha(
+            credito=credito,
+            fecha_pago=fecha_pago,
+            valor_pago=valor_pago,
+            medio_pago=medio_pago
+        )
+
+        return redirect(f'/ver_cuotas/{credito.id}')
+
+    actualizar_mora_credito(credito, datetime.utcnow().date())
+    db.session.commit()
+
+    cuotas = Cuota.query.filter(
+        Cuota.credito_id == credito.id,
+        Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
+    ).order_by(Cuota.numero).all()
+
+    hoy = datetime.utcnow().date()
+    cuotas_exigibles_hoy = [
+        cuota for cuota in cuotas
+        if (cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago) <= hoy
+    ]
+
+    cuota_pendiente_total = round(sum((c.saldo_pendiente or 0) for c in cuotas_exigibles_hoy), 2)
+    mora_total = round(sum((c.interes_mora or 0) for c in cuotas_exigibles_hoy), 2)
+    deuda_total_fecha = round(cuota_pendiente_total + mora_total, 2)
+
+    return render_template(
+        'pagar_deuda_fecha.html',
+        credito=credito,
+        cuotas_exigibles_hoy=cuotas_exigibles_hoy,
+        cuota_pendiente_total=cuota_pendiente_total,
+        mora_total=mora_total,
+        deuda_total_fecha=deuda_total_fecha
+    )
 
 
 @app.route('/configuracion_tasa', methods=['GET', 'POST'])
