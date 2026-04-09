@@ -72,11 +72,16 @@
                     <th>Cuota mensual</th>
                     <th>Estado</th>
                     <th>Acción</th>
+                    <th>Saldo actual</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in resumen_creditos %}
-                <tr>
+                <tr 
+                {% if item.estado_credito == 'EN MORA' %}
+                    style="background-color: #ffe5e5;"
+                {% endif %}
+                >
                     <td>{{ item.credito.numero_pagare }}</td>
                     <td>{{ item.credito.cliente }}</td>
                     <td>{{ item.credito.monto | cop }}</td>
@@ -87,20 +92,21 @@
                     <td>{{ item.credito.cuota_mensual | cop }}</td>
                     <td>
                         {% if item.estado_credito == 'EN MORA' %}
-                            <span class="estado-mora">EN MORA</span>
-                        {% elif item.estado_credito == 'CANCELADO' %}
-                            <span class="estado-cancelado">CANCELADO</span>
+                            <span style="color:#dc3545; font-weight:bold;">EN MORA</span>
+                        {% elif item.estado_credito == 'AL DÍA' %}
+                            <span style="color:#198754; font-weight:bold;">AL DÍA</span>
                         {% else %}
-                            <span class="estado-dia">AL DÍA</span>
+                            <span style="color:#6c757d; font-weight:bold;">CANCELADO</span>
                         {% endif %}
                     </td>
+                    <td>{{ item.credito.saldo_actual | cop }}</td>
                     <td><a href="/ver_cuotas/{{ item.credito.id }}">Ver cuotas</a></td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
 
-        <a href="/dashboard">Volver</a>
+        
     </div>
 </body>
 </html>
