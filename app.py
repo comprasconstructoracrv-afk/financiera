@@ -480,7 +480,7 @@ def crear_credito():
         correo_cliente = request.form.get('correo_cliente', '').strip()
 
         numero_pagare = request.form['numero_pagare'].strip()
-        sede = request.form['sede'].strip().upper()
+        sede = request.form.get('sede', 'CRV')
         monto = limpiar_valor_moneda(request.form['monto'])
         interes = float(request.form['interes'])
         cuotas = int(request.form['cuotas'])
@@ -542,7 +542,7 @@ def crear_credito():
         generar_cuotas(nuevo.id, monto_financiado, interes, cuotas, fecha_credito)
         db.session.commit()
 
-        return redirect('/ver_creditos')
+        return redirect(f'/ver_creditos/{sede}')
 
     return render_template('crear_credito.html')
 
