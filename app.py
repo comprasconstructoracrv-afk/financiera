@@ -551,11 +551,35 @@ def dashboard():
     if 'user' not in session:
         return redirect('/login')
 
+    sedes = ['IBAGUE', 'ESPINAL', 'GIRARDOT', 'CRV']
+    resumen_sedes = []
+
+    for sede in sedes:
+        creditos = Credito.query.filter_by(sede=sede).all()
+
+        total = len(creditos)
+        en_mora = 0
+
+        for credito in creditos:
+            cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+
+            if any(c.estado == 'EN MORA' for c in cuotas):
+                en_mora += 1
+
+        resumen_sedes.append({
+            'sede': sede,
+            'total': total,
+            'en_mora': en_mora
+        })
+
     return render_template(
         'dashboard.html',
         user=session['user'],
-        rol=session['rol']
+        rol=session['rol'],
+        resumen_sedes=resumen_sedes
     )
+
+
 # 🚪 LOGOUT
 @app.route('/logout')
 def logout():
