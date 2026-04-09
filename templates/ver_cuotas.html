@@ -422,9 +422,18 @@
 
                                 <div id="detalle-pago-{{ pago.id }}"
                                      style="display:none; margin-top:8px; padding:8px; background:white; border:1px solid #dee2e6; border-radius:6px; text-align:left;">
+                                     <strong>Tipo de pago:</strong> {{ pago.tipo_pago if pago.tipo_pago else 'No definido' }}<br>
+                                     <strong>Saldo pendiente antes del pago:</strong> {{ pago.saldo_pendiente_antes_pago | cop }}<br>
+                                     <strong>Total exigible al pago:</strong> {{ pago.total_exigible_al_pago | cop }}<br>
+                                     <strong>Días de mora al pago:</strong> {{ pago.dias_mora_pagados }}<br>
+                                     <strong>Mora generada al pago:</strong> {{ pago.mora_generada_al_pago | cop }}<br>
+                                     <hr style="margin:8px 0;">
                                      <strong>Aplicado a cuota:</strong> {{ pago.valor_aplicado_capital | cop }}<br>
                                      <strong>Aplicado a mora:</strong> {{ pago.valor_aplicado_mora | cop }}<br>
-                                     <strong>Prepago a capital:</strong> {{ pago.valor_aplicado_prepago_capital | cop }}
+                                     <strong>Prepago a capital:</strong> {{ pago.valor_aplicado_prepago_capital | cop }}<br>
+                                     {% if pago.observacion %}
+                                         <strong>Observación:</strong> {{ pago.observacion }}
+                                     {% endif %}
                                 </div>
                             </div>
                         {% endfor %}
