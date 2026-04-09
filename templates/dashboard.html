@@ -104,6 +104,18 @@
             font-size: 15px;
         }
 
+        .card-mora {
+            border-left: 6px solid #dc3545;
+        }
+
+        .card-dia {
+            border-left: 6px solid #198754;
+        }
+
+        .card-vacio {
+            border-left: 6px solid #0d6efd;
+        }
+
         .footer-box {
             margin-top: 30px;
             background: white;
@@ -132,11 +144,24 @@
 
         <div class="grid-sedes">
             {% for s in resumen_sedes %}
-            <a href="/ver_creditos/{{ s.sede }}" class="card-sede">
-                <h3>{{ s.sede }}</h3>
-                <p>Total créditos: {{ s.total }}</p>
-                <p>En mora: {{ s.en_mora }}</p>
-            </a>
+            <a href="/ver_creditos/{{ s.sede }}" 
+               class="card-sede 
+               {% if s.en_mora > 0 %}card-mora
+               {% elif s.total > 0 %}card-dia
+               {% else %}card-vacio
+               {% endif %}">
+
+               <h3>{{ s.sede }}</h3>
+
+               <p>Total créditos: {{ s.total }}</p>
+
+               {% if s.en_mora > 0 %}
+                   <p style="color:#dc3545;"><strong>⚠ {{ s.en_mora }} en mora</strong></p>
+               {% else %}
+                    <p style="color:#198754;">✔ Sin mora</p>
+               {% endif %}
+
+           </a>
             {% endfor %}
         </div>
         </div>
