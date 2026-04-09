@@ -131,25 +131,14 @@
         <div class="titulo-seccion">Consultar créditos por sede</div>
 
         <div class="grid-sedes">
-            <a href="/ver_creditos/IBAGUE" class="card-sede">
-                <h3>Ibagué</h3>
-                <p>Consultar y administrar créditos de la sede Ibagué.</p>
+            {% for s in resumen_sedes %}
+            <a href="/ver_creditos/{{ s.sede }}" class="card-sede">
+                <h3>{{ s.sede }}</h3>
+                <p>Total créditos: {{ s.total }}</p>
+                <p>En mora: {{ s.en_mora }}</p>
             </a>
-
-            <a href="/ver_creditos/ESPINAL" class="card-sede">
-                <h3>Espinal</h3>
-                <p>Consultar y administrar créditos de la sede Espinal.</p>
-            </a>
-
-            <a href="/ver_creditos/GIRARDOT" class="card-sede">
-                <h3>Girardot</h3>
-                <p>Consultar y administrar créditos de la sede Girardot.</p>
-            </a>
-
-            <a href="/ver_creditos/CRV" class="card-sede">
-                <h3>CRV</h3>
-                <p>Consultar y administrar créditos de la sede CRV.</p>
-            </a>
+            {% endfor %}
+        </div>
         </div>
 
         <div class="footer-box">
