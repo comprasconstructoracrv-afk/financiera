@@ -2,44 +2,160 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Panel Financiera</title>
+    <title>Panel Principal</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
+            margin: 0;
             font-family: Arial, sans-serif;
-            background: #f4f6f9;
-            padding: 30px;
+            background: linear-gradient(135deg, #eef2f7, #dfe9f3);
+            padding: 40px 20px;
+            color: #1f2937;
         }
+
         .contenedor {
-            max-width: 900px;
+            max-width: 1200px;
             margin: auto;
+        }
+
+        .encabezado {
             background: white;
+            border-radius: 20px;
             padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 0 8px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
         }
-        a {
+
+        .encabezado h1 {
+            margin: 0 0 10px 0;
+            font-size: 38px;
+        }
+
+        .encabezado p {
+            margin: 0;
+            font-size: 18px;
+            color: #4b5563;
+        }
+
+        .acciones {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 25px;
+        }
+
+        .btn {
             display: inline-block;
-            margin: 8px;
-            padding: 12px 16px;
-            background: #007bff;
-            color: white;
+            padding: 12px 18px;
+            border-radius: 10px;
             text-decoration: none;
-            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            transition: 0.2s ease;
         }
-        .salir {
-            background: #dc3545;
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-crear { background: #0d6efd; }
+        .btn-tasa { background: #198754; }
+        .btn-salir { background: #dc3545; }
+
+        .titulo-seccion {
+            margin: 10px 0 18px 0;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .grid-sedes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+        }
+
+        .card-sede {
+            background: white;
+            border-radius: 18px;
+            padding: 24px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            text-decoration: none;
+            color: inherit;
+            transition: 0.25s ease;
+            border-left: 6px solid #0d6efd;
+        }
+
+        .card-sede:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 35px rgba(0,0,0,0.12);
+        }
+
+        .card-sede h3 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+        }
+
+        .card-sede p {
+            margin: 0;
+            color: #6b7280;
+            font-size: 15px;
+        }
+
+        .footer-box {
+            margin-top: 30px;
+            background: white;
+            border-radius: 18px;
+            padding: 20px 24px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            color: #4b5563;
         }
     </style>
 </head>
 <body>
     <div class="contenedor">
-        <h1>Panel Principal</h1>
-        <p>Bienvenido {{ user }} - Rol: {{ rol }}</p>
 
-        <a href="/crear_credito">Crear crédito</a>
-        <a href="/ver_creditos">Ver créditos</a>
-        <a href="/logout" class="salir">Cerrar sesión</a>
-	<a href="/configuracion_tasa">Configurar tasa mora</a>
+        <div class="encabezado">
+            <h1>Panel Principal</h1>
+            <p>Bienvenido {{ user }} - Rol: {{ rol }}</p>
+
+            <div class="acciones">
+                <a href="/crear_credito" class="btn btn-crear">Crear crédito</a>
+                <a href="/configuracion_tasa" class="btn btn-tasa">Configurar tasa mora</a>
+                <a href="/logout" class="btn btn-salir">Cerrar sesión</a>
+            </div>
+        </div>
+
+        <div class="titulo-seccion">Consultar créditos por sede</div>
+
+        <div class="grid-sedes">
+            <a href="/ver_creditos/IBAGUE" class="card-sede">
+                <h3>Ibagué</h3>
+                <p>Consultar y administrar créditos de la sede Ibagué.</p>
+            </a>
+
+            <a href="/ver_creditos/ESPINAL" class="card-sede">
+                <h3>Espinal</h3>
+                <p>Consultar y administrar créditos de la sede Espinal.</p>
+            </a>
+
+            <a href="/ver_creditos/GIRARDOT" class="card-sede">
+                <h3>Girardot</h3>
+                <p>Consultar y administrar créditos de la sede Girardot.</p>
+            </a>
+
+            <a href="/ver_creditos/CRV" class="card-sede">
+                <h3>CRV</h3>
+                <p>Consultar y administrar créditos de la sede CRV.</p>
+            </a>
+        </div>
+
+        <div class="footer-box">
+            Usa las sedes para entrar directamente al grupo correcto de créditos sin revisar toda la cartera mezclada.
+        </div>
+
     </div>
 </body>
 </html>
