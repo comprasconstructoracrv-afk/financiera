@@ -1020,7 +1020,6 @@ def liquidar_credito(credito_id):
         if valor_pago <= 0:
             return "El valor de la liquidación debe ser mayor que cero"
 
-        # Recalcular mora exacta a la fecha de liquidación
         actualizar_mora_credito(credito, fecha_pago.date())
         db.session.commit()
 
@@ -1046,7 +1045,6 @@ def liquidar_credito(credito_id):
                 f"Debes pagar {round(total_liquidacion)}"
             )
 
-        # Registrar pago sobre la cuota activa de referencia
         pago = Pago(
             cuota_id=cuota_actual.id,
             fecha=fecha_pago,
@@ -1061,10 +1059,9 @@ def liquidar_credito(credito_id):
             saldo_pendiente_antes_pago=capital_insoluto,
             total_exigible_al_pago=total_liquidacion,
             observacion='LIQUIDACION TOTAL DEL CREDITO'
-       )
-       db.session.add(pago)        
+        )
+        db.session.add(pago)
 
-        # Marcar cuotas
         for i, cuota in enumerate(cuotas_activas):
             cuota.saldo_pendiente = 0
             cuota.dias_mora = 0
@@ -1076,11 +1073,9 @@ def liquidar_credito(credito_id):
             else:
                 cuota.estado = 'LIQUIDADA'
 
-        # Cerrar crédito
         credito.saldo_actual = 0
         credito.cuota_mensual = 0
 
-        # Solo si ya agregaste estas columnas en models.py
         if hasattr(credito, 'fecha_liquidacion'):
             credito.fecha_liquidacion = fecha_pago
         if hasattr(credito, 'valor_liquidado'):
@@ -1089,7 +1084,6 @@ def liquidar_credito(credito_id):
         db.session.commit()
         return redirect(f'/ver_cuotas/{credito.id}')
 
-    # GET
     actualizar_mora_credito(credito, datetime.utcnow().date())
     db.session.commit()
 
