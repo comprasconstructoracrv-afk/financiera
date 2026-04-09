@@ -248,11 +248,21 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
 
         ultima_cuota_tocada = cuota
 
+        dias_mora_al_pago = cuota.dias_mora or 0
+        mora_generada_al_pago = round(cuota.interes_mora or 0, 2)
+        saldo_pendiente_antes_pago = round(cuota.saldo_pendiente or 0, 2)
+        total_exigible_al_pago = round((cuota.saldo_pendiente or 0) + (cuota.interes_mora or 0), 2)
+
         pago = Pago(
             cuota_id=cuota.id,
             fecha=datetime.combine(fecha_pago, datetime.min.time()),
             valor=0,
-            medio_pago=medio_pago
+            medio_pago=medio_pago,
+            tipo_pago='PAGO_DEUDA_FECHA',
+            dias_mora_pagados=dias_mora_al_pago,
+            mora_generada_al_pago=mora_generada_al_pago,
+            saldo_pendiente_antes_pago=saldo_pendiente_antes_pago,
+            total_exigible_al_pago=total_exigible_al_pago
         )
 
         valor_aplicado_cuota = 0
@@ -681,11 +691,17 @@ def pagar_cuota(cuota_id):
         # Recargar cuota actualizada
         cuota = Cuota.query.get_or_404(cuota_id)
 
+        # FOTO HISTÓRICA DEL ESTADO DE LA CUOTA AL MOMENTO DEL PAGO
+        dias_mora_al_pago = cuota.dias_mora or 0
+        mora_generada_al_pago = round(cuota.interes_mora or 0, 2)
+        saldo_pendiente_antes_pago = round(cuota.saldo_pendiente or 0, 2)
+
         restante = round(valor_pago, 2)
         hubo_abono_extra_capital = False
 
         valor_cuota_hoy = round(cuota.valor_cuota, 2)
         mora_hoy = round(cuota.interes_mora, 2)
+        total_exigible = round(valor_cuota_hoy + mora_hoy, 2)
 
         valor_aplicado_cuota = 0
         valor_aplicado_mora = 0
@@ -710,7 +726,6 @@ def pagar_cuota(cuota_id):
             restante = round(restante - aplicado_mora, 2)
 
         # 3. Solo es prepago real si pagó más de cuota + mora real de esa fecha
-        total_exigible = round(valor_cuota_hoy + mora_hoy, 2)
         if valor_pago > total_exigible and restante > 0:
             valor_aplicado_prepago = round(restante, 2)
             credito.saldo_actual = round(credito.saldo_actual - restante, 2)
@@ -760,7 +775,12 @@ def pagar_cuota(cuota_id):
             medio_pago=medio_pago,
             valor_aplicado_mora=valor_aplicado_mora,
             valor_aplicado_capital=valor_aplicado_cuota,
-            valor_aplicado_prepago_capital=valor_aplicado_prepago
+            valor_aplicado_prepago_capital=valor_aplicado_prepago,
+            tipo_pago='PAGO_CUOTA',
+            dias_mora_pagados=dias_mora_al_pago,
+            mora_generada_al_pago=mora_generada_al_pago,
+            saldo_pendiente_antes_pago=saldo_pendiente_antes_pago,
+            total_exigible_al_pago=total_exigible
         )
         db.session.add(pago)
 
@@ -1031,9 +1051,18 @@ def liquidar_credito(credito_id):
             cuota_id=cuota_actual.id,
             fecha=fecha_pago,
             valor=valor_pago,
-            medio_pago=medio_pago
-        )
-        db.session.add(pago)
+            medio_pago=medio_pago,
+            valor_aplicado_mora=total_mora,
+            valor_aplicado_capital=0,
+            valor_aplicado_prepago_capital=round(valor_pago - total_mora, 2),
+            tipo_pago='LIQUIDACION_TOTAL',
+            dias_mora_pagados=cuota_actual.dias_mora or 0,
+            mora_generada_al_pago=total_mora,
+            saldo_pendiente_antes_pago=capital_insoluto,
+            total_exigible_al_pago=total_liquidacion,
+            observacion='LIQUIDACION TOTAL DEL CREDITO'
+       )
+       db.session.add(pago)        
 
         # Marcar cuotas
         for i, cuota in enumerate(cuotas_activas):

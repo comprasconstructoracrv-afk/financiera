@@ -81,6 +81,11 @@ class Pago(db.Model):
 
     # Auditoría básica
     observacion = db.Column(db.String(255), nullable=True)
+    tipo_pago = db.Column(db.String(30), nullable=True)
+    dias_mora_pagados = db.Column(db.Integer, nullable=False, default=0)
+    mora_generada_al_pago = db.Column(db.Float, nullable=False, default=0)
+    saldo_pendiente_antes_pago = db.Column(db.Float, nullable=False, default=0)
+    total_exigible_al_pago = db.Column(db.Float, nullable=False, default=0)
 
 class ConfiguracionTasa(db.Model):
     id = db.Column(db.Integer, primary_key=True)
