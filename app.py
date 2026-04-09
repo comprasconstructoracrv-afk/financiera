@@ -480,6 +480,7 @@ def crear_credito():
         correo_cliente = request.form.get('correo_cliente', '').strip()
 
         numero_pagare = request.form['numero_pagare'].strip()
+        sede = request.form['sede'].strip().upper()
         monto = limpiar_valor_moneda(request.form['monto'])
         interes = float(request.form['interes'])
         cuotas = int(request.form['cuotas'])
@@ -508,6 +509,7 @@ def crear_credito():
         nuevo = Credito(
             numero_pagare=numero_pagare,
             cliente=cliente,
+            sede=sede,
             cedula_cliente=cedula_cliente,
             telefono_1=telefono_1,
             telefono_2=telefono_2,
@@ -560,12 +562,14 @@ def logout():
     session.clear()
     return redirect('/login')
 
-@app.route('/ver_creditos')
-def ver_creditos():
+@app.route('/ver_creditos/<sede>')
+def ver_creditos(sede):
     if 'user' not in session:
         return redirect('/login')
 
-    creditos = Credito.query.all()
+    sede = sede.strip().upper()
+
+    creditos = Credito.query.filter_by(sede=sede).all()
     hoy = date.today()
 
     resumen_creditos = []
@@ -589,8 +593,11 @@ def ver_creditos():
 
     db.session.commit()
 
-    return render_template('ver_creditos.html', resumen_creditos=resumen_creditos)
-
+    return render_template(
+        'ver_creditos.html',
+        resumen_creditos=resumen_creditos,
+        sede_actual=sede
+    )
 
 @app.route('/ver_cuotas/<int:credito_id>')
 def ver_cuotas(credito_id):
