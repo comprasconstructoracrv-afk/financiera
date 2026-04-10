@@ -1143,3 +1143,6 @@ def liquidar_credito(credito_id):
         total_mora=total_mora,
         total_liquidacion=total_liquidacion
     )
+
+if __name__ == "__main__":
+    app.run(debug=True)
