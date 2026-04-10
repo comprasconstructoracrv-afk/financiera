@@ -593,7 +593,7 @@ def ver_creditos(sede):
 
     sede = sede.strip().upper()
 
-    creditos = Credito.query.filter_by(sede=sede).all()
+    creditos = Credito.query.filter_by(sede=sede).order_by(Credito.fecha_creacion.desc()).all()
     hoy = date.today()
 
     resumen_creditos = []
