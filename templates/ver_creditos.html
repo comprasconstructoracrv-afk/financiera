@@ -59,10 +59,20 @@
 <body>
     <div class="contenedor">
         <h1>Créditos registrados - Sede {{ sede_actual }}</h1>
+        <div style="margin: 20px 0;">
+             <input
+                 type="text"
+                 id="buscadorCreditos"
+                 placeholder="Buscar por cliente, pagaré o fecha..."
+                 onkeyup="filtrarTablaCreditos()"
+                 style="width: 100%; max-width: 420px; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px;"
+             >
+        </div>
         <table>
             <thead>
                 <tr>
                     <th>Número de pagaré</th>
+                    <th>Fecha inicio</th>
                     <th>Cliente</th>
                     <th>Monto solicitado</th>
                     <th>Abono inicial</th>
@@ -83,6 +93,7 @@
                 {% endif %}
                 >
                     <td>{{ item.credito.numero_pagare }}</td>
+                    <td>{{ item.credito.fecha_creacion.strftime('%d/%m/%Y') if item.credito.fecha_creacion else '' }}</td>
                     <td>{{ item.credito.cliente }}</td>
                     <td>{{ item.credito.monto | cop }}</td>
                     <td>{{ item.credito.abono_inicial | cop }}</td>
@@ -99,8 +110,8 @@
                             <span style="color:#6c757d; font-weight:bold;">CANCELADO</span>
                         {% endif %}
                     </td>
-                    <td>{{ item.credito.saldo_actual | cop }}</td>
                     <td><a href="/ver_cuotas/{{ item.credito.id }}">Ver cuotas</a></td>
+                    <td>{{ item.credito.saldo_actual | cop }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -111,5 +122,22 @@
         </div>        
  
     </div>
+    <script>
+    function filtrarTablaCreditos() {
+        const input = document.getElementById("buscadorCreditos");
+        const filtro = input.value.toLowerCase();
+        const filas = document.querySelectorAll("tbody tr");
+
+        filas.forEach(fila => {
+            const textoFila = fila.innerText.toLowerCase();
+
+            if (textoFila.includes(filtro)) {
+                fila.style.display = "";
+            } else {
+                fila.style.display = "none";
+            }
+       });
+    }
+    </script>
 </body>
 </html>
