@@ -68,54 +68,63 @@
                  style="width: 100%; max-width: 420px; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px;"
              >
         </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Número de pagaré</th>
-                    <th>Fecha inicio</th>
-                    <th>Cliente</th>
-                    <th>Monto solicitado</th>
-                    <th>Abono inicial</th>
-                    <th>Monto financiado</th>
-                    <th>Interés</th>
-                    <th>Cuotas</th>
-                    <th>Cuota mensual</th>
-                    <th>Estado</th>
-                    <th>Acción</th>
-                    <th>Saldo actual</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in resumen_creditos %}
-                <tr 
+        
+
+<table>
+    <thead>
+        <tr>
+            <th>Número de pagaré</th>
+            <th>Fecha inicio</th>
+            <th>Cliente</th>
+            <th>Monto solicitado</th>
+            <th>Abono inicial</th>
+            <th>Monto financiado</th>
+            <th>Interés</th>
+            <th>Cuotas</th>
+            <th>Cuota mensual</th>
+            <th>Estado</th>
+            <th>Acción</th>
+            <th>Saldo actual</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for item in resumen_creditos %}
+        <tr
+        {% if item.estado_credito == 'EN MORA' %}
+            style="background-color: #ffe5e5;"
+        {% endif %}
+        >
+            <td>{{ item.credito.numero_pagare }}</td>
+            <td>{{ item.credito.fecha_creacion.strftime('%d/%m/%Y') if item.credito.fecha_creacion else '' }}</td>
+            <td>{{ item.credito.cliente }}</td>
+            <td>{{ item.credito.monto | cop }}</td>
+            <td>{{ item.credito.abono_inicial | cop }}</td>
+            <td>{{ item.credito.monto_financiado | cop }}</td>
+            <td>{{ item.credito.interes }}%</td>
+            <td>{{ item.credito.cuotas }}</td>
+            <td>{{ item.credito.cuota_mensual | cop }}</td>
+
+            <td>
                 {% if item.estado_credito == 'EN MORA' %}
-                    style="background-color: #ffe5e5;"
+                    <span style="color:#dc3545; font-weight:bold;">EN MORA</span>
+                {% elif item.estado_credito == 'AL DÍA' %}
+                    <span style="color:#198754; font-weight:bold;">AL DÍA</span>
+                {% else %}
+                    <span style="color:#6c757d; font-weight:bold;">CANCELADO</span>
                 {% endif %}
-                >
-                    <td>{{ item.credito.numero_pagare }}</td>
-                    <td>{{ item.credito.fecha_creacion.strftime('%d/%m/%Y') if item.credito.fecha_creacion else '' }}</td>
-                    <td>{{ item.credito.cliente }}</td>
-                    <td>{{ item.credito.monto | cop }}</td>
-                    <td>{{ item.credito.abono_inicial | cop }}</td>
-                    <td>{{ item.credito.monto_financiado | cop }}</td>
-                    <td>{{ item.credito.interes }}%</td>
-                    <td>{{ item.credito.cuotas }}</td>
-                    <td>{{ item.credito.cuota_mensual | cop }}</td>
-                    <td>
-                        {% if item.estado_credito == 'EN MORA' %}
-                            <span style="color:#dc3545; font-weight:bold;">EN MORA</span>
-                        {% elif item.estado_credito == 'AL DÍA' %}
-                            <span style="color:#198754; font-weight:bold;">AL DÍA</span>
-                        {% else %}
-                            <span style="color:#6c757d; font-weight:bold;">CANCELADO</span>
-                        {% endif %}
-                    </td>
-                    <td><a href="/ver_cuotas/{{ item.credito.id }}">Ver cuotas</a></td>
-                    <td>{{ item.credito.saldo_actual | cop }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+            </td>
+
+            <td><a href="/ver_cuotas/{{ item.credito.id }}">Ver cuotas</a></td>
+            <td>{{ item.credito.saldo_actual | cop }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+
+
+
         <div style="margin-top:20px;">
             <a href="/dashboard" style="background:#6c757d;">⬅ Panel</a>
             <a href="/crear_credito">➕ Nuevo crédito</a>
