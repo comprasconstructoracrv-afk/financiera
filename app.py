@@ -131,10 +131,19 @@ def actualizar_mora_credito(credito, fecha_corte=None):
     for cuota in cuotas_credito:
         fecha_vencimiento = cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago
 
-        if cuota.estado in ['PAGADA', 'LIQUIDADA']:
+        if cuota.estado == 'LIQUIDADA':
+            cuota.saldo_pendiente = 0
             cuota.dias_mora = 0
             cuota.interes_mora = 0
-            cuota.total_cobro = round(cuota.saldo_pendiente or 0)
+            cuota.total_cobro = 0
+            continue
+
+        if (cuota.saldo_pendiente or 0) <= 0 and (cuota.interes_mora or 0) <= 0:
+            cuota.saldo_pendiente = 0
+            cuota.dias_mora = 0
+            cuota.interes_mora = 0
+            cuota.total_cobro = 0
+            cuota.estado = 'PAGADA'
             continue
 
         saldo_base = cuota.saldo_pendiente if cuota.saldo_pendiente and cuota.saldo_pendiente > 0 else cuota.valor_cuota
@@ -182,11 +191,15 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
             cuota.saldo_restante = 0
             cuota.saldo_pendiente = 0
             cuota.total_cobro = 0
+            cuota.dias_mora = 0
+            cuota.interes_mora = 0
             cuota.estado = 'LIQUIDADA'
         return
 
     cuota_fija = calcular_cuota(saldo, credito.interes, cantidad_cuotas)
     tasa_credito = credito.interes / 100
+
+    config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
 
     for i, cuota in enumerate(cuotas_futuras):
         saldo_inicial = round(saldo, 2)
@@ -200,24 +213,32 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
 
         nueva_fecha = sumar_meses(fecha_base, i + 1)
 
+        tasa_periodo = TasaPeriodo.query.filter_by(
+            anio=nueva_fecha.year,
+            mes=nueva_fecha.month
+        ).first()
+
         cuota.fecha_pago = nueva_fecha
         cuota.saldo_inicial = saldo_inicial
         cuota.valor_cuota = cuota_fija
         cuota.capital = capital
         cuota.interes = interes_mes
         cuota.saldo_restante = saldo
-        cuota.saldo_pendiente = cuota_fija
+
+        # Solo actualizamos saldo pendiente si la cuota aún no tiene pagos aplicados
+        # o si coincide con el valor anterior completo.
+        if (cuota.estado == 'PENDIENTE' and round(cuota.saldo_pendiente or 0, 2) >= round(cuota.valor_cuota or 0, 2)) or (cuota.saldo_pendiente or 0) <= 0:
+            cuota.saldo_pendiente = cuota_fija
+
         cuota.dias_mora = 0
         cuota.interes_mora = 0
-        cuota.total_cobro = cuota_fija
-        cuota.estado = 'PENDIENTE'
+        cuota.total_cobro = round((cuota.saldo_pendiente or cuota_fija), 2)
 
-        tasa_periodo = TasaPeriodo.query.filter_by(
-            anio=nueva_fecha.year,
-            mes=nueva_fecha.month
-        ).first()
-
-        config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
+        if (cuota.saldo_pendiente or 0) <= 0:
+            cuota.estado = 'PAGADA'
+            cuota.total_cobro = 0
+        else:
+            cuota.estado = 'PENDIENTE'
 
         cuota.tasa_mora_mensual_cuota = (
             tasa_periodo.tasa_mensual if tasa_periodo else config_tasa.tasa_mensual
@@ -736,9 +757,9 @@ def pagar_cuota(cuota_id):
         restante = round(valor_pago, 2)
         hubo_abono_extra_capital = False
 
-        valor_cuota_hoy = round(cuota.valor_cuota, 2)
-        mora_hoy = round(cuota.interes_mora, 2)
-        total_exigible = round(valor_cuota_hoy + mora_hoy, 2)
+        saldo_cuota_hoy = round(cuota.saldo_pendiente or 0, 2)
+        mora_hoy = round(cuota.interes_mora or 0, 2)
+        total_exigible = round(saldo_cuota_hoy + mora_hoy, 2)
 
         valor_aplicado_cuota = 0
         valor_aplicado_mora = 0
@@ -763,14 +784,17 @@ def pagar_cuota(cuota_id):
             restante = round(restante - aplicado_mora, 2)
 
         # 3. Solo es prepago real si pagó más de cuota + mora real de esa fecha
-        if valor_pago > total_exigible and restante > 0:
+        if restante > 0:
             valor_aplicado_prepago = round(restante, 2)
             credito.saldo_actual = round(credito.saldo_actual - restante, 2)
 
             if credito.saldo_actual < 0:
                 credito.saldo_actual = 0
 
-            hubo_abono_extra_capital = True
+    # Solo recalcula si el abono es significativo (evita errores por redondeo)
+            if valor_aplicado_prepago >= 1:
+                hubo_abono_extra_capital = True
+
             restante = 0
 
         # Normalización numérica
