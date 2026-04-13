@@ -162,6 +162,25 @@
     <div class="contenedor">
         <h1>Crear Crédito</h1>
 
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div style="margin-bottom: 20px;">
+              {% for category, message in messages %}
+                <div style="
+                    padding: 12px 14px;
+                    border-radius: 8px;
+                    margin-bottom: 10px;
+                    color: white;
+                    font-weight: bold;
+                    background-color: {% if category == 'success' %}#198754{% else %}#dc3545{% endif %};
+                ">
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
         <form method="POST">
             <h2>Datos del cliente</h2>
 

@@ -13,7 +13,7 @@ class Usuario(db.Model):
 # CRÉDITOS
 class Credito(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    numero_pagare = db.Column(db.String(50), unique=True, nullable=True)
+    numero_pagare = db.Column(db.String(50), nullable=True)
     cliente = db.Column(db.String(100), nullable=False)
     sede = db.Column(db.String(30), nullable=False, default='CRV')
 

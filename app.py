@@ -499,8 +499,10 @@ def crear_credito():
 
         monto_financiado = monto - abono_inicial
 
+        
         if monto_financiado <= 0:
-            return "El monto financiado debe ser mayor que cero"
+            flash("El monto financiado debe ser mayor que cero", "error")
+            return redirect('/crear_credito')
 
         cuota = calcular_cuota(monto_financiado, interes, cuotas)
 
@@ -536,13 +538,20 @@ def crear_credito():
             fecha_creacion=fecha_credito
         )
 
+    try:
         db.session.add(nuevo)
         db.session.commit()
 
         generar_cuotas(nuevo.id, monto_financiado, interes, cuotas, fecha_credito)
         db.session.commit()
 
+        flash("Crédito creado correctamente", "success")
         return redirect(f'/ver_creditos/{sede}')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error al guardar el crédito: {str(e)}", "error")
+        return redirect('/crear_credito')
 
     return render_template('crear_credito.html')
 
