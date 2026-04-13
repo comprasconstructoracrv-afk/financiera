@@ -472,86 +472,83 @@ def crear_credito():
         return redirect('/login')
 
     if request.method == 'POST':
-        cliente = request.form['cliente'].strip()
-        cedula_cliente = request.form.get('cedula_cliente', '').strip()
-        telefono_1 = request.form.get('telefono_1', '').strip()
-        telefono_2 = request.form.get('telefono_2', '').strip()
-        direccion_cliente = request.form.get('direccion_cliente', '').strip()
-        correo_cliente = request.form.get('correo_cliente', '').strip()
+        try:
+            cliente = request.form['cliente'].strip()
+            cedula_cliente = request.form.get('cedula_cliente', '').strip()
+            telefono_1 = request.form.get('telefono_1', '').strip()
+            telefono_2 = request.form.get('telefono_2', '').strip()
+            direccion_cliente = request.form.get('direccion_cliente', '').strip()
+            correo_cliente = request.form.get('correo_cliente', '').strip()
 
-        numero_pagare = request.form['numero_pagare'].strip()
-        sede = request.form.get('sede', 'CRV')
-        monto = limpiar_valor_moneda(request.form['monto'])
-        interes = float(request.form['interes'])
-        cuotas = int(request.form['cuotas'])
-        fecha_credito = datetime.strptime(request.form['fecha_credito'], '%Y-%m-%d')
+            numero_pagare = request.form['numero_pagare'].strip()
+            sede = request.form.get('sede', 'CRV')
+            monto = limpiar_valor_moneda(request.form['monto'])
+            interes = float(request.form['interes'])
+            cuotas = int(request.form['cuotas'])
+            fecha_credito = datetime.strptime(request.form['fecha_credito'], '%Y-%m-%d')
 
-        tiene_codeudor = request.form.get('tiene_codeudor') == 'SI'
+            tiene_codeudor = request.form.get('tiene_codeudor') == 'SI'
 
-        codeudor_nombre = request.form.get('codeudor_nombre', '').strip() if tiene_codeudor else None
-        codeudor_identificacion = request.form.get('codeudor_identificacion', '').strip() if tiene_codeudor else None
-        codeudor_direccion = request.form.get('codeudor_direccion', '').strip() if tiene_codeudor else None
-        codeudor_telefono = request.form.get('codeudor_telefono', '').strip() if tiene_codeudor else None
-        codeudor_correo = request.form.get('codeudor_correo', '').strip() if tiene_codeudor else None
+            codeudor_nombre = request.form.get('codeudor_nombre', '').strip() if tiene_codeudor else None
+            codeudor_identificacion = request.form.get('codeudor_identificacion', '').strip() if tiene_codeudor else None
+            codeudor_direccion = request.form.get('codeudor_direccion', '').strip() if tiene_codeudor else None
+            codeudor_telefono = request.form.get('codeudor_telefono', '').strip() if tiene_codeudor else None
+            codeudor_correo = request.form.get('codeudor_correo', '').strip() if tiene_codeudor else None
 
-        abono_inicial_texto = request.form.get('abono_inicial', '').strip()
-        abono_inicial = limpiar_valor_moneda(abono_inicial_texto) if abono_inicial_texto else 0
+            abono_inicial_texto = request.form.get('abono_inicial', '').strip()
+            abono_inicial = limpiar_valor_moneda(abono_inicial_texto) if abono_inicial_texto else 0
 
-        monto_financiado = monto - abono_inicial
+            monto_financiado = monto - abono_inicial
 
-        
-        if monto_financiado <= 0:
-            flash("El monto financiado debe ser mayor que cero", "error")
-            return redirect('/crear_credito')
+            if monto_financiado <= 0:
+                flash("El monto financiado debe ser mayor que cero", "error")
+                return render_template('crear_credito.html')
 
-        cuota = calcular_cuota(monto_financiado, interes, cuotas)
+            cuota = calcular_cuota(monto_financiado, interes, cuotas)
 
-        config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
+            config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
 
-        nuevo = Credito(
-            numero_pagare=numero_pagare,
-            cliente=cliente,
-            sede=sede,
-            cedula_cliente=cedula_cliente,
-            telefono_1=telefono_1,
-            telefono_2=telefono_2,
-            direccion_cliente=direccion_cliente,
-            correo_cliente=correo_cliente,
+            nuevo = Credito(
+                numero_pagare=numero_pagare,
+                cliente=cliente,
+                sede=sede,
+                cedula_cliente=cedula_cliente,
+                telefono_1=telefono_1,
+                telefono_2=telefono_2,
+                direccion_cliente=direccion_cliente,
+                correo_cliente=correo_cliente,
+                tiene_codeudor=tiene_codeudor,
+                codeudor_nombre=codeudor_nombre,
+                codeudor_identificacion=codeudor_identificacion,
+                codeudor_direccion=codeudor_direccion,
+                codeudor_telefono=codeudor_telefono,
+                codeudor_correo=codeudor_correo,
+                monto=monto,
+                abono_inicial=abono_inicial,
+                monto_financiado=monto_financiado,
+                saldo_actual=monto_financiado,
+                interes=interes,
+                cuotas=cuotas,
+                cuota_mensual=cuota,
+                tasa_mora_anual=config_tasa.tasa_anual,
+                tasa_mora_mensual=config_tasa.tasa_mensual,
+                tasa_mora_diaria=config_tasa.tasa_diaria,
+                fecha_creacion=fecha_credito
+            )
 
-            tiene_codeudor=tiene_codeudor,
-            codeudor_nombre=codeudor_nombre,
-            codeudor_identificacion=codeudor_identificacion,
-            codeudor_direccion=codeudor_direccion,
-            codeudor_telefono=codeudor_telefono,
-            codeudor_correo=codeudor_correo,
-    
-            monto=monto,
-            abono_inicial=abono_inicial,
-            monto_financiado=monto_financiado,
-            saldo_actual=monto_financiado,
-            interes=interes,
-            cuotas=cuotas,
-            cuota_mensual=cuota,
-            tasa_mora_anual=config_tasa.tasa_anual,
-            tasa_mora_mensual=config_tasa.tasa_mensual,
-            tasa_mora_diaria=config_tasa.tasa_diaria,
-            fecha_creacion=fecha_credito
-        )
+            db.session.add(nuevo)
+            db.session.commit()
 
-    try:
-        db.session.add(nuevo)
-        db.session.commit()
+            generar_cuotas(nuevo.id, monto_financiado, interes, cuotas, fecha_credito)
+            db.session.commit()
 
-        generar_cuotas(nuevo.id, monto_financiado, interes, cuotas, fecha_credito)
-        db.session.commit()
+            flash("Crédito creado correctamente", "success")
+            return redirect(f'/ver_creditos/{sede}')
 
-        flash("Crédito creado correctamente", "success")
-        return redirect(f'/ver_creditos/{sede}')
-
-    except Exception as e:
-        db.session.rollback()
-        flash(f"Error al guardar el crédito: {str(e)}", "error")
-        return redirect('/crear_credito')
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al guardar el crédito: {str(e)}", "error")
+            return render_template('crear_credito.html')
 
     return render_template('crear_credito.html')
 
