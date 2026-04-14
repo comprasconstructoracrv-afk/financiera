@@ -91,9 +91,104 @@
             font-size: 13px;
             color: #6b7280;
         }
+
+        .overlay-alerta {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(3px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .overlay-alerta.activo {
+            display: flex;
+        } 
+
+        .alerta-box {
+            background: white;
+            width: 90%;
+            max-width: 420px;
+            border-radius: 18px;
+            padding: 28px;
+            text-align: center;
+            box-shadow: 0 20px 45px rgba(0,0,0,0.18);
+            animation: aparecerAlerta 0.2s ease;
+        }
+
+       .alerta-icono {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 14px auto;
+            border-radius: 50%;
+            background: #fff3cd;
+            color: #b45309;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 34px;
+            font-weight: bold;
+        }
+
+        .alerta-box h3 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+            color: #102a43;
+        }
+
+        .alerta-box p {
+            margin: 0 0 18px 0;
+            font-size: 16px;
+            color: #52606d;
+            line-height: 1.5;
+        }
+
+        .btn-alerta {
+            border: none;
+            background: linear-gradient(135deg, #dc3545, #b02a37);
+            color: white;
+            padding: 11px 18px;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+
+        .btn-alerta:hover {
+            transform: translateY(-1px);
+            opacity: 0.95;
+        }
+
+        @keyframes aparecerAlerta {
+            from {
+                  opacity: 0;
+                  transform: scale(0.96);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
     </style>
 </head>
 <body>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div id="overlay-alerta" class="overlay-alerta activo">
+      <div class="alerta-box">
+        <div class="alerta-icono">⚠</div>
+        <h3>Error de acceso</h3>
+        {% for category, message in messages %}
+          <p>{{ message }}</p>
+        {% endfor %}
+        <button type="button" class="btn-alerta" onclick="cerrarAlerta()">Entendido</button>
+      </div>
+    </div>
+  {% endif %}
+{% endwith %}
 
 <div class="login-container">
     <img src="{{ url_for('static', filename='logo.png') }}" class="logo" alt="Logo CRV">
@@ -114,6 +209,15 @@
         Sistema financiero
     </div>
 </div>
+
+<script>
+function cerrarAlerta() {
+    const overlay = document.getElementById('overlay-alerta');
+    if (overlay) {
+        overlay.classList.remove('activo');
+    }
+}
+</script>
 
 </body>
 </html>

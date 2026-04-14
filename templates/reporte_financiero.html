@@ -189,6 +189,220 @@
         font-size: 15px;
     }
 
+    .barra-controles {
+        margin-top: 22px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+
+    .form-filtros {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .form-filtros label {
+        font-weight: bold;
+        color: #374151;
+    }
+
+    .form-filtros select {
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid #d1d5db;
+        font-size: 14px;
+        background: white;
+    }
+
+    .acciones-reporte {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        display: inline-block;
+        padding: 11px 18px;
+        border-radius: 10px;
+        text-decoration: none;
+        color: white;
+        font-weight: bold;
+        font-size: 14px;
+        border: none;
+        cursor: pointer;
+        transition: 0.2s ease;
+    }
+
+    .btn:hover {
+        transform: translateY(-1px);
+        opacity: 0.95;
+    }
+
+    .btn-volver {
+        background: #6c757d;
+    }
+
+    .btn-consultar {
+        background: #4b5563;
+    }
+
+    .btn-excel {
+        background: #198754;
+    }
+
+    .btn-pdf {
+        background: #dc3545;
+    }
+
+    .acciones-reporte {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+
+    /* BOTÓN BASE */
+    .btn-premium {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 18px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 14px;
+        text-decoration: none;
+        color: white;
+        transition: all 0.25s ease;
+     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    /* EFECTO HOVER FINTECH */
+    .btn-premium:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        opacity: 0.95;
+    }
+
+    /* BOTÓN INICIO (gris elegante) */
+    .btn-inicio {
+        background: linear-gradient(135deg, #6c757d, #495057);
+    }
+
+    /* BOTÓN EXCEL (verde moderno) */
+    .btn-excel {
+        background: linear-gradient(135deg, #198754, #157347);
+    }
+
+    /* BOTÓN PDF (rojo moderno) */
+    .btn-pdf {
+        background: linear-gradient(135deg, #dc3545, #b02a37);
+    }  
+    .btn-premium:active {
+        transform: scale(0.97);
+        box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+    }
+
+    .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top: 2px solid white;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .btn-loading {
+        pointer-events: none;
+        opacity: 0.8;
+    }
+
+    .overlay-cargando {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        backdrop-filter: blur(3px);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    .overlay-cargando.activo {
+        display: flex;
+    }
+
+    .overlay-contenido {
+        background: white;
+        padding: 32px 36px;
+        border-radius: 20px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.22);
+        text-align: center;
+        min-width: 320px;
+        max-width: 420px;
+    }
+
+    .overlay-contenido h3 {
+        margin: 18px 0 8px 0;
+        font-size: 24px;
+        color: #102a43;
+    }
+
+    .overlay-contenido p {
+        margin: 0;
+        font-size: 15px;
+        color: #52606d;
+    }
+
+    .spinner-overlay {
+        width: 54px;
+        height: 54px;
+        margin: 0 auto;
+        border: 5px solid rgba(22, 119, 255, 0.18);
+        border-top: 5px solid #1677ff;
+        border-radius: 50%;
+        animation: girarOverlay 0.8s linear infinite;
+    }
+    .icono-svg {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .icono-svg svg {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+    }
+
+    .btn-premium {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 18px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 14px;
+        text-decoration: none;
+        color: white;
+        transition: all 0.25s ease;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    @keyframes girarOverlay {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
     @media (max-width: 768px) {
         .encabezado {
             justify-content: center;
@@ -210,50 +424,79 @@
     <div class="encabezado-texto">
         <h1>Reporte financiero</h1>
         <p>
-           Consolidado general, por sede y mensual -
-           Año {{ anio_seleccionado }} -
-           Sede {{ sede_seleccionada }}
+            Consolidado general, por sede y mensual -
+            Año {{ anio_seleccionado }} -
+            Sede {{ sede_seleccionada }}
         </p>
-        <form method="GET" style="margin-top:18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-    <label for="anio" style="font-weight:bold; color:#374151;">Año:</label>
 
-    <select name="anio" id="anio" style="padding:10px 12px; border-radius:10px; border:1px solid #d1d5db; font-size:14px;">
-        {% for anio in anios_disponibles %}
-            <option value="{{ anio }}" {% if anio == anio_seleccionado %}selected{% endif %}>
-                {{ anio }}
-            </option>
-        {% endfor %}
-    </select>
+        <div class="barra-controles">
+            <form method="GET" class="form-filtros">
+                <label for="anio">Año:</label>
+                <select name="anio" id="anio">
+                    {% for anio in anios_disponibles %}
+                        <option value="{{ anio }}" {% if anio == anio_seleccionado %}selected{% endif %}>
+                            {{ anio }}
+                        </option>
+                    {% endfor %}
+                </select>
 
-    <label for="sede" style="font-weight:bold; color:#374151;">Sede:</label>
+                <label for="sede">Sede:</label>
+                <select name="sede" id="sede">
+                    {% for sede in sedes_disponibles %}
+                        <option value="{{ sede }}" {% if sede == sede_seleccionada %}selected{% endif %}>
+                            {{ sede }}
+                        </option>
+                    {% endfor %}
+                </select>
 
-    <select name="sede" id="sede" style="padding:10px 12px; border-radius:10px; border:1px solid #d1d5db; font-size:14px;">
-        {% for sede in sedes_disponibles %}
-            <option value="{{ sede }}" {% if sede == sede_seleccionada %}selected{% endif %}>
-                {{ sede }}
-            </option>
-        {% endfor %}
-    </select>
+                <button type="submit" class="btn btn-consultar">Consultar</button>
+            </form>
 
-    <button type="submit" class="btn btn-volver" style="border:none; cursor:pointer;">
-        Consultar
-    </button>
-</form>
-
-        <div class="acciones">
-            <a href="/dashboard" class="btn btn-volver">⬅ Volver al dashboard</a>
-        </div>
-    </div>
-
-        <div class="acciones">
-    <a href="/dashboard" class="btn btn-volver">⬅ Volver al dashboard</a>
-    <a href="/reporte_financiero/excel?anio={{ anio_seleccionado }}&sede={{ sede_seleccionada }}" class="btn btn-volver">
-        Exportar Excel
+            <div class="acciones-reporte">
+    <a href="/dashboard" class="btn-premium btn-inicio">
+        <span class="icono-svg">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 11.5L12 4l9 7.5"></path>
+                <path d="M5 10.5V20h14v-9.5"></path>
+            </svg>
+        </span>
+        <span>Inicio</span>
     </a>
-    <a href="/reporte_financiero/pdf?anio={{ anio_seleccionado }}&sede={{ sede_seleccionada }}" class="btn btn-volver">
-        Exportar PDF
+
+    <a href="/reporte_financiero/excel?anio={{ anio_seleccionado }}&sede={{ sede_seleccionada }}"
+       class="btn-premium btn-excel btn-exportar"
+       data-tipo="excel">
+        <span class="icono-svg">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                <path d="M14 3v5h5"></path>
+                <path d="M9 10l6 8"></path>
+                <path d="M15 10l-6 8"></path>
+            </svg>
+        </span>
+        <span>Exportar Excel</span>
+    </a>
+
+    <a href="/reporte_financiero/pdf?anio={{ anio_seleccionado }}&sede={{ sede_seleccionada }}"
+       class="btn-premium btn-pdf btn-exportar"
+       data-tipo="pdf">
+        <span class="icono-svg">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                <path d="M14 3v5h5"></path>
+                <path d="M8 13h3"></path>
+                <path d="M8 17h8"></path>
+                <path d="M8 9h1"></path>
+            </svg>
+        </span>
+        <span>Exportar PDF</span>
     </a>
 </div>
+        </div>
+    </div>
 
     <div class="logo">
         <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
@@ -520,5 +763,62 @@
         }
     });
 </script>
+<script>
+document.querySelectorAll('.btn-exportar').forEach(btn => {
+    btn.addEventListener('click', function () {
+
+        // Evitar múltiples clics
+        if (this.classList.contains('btn-loading')) return;
+
+        this.classList.add('btn-loading');
+
+        const textoOriginal = this.getAttribute('data-texto');
+
+        // Reemplaza contenido con spinner + texto
+        this.innerHTML = `
+            <div class="spinner"></div>
+            Generando...
+        `;
+
+        // Opcional: restaurar texto después de unos segundos
+        setTimeout(() => {
+            this.innerHTML = textoOriginal;
+            this.classList.remove('btn-loading');
+        }, 5000);
+    });
+});
+</script>
+<script>
+document.querySelectorAll('.btn-exportar').forEach(btn => {
+    btn.addEventListener('click', function () {
+        const overlay = document.getElementById('overlay-cargando');
+        const titulo = document.getElementById('overlay-titulo');
+        const texto = document.getElementById('overlay-texto');
+        const tipo = this.dataset.tipo;
+
+        if (tipo === 'excel') {
+            titulo.textContent = 'Generando archivo Excel...';
+            texto.textContent = 'Estamos preparando el consolidado para descarga.';
+        } else {
+            titulo.textContent = 'Generando archivo PDF...';
+            texto.textContent = 'Estamos armando el reporte en formato PDF.';
+        }
+
+        overlay.classList.add('activo');
+
+        // Seguridad visual por si la descarga tarda o el navegador bloquea la navegación visual
+        setTimeout(() => {
+            overlay.classList.remove('activo');
+        }, 6000);
+    });
+});
+</script>
+<div id="overlay-cargando" class="overlay-cargando">
+    <div class="overlay-contenido">
+        <div class="spinner-overlay"></div>
+        <h3 id="overlay-titulo">Generando reporte...</h3>
+        <p id="overlay-texto">Por favor espera un momento.</p>
+    </div>
+</div>
 </body>
 </html>

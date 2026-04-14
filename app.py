@@ -501,7 +501,8 @@ def login():
             session['rol'] = usuario.rol
             return redirect('/dashboard')
         else:
-            return "Usuario o contraseña incorrectos"
+            flash("Usuario o contraseña incorrectos", "error")
+            return redirect('/login')
 
     return render_template('login.html')
 

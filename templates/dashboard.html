@@ -152,6 +152,73 @@
         .cancelado { color: #0d6efd; }
         .total { color: #111827; }
 
+        .modulo-reporte {
+            margin-top: 28px;
+            background: linear-gradient(135deg, #0f172a, #1e3a8a);
+            color: white;
+            border-radius: 22px;
+            padding: 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+        }
+
+        .modulo-reporte-texto {
+            max-width: 760px;
+        }
+
+        .modulo-etiqueta {
+            display: inline-block;
+            background: rgba(255,255,255,0.14);
+            color: #dbeafe;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .modulo-reporte h3 {
+            margin: 0 0 10px 0;
+            font-size: 32px;
+            color: white;
+        }
+
+        .modulo-reporte p {
+            margin: 0 0 18px 0;
+            color: #dbeafe;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        .btn-modulo-reporte {
+            display: inline-block;
+            background: white;
+            color: #102a43;
+            text-decoration: none;
+            padding: 12px 18px;
+            border-radius: 12px;
+            font-weight: bold;
+            transition: all 0.25s ease;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+        }
+
+        .btn-modulo-reporte:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+        }
+
+        .modulo-reporte-icono {
+            font-size: 72px;
+            line-height: 1;
+            opacity: 0.95;
+        }
+
         @media (max-width: 700px) {
             .encabezado {
                 text-align: center;
@@ -177,7 +244,6 @@
                 <p>Panel general de cartera por sede</p>
 
                 <div class="acciones">
-                    <a href="/reporte_financiero" class="btn btn-crear">Reporte financiero</a>
                     <a href="/crear_credito" class="btn btn-crear">Crear crédito</a>
                     <a href="/configuracion_tasa" class="btn btn-tasa">Configurar tasa mora</a>
                     <a href="/logout" class="btn btn-salir">Cerrar sesión</a>
@@ -222,6 +288,23 @@
             </a>
             {% endfor %}
         </div>
+        <div class="modulo-reporte">
+    <div class="modulo-reporte-texto">
+        <div class="modulo-etiqueta">Módulo gerencial</div>
+        <h3>Reporte financiero</h3>
+        <p>
+            Consulta consolidado general.
+        </p>
+
+        <a href="/reporte_financiero" class="btn-modulo-reporte">
+            Abrir reporte financiero
+        </a>
+    </div>
+
+    <div class="modulo-reporte-icono">
+        📊
+    </div>
+</div>
 
     </div>
 </body>
