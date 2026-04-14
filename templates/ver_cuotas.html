@@ -1,460 +1,638 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <script>
-    function toggleDeudaFecha() {
-        const panel = document.getElementById('panel-deuda-fecha');
-        if (!panel) return;
-
-        if (panel.style.display === 'none' || panel.style.display === '') {
-            panel.style.display = 'block';
-        } else {
-            panel.style.display = 'none';
-        }
-    }
-</script>
-
-     <script>
-     function toggleDetallePago(id) {
-         const panel = document.getElementById(id);
-         if (!panel) return;
-
-         if (panel.style.display === 'none' || panel.style.display === '') {
-             panel.style.display = 'block';
-         } else {
-             panel.style.display = 'none';
-         }
-     }
-     </script>
-
-    <script>
-    function toggleDetalleCliente() {
-        const panel = document.getElementById('panel-detalle-cliente');
-        if (!panel) return;
-
-        if (panel.style.display === 'none' || panel.style.display === '') {
-            panel.style.display = 'block';
-        } else {
-            panel.style.display = 'none';
-        }
-    }
-    </script>
-
     <meta charset="UTF-8">
     <title>Cuotas del crédito</title>
+
+    <script>
+        function toggleDeudaFecha() {
+            const panel = document.getElementById('panel-deuda-fecha');
+            if (!panel) return;
+            panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
+        }
+
+        function toggleDetallePago(id) {
+            const panel = document.getElementById(id);
+            if (!panel) return;
+            panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
+        }
+
+        function toggleDetalleCliente() {
+            const panel = document.getElementById('panel-detalle-cliente');
+            if (!panel) return;
+            panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
+        }
+    </script>
+
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: Arial, sans-serif;
             background: #f4f6f9;
+            margin: 0;
             padding: 30px;
+            color: #1f2937;
         }
 
         .contenedor {
-            max-width: 1450px;
+            max-width: 1500px;
             margin: auto;
             background: white;
             padding: 30px;
+            border-radius: 18px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
+
+        .encabezado-principal {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .titulo-box h1 {
+            margin: 0;
+            font-size: 42px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+
+        .titulo-box p {
+            margin: 8px 0 0 0;
+            color: #6b7280;
+            font-size: 15px;
+        }
+
+        .logo-box {
+            text-align: right;
+        }
+
+        .logo-box img {
+            max-height: 90px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .barra-superior {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 25px;
+        }
+
+        .acciones-superiores {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 11px 18px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-volver {
+            background: #6c757d;
+        }
+
+        .btn-liquidar {
+            background: #dc3545;
+        }
+
+        .btn-deuda {
+            background: #0d6efd;
+        }
+
+        .btn-capital {
+            background: #198754;
+        }
+
+        .grid-resumen {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+            margin-bottom: 25px;
+        }
+
+        .card-info {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 18px;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .card-info .label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .card-info .valor {
+            font-size: 18px;
+            font-weight: bold;
+            color: #111827;
+            line-height: 1.35;
+        }
+
+        .card-info .mini-btn {
+            margin-top: 12px;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            background: #0d6efd;
+            color: white;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .card-estado-mora {
+            background: #fff5f5;
+            border: 1px solid #f3c2c2;
+            color: #c82333;
+        }
+
+        .card-estado-cancelado {
+            background: #f0fff4;
+            border: 1px solid #b7e4c7;
+            color: #198754;
+        }
+
+        .card-estado-abono {
+            background: #fff8e1;
+            border: 1px solid #f3d48a;
+            color: #9a6700;
+        }
+
+        .card-estado-dia {
+            background: #eef6ff;
+            border: 1px solid #cfe2ff;
+            color: #0d6efd;
+        }
+
+        .panel-detalle {
+            display: none;
+            margin: 20px 0 30px 0;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
             border-radius: 12px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.08);
+            padding: 20px;
+        }
+
+        .panel-detalle h3,
+        .panel-detalle h4 {
+            margin-top: 0;
+        }
+
+        .grid-panel {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .mini-card {
+            background: white;
+            padding: 14px;
+            border-radius: 10px;
+            min-width: 220px;
+            border: 1px solid #e9ecef;
+        }
+
+        .mini-card .label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-bottom: 6px;
+        }
+
+        .mini-card .valor {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .tabla-wrapper {
+            overflow-x: auto;
+            margin-top: 10px;
+            border-radius: 12px;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            min-width: 1400px;
+            background: white;
         }
 
         th, td {
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
+            padding: 12px 10px;
+            border-bottom: 1px solid #e5e7eb;
             text-align: center;
             font-size: 13px;
             vertical-align: top;
         }
 
         th {
-            background: #f0f0f0;
+            background: #f1f5f9;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 1;
         }
 
-        thead th {
-                position: sticky;
-                top: 0;
-                background: #f0f0f0;
-                z-index: 1;
+        .fila-mora {
+            background: #fff5f5;
+        }
+
+        .fila-pagada {
+            background: #f6fff6;
+        }
+
+        .fila-liquidada {
+            background: #f0f4ff;
         }
 
         .rojo {
-            color: red;
+            color: #dc3545;
             font-weight: bold;
         }
 
         .verde {
-            color: green;
+            color: #198754;
             font-weight: bold;
         }
 
         .azul {
-            color: blue;
+            color: #0d6efd;
             font-weight: bold;
-        }
-
-        a.boton {
-            display: inline-block;
-            padding: 6px 12px;
-            background: linear-gradient(135deg, #007bff, #0056b3);
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            font-size: 12px;
-        }
-
-        a.volver {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 10px 14px;
-            background: #6c757d;
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
         }
 
         .historial {
             text-align: left;
             font-size: 12px;
             line-height: 1.5;
+            min-width: 190px;
+        }
+
+        .pago-box {
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .detalle-pago {
+            display: none;
+            margin-top: 8px;
+            padding: 8px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            text-align: left;
+        }
+
+        .btn-detalle {
+            margin-top: 8px;
+            padding: 6px 10px;
+            border: none;
+            border-radius: 6px;
+            background: #0d6efd;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .btn-pagar {
+            color: #0d6efd;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .pie-botones {
+            margin-top: 25px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
         }
     </style>
 </head>
 <body>
 <div class="contenedor">
 
-    <h1 style="text-transform: uppercase; letter-spacing: 1px;">
-        Tabla de amortización
-    </h1>
+    <div class="encabezado-principal">
+        <div class="titulo-box">
+            <h1>Tabla de amortización</h1>
+            <p>Consulta completa del crédito, cuotas, mora, pagos y movimientos aplicados.</p>
+        </div>
 
-
-<div style="display:flex; gap:15px; flex-wrap:wrap; margin:20px 0;">
-
-    <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
-        <div style="font-size:12px; color:#6c757d;">PAGARÉ</div>
-        <div style="font-size:18px; font-weight:bold;">
-            {{ credito.numero_pagare if credito.numero_pagare else 'Sin asignar' }}
+        <div class="logo-box">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo empresa">
         </div>
     </div>
 
-    <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
-        <div style="font-size:12px; color:#6c757d;">CLIENTE</div>
-        <div style="font-size:18px; font-weight:bold;">{{ credito.cliente }}</div>
-
-        <button
-            type="button"
-            onclick="toggleDetalleCliente()"
-            style="margin-top:10px; padding:8px 12px; border:none; border-radius:8px; background:#0d6efd; color:white; cursor:pointer;"
-        >
-            Ver detalle
-        </button>
-    </div>
-
-    <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
-        <div style="font-size:12px; color:#6c757d;">MONTO</div>
-        <div style="font-size:18px; font-weight:bold;">{{ credito.monto | cop }}</div>
-    </div>
-
-    <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
-        <div style="font-size:12px; color:#6c757d;">ABONO INICIAL</div>
-        <div style="font-size:18px; font-weight:bold;">{{ credito.abono_inicial | cop }}</div>
-    </div>
-
-    <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
-        <div style="font-size:12px; color:#6c757d;">INTERÉS</div>
-        <div style="font-size:18px; font-weight:bold;">{{ credito.interes }}%</div>
-    </div>
-
-    <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
-        <div style="font-size:12px; color:#6c757d;">FECHA DEL CRÉDITO</div>
-        <div style="font-size:18px; font-weight:bold;">
-            {{ credito.fecha_creacion.strftime('%d/%m/%Y') }}
+    <div class="barra-superior">
+        <div class="acciones-superiores">
+            <a class="btn btn-volver" href="/ver_creditos/{{ credito.sede }}">⬅ Volver a créditos</a>
+            <a class="btn btn-liquidar" href="/liquidar_credito/{{ credito.id }}">Liquidar crédito</a>
+            <a class="btn btn-deuda" href="/pagar_deuda_fecha/{{ credito.id }}">Pagar deuda a la fecha</a>
+            <a class="btn btn-capital" href="/abono_capital/{{ credito.id }}">Abono a capital</a>
         </div>
     </div>
 
-    <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
-        <div style="font-size:12px; color:#6c757d;">ÚLTIMO PAGO</div>
-        <div style="font-size:18px; font-weight:bold;">
-            {% if ultimo_pago %}
-                {{ ultimo_pago.fecha.strftime('%d/%m/%Y') }}
+    <div class="grid-resumen">
+        <div class="card-info">
+            <div class="label">Pagaré</div>
+            <div class="valor">{{ credito.numero_pagare if credito.numero_pagare else 'Sin asignar' }}</div>
+        </div>
+
+        <div class="card-info">
+            <div class="label">Cliente</div>
+            <div class="valor">{{ credito.cliente }}</div>
+            <button type="button" class="mini-btn" onclick="toggleDetalleCliente()">Ver detalle</button>
+        </div>
+
+        <div class="card-info">
+            <div class="label">Monto</div>
+            <div class="valor">{{ credito.monto | cop }}</div>
+        </div>
+
+        <div class="card-info">
+            <div class="label">Abono inicial</div>
+            <div class="valor">{{ credito.abono_inicial | cop }}</div>
+        </div>
+
+        <div class="card-info">
+            <div class="label">Interés</div>
+            <div class="valor">{{ credito.interes }}%</div>
+        </div>
+
+        <div class="card-info">
+            <div class="label">Fecha del crédito</div>
+            <div class="valor">{{ credito.fecha_creacion.strftime('%d/%m/%Y') }}</div>
+        </div>
+
+        <div class="card-info">
+            <div class="label">Último pago</div>
+            <div class="valor">
+                {% if ultimo_pago %}
+                    {{ ultimo_pago.fecha.strftime('%d/%m/%Y') }}
+                {% else %}
+                    Sin pagos
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card-info">
+            <div class="label">Deuda a la fecha</div>
+            {% if esta_al_dia %}
+                <div class="valor verde">AL DÍA</div>
             {% else %}
-                Sin pagos
+                <div class="valor">{{ deuda_total_fecha | cop }}</div>
+                <button type="button" class="mini-btn" onclick="toggleDeudaFecha()">Ver detalle</button>
             {% endif %}
         </div>
+
+        <div class="card-info
+            {% if estado_credito == 'EN MORA' %}card-estado-mora
+            {% elif estado_credito == 'CANCELADO' %}card-estado-cancelado
+            {% elif estado_credito == 'CON ABONOS' %}card-estado-abono
+            {% else %}card-estado-dia
+            {% endif %}">
+            <div class="label">Estado</div>
+            <div class="valor">{{ estado_credito }}</div>
+        </div>
     </div>
 
-    <div style="background:#f8f9fa; padding:16px; border-radius:10px; min-width:200px;">
-        <div style="font-size:12px; color:#6c757d;">DEUDA A LA FECHA</div>
+    <div id="panel-deuda-fecha" class="panel-detalle">
+        <h3>Detalle deuda a la fecha</h3>
 
         {% if esta_al_dia %}
-            <div style="font-size:18px; font-weight:bold; color:green;">AL DÍA</div>
+            <p class="verde">El crédito se encuentra al día.</p>
         {% else %}
-            <div style="font-size:18px; font-weight:bold;">{{ deuda_total_fecha | cop }}</div>
-            <button
-                type="button"
-                onclick="toggleDeudaFecha()"
-                style="margin-top:10px; padding:8px 12px; border:none; border-radius:8px; background:#0d6efd; color:white; cursor:pointer;"
-            >
-                  Ver detalle
-            </button>
-       {% endif %}
-   </div>
+            <div class="grid-panel">
+                <div class="mini-card">
+                    <div class="label">Cuotas exigibles a hoy</div>
+                    <div class="valor">{{ cuota_pendiente_total | cop }}</div>
+                </div>
 
-    <div style="
-        padding:16px;
-        border-radius:10px;
-        min-width:200px;
-        {% if estado_credito == 'EN MORA' %}
-            background:#fff5f5; color:#c82333;
-        {% elif estado_credito == 'CANCELADO' %}
-            background:#f0fff4; color:#198754;
-        {% elif estado_credito == 'CON ABONOS' %}
-            background:#fff8e1; color:#9a6700;
-        {% else %}
-            background:#eef6ff; color:#0d6efd;
+                <div class="mini-card">
+                    <div class="label">Mora acumulada a hoy</div>
+                    <div class="valor rojo">{{ mora_total | cop }}</div>
+                </div>
+
+                <div class="mini-card">
+                    <div class="label">Total exigible a hoy</div>
+                    <div class="valor">{{ deuda_total_fecha | cop }}</div>
+                </div>
+            </div>
+
+            <div style="margin-top:20px;">
+                <h4>Cuotas exigibles</h4>
+                <div class="tabla-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Fecha cuota</th>
+                                <th>Saldo pendiente</th>
+                                <th>Mora</th>
+                                <th>Total exigible</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cuota in cuotas_exigibles_hoy %}
+                            <tr>
+                                <td>{{ cuota.numero }}</td>
+                                <td>{{ cuota.fecha_pago.strftime('%d/%m/%Y') }}</td>
+                                <td>{{ cuota.saldo_pendiente | cop }}</td>
+                                <td>{{ cuota.interes_mora | cop }}</td>
+                                <td>{{ cuota.total_cobro | cop }}</td>
+                                <td>{{ cuota.estado }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         {% endif %}
-    ">
-        <div style="font-size:12px;">ESTADO</div>
-        <div style="font-size:18px; font-weight:bold;">{{ estado_credito }}</div>
     </div>
 
-</div>
+    <div id="panel-detalle-cliente" class="panel-detalle">
+        <h3>Detalle del cliente</h3>
 
-
-<div id="panel-deuda-fecha" style="display:none; margin:20px 0; background:#f8f9fa; border:1px solid #dee2e6; border-radius:10px; padding:20px;">
-    <h3 style="margin-top:0;">Detalle deuda a la fecha</h3>
-
-    {% if esta_al_dia %}
-        <p style="color:green; font-weight:bold; margin:0;">El crédito se encuentra al día.</p>
-    {% else %}
-        <div style="display:flex; gap:15px; flex-wrap:wrap;">
-            <div style="background:white; padding:14px; border-radius:8px; min-width:220px; border:1px solid #e9ecef;">
-                <div style="font-size:12px; color:#6c757d;">CUOTAS EXIGIBLES A HOY</div>
-                <div style="font-size:20px; font-weight:bold;">{{ cuota_pendiente_total | cop }}</div>
+        <div class="grid-panel">
+            <div class="mini-card">
+                <div class="label">Cédula</div>
+                <div class="valor">{{ credito.cedula_cliente if credito.cedula_cliente else 'No registrada' }}</div>
             </div>
 
-            <div style="background:white; padding:14px; border-radius:8px; min-width:220px; border:1px solid #e9ecef;">
-                <div style="font-size:12px; color:#6c757d;">MORA ACUMULADA A HOY</div>
-                <div style="font-size:20px; font-weight:bold; color:#c82333;">{{ mora_total | cop }}</div>
+            <div class="mini-card">
+                <div class="label">Teléfono 1</div>
+                <div class="valor">{{ credito.telefono_1 if credito.telefono_1 else 'No registrado' }}</div>
             </div>
 
-            <div style="background:white; padding:14px; border-radius:8px; min-width:220px; border:1px solid #e9ecef;">
-                <div style="font-size:12px; color:#6c757d;">TOTAL EXIGIBLE A HOY</div>
-                <div style="font-size:20px; font-weight:bold;">{{ deuda_total_fecha | cop }}</div>
+            <div class="mini-card">
+                <div class="label">Teléfono 2</div>
+                <div class="valor">{{ credito.telefono_2 if credito.telefono_2 else 'No registrado' }}</div>
             </div>
-        </div>
 
-        <div style="margin-top:20px;">
-            <h4>Cuotas que debe a la fecha</h4>
-
-            <table style="width:100%; border-collapse:collapse; margin-top:10px;">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Fecha cuota</th>
-                        <th>Saldo pendiente</th>
-                        <th>Mora</th>
-                        <th>Total exigible</th>
-                        <th>Estado</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for cuota in cuotas_exigibles_hoy %}
-                    <tr>
-                        <td>{{ cuota.numero }}</td>
-                        <td>{{ cuota.fecha_pago.strftime('%d/%m/%Y') }}</td>
-                        <td>{{ cuota.saldo_pendiente | cop }}</td>
-                        <td>{{ cuota.interes_mora | cop }}</td>
-                        <td>{{ cuota.total_cobro | cop }}</td>
-                        <td>{{ cuota.estado }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    {% endif %}
-</div>
-
-<div id="panel-detalle-cliente" style="display:none; margin:20px 0; background:#f8f9fa; border:1px solid #dee2e6; border-radius:10px; padding:20px;">
-    <h3 style="margin-top:0;">Detalle del cliente</h3>
-
-    <div style="display:flex; gap:15px; flex-wrap:wrap;">
-        <div style="background:white; padding:14px; border-radius:8px; min-width:220px; border:1px solid #e9ecef;">
-            <div style="font-size:12px; color:#6c757d;">CÉDULA</div>
-            <div style="font-size:18px; font-weight:bold;">
-                {{ credito.cedula_cliente if credito.cedula_cliente else 'No registrada' }}
+            <div class="mini-card">
+                <div class="label">Dirección</div>
+                <div class="valor">{{ credito.direccion_cliente if credito.direccion_cliente else 'No registrada' }}</div>
             </div>
-        </div>
 
-        <div style="background:white; padding:14px; border-radius:8px; min-width:220px; border:1px solid #e9ecef;">
-            <div style="font-size:12px; color:#6c757d;">TELÉFONO 1</div>
-            <div style="font-size:18px; font-weight:bold;">
-                {{ credito.telefono_1 if credito.telefono_1 else 'No registrado' }}
-            </div>
-        </div>
-
-        <div style="background:white; padding:14px; border-radius:8px; min-width:220px; border:1px solid #e9ecef;">
-            <div style="font-size:12px; color:#6c757d;">TELÉFONO 2</div>
-            <div style="font-size:18px; font-weight:bold;">
-                {{ credito.telefono_2 if credito.telefono_2 else 'No registrado' }}
-            </div>
-        </div>
-
-        <div style="background:white; padding:14px; border-radius:8px; min-width:220px; border:1px solid #e9ecef;">
-            <div style="font-size:12px; color:#6c757d;">DIRECCIÓN</div>
-            <div style="font-size:18px; font-weight:bold;">
-                {{ credito.direccion_cliente if credito.direccion_cliente else 'No registrada' }}
-            </div>
-        </div>
-
-        <div style="background:white; padding:14px; border-radius:8px; min-width:220px; border:1px solid #e9ecef;">
-            <div style="font-size:12px; color:#6c757d;">CORREO</div>
-            <div style="font-size:18px; font-weight:bold;">
-                {{ credito.correo_cliente if credito.correo_cliente else 'No registrado' }}
+            <div class="mini-card">
+                <div class="label">Correo</div>
+                <div class="valor">{{ credito.correo_cliente if credito.correo_cliente else 'No registrado' }}</div>
             </div>
         </div>
     </div>
-</div>
 
-    <p>
-       <a class="volver" href="/liquidar_credito/{{ credito.id }}" style="background:#dc3545;">
-          Liquidar crédito
-       </a>
+    <div class="tabla-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Fecha cuota</th>
+                    <th>Saldo inicial</th>
+                    <th>Valor cuota</th>
+                    <th>Capital</th>
+                    <th>Interés</th>
+                    <th>Saldo restante</th>
+                    <th>Saldo pendiente</th>
+                    <th>% mora mensual</th>
+                    <th>Días mora</th>
+                    <th>Mora</th>
+                    <th>Total a pagar</th>
+                    <th>Estado</th>
+                    <th>Pagos realizados</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
 
-       <a class="volver" href="/pagar_deuda_fecha/{{ credito.id }}" style="background:#0d6efd; margin-left:10px;">
-          Pagar deuda a la fecha
-       </a>
-
-       <a class="volver" href="/abono_capital/{{ credito.id }}" style="background:#198754; margin-left:10px;">
-          Abono a capital
-       </a>
-    </p>
-
-    <table>
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Fecha cuota</th>
-                <th>Saldo inicial</th>
-                <th>Valor cuota</th>
-                <th>Capital</th>
-                <th>Interés</th>
-                <th>Saldo restante</th>
-                <th>Saldo pendiente</th>
-                <th>% mora mensual</th>
-                <th>Días mora</th>
-                <th>Mora</th>
-                <th>Total a pagar</th>
-                <th>Estado</th>
-                <th>Pagos realizados</th>
-                <th>Acción</th>
-            </tr>
-        </thead>
-
-        <tbody>
-            {% for cuota in cuotas %}
-            <tr
-            {% if cuota.estado == 'EN MORA' %}
-                style="background:#fff5f5;"
-            {% elif cuota.estado == 'PAGADA' %}
-                style="background:#f6fff6;"
-            {% elif cuota.estado == 'LIQUIDADA' %}
-                style="background:#f0f4ff;"
-            {% endif %}
-            >
-                <td>{{ cuota.numero }}</td>
-                <td>{{ cuota.fecha_pago.strftime('%d/%m/%Y') }}</td>
-                <td>{{ cuota.saldo_inicial | cop }}</td>
-                <td>{{ cuota.valor_cuota | cop }}</td>
-                <td>{{ cuota.capital | cop }}</td>
-                <td>{{ cuota.interes | cop }}</td>
-                <td>{{ cuota.saldo_restante | cop }}</td>
-                <td style="font-weight:bold;">
-                    {{ cuota.saldo_pendiente | cop }}
-                </td>
-
-                <td>
-                    {% if cuota.interes_mora > 0 or cuota.interes_mora_historico > 0 %}
-                        {{ "%.2f"|format(cuota.porcentaje_mora_aplicado) }}%
-                    {% else %}
-                        —
-                    {% endif %}
-                </td>
-
-                <td>{{ cuota.dias_mora }}</td>
-                <td class="rojo">{{ cuota.interes_mora | cop }}</td>
-                <td class="rojo" style="font-size:14px;">
-                    {{ cuota.total_cobro | cop }}
-                </td>
-
-                <td>
-                    {% if cuota.estado == 'PAGADA' %}
-                        <span class="verde">PAGADA</span>
-                    {% elif cuota.estado == 'EN MORA' %}
-                        <span class="rojo">EN MORA</span>
+            <tbody>
+                {% for cuota in cuotas %}
+                <tr
+                    {% if cuota.estado == 'EN MORA' %}
+                        class="fila-mora"
+                    {% elif cuota.estado == 'PAGADA' %}
+                        class="fila-pagada"
                     {% elif cuota.estado == 'LIQUIDADA' %}
-                        <span class="azul">LIQUIDADA</span>
-                    {% elif cuota.estado == 'ABONO' %}
-                        ABONO
-                    {% else %}
-                        PENDIENTE
+                        class="fila-liquidada"
                     {% endif %}
-                </td>
+                >
+                    <td>{{ cuota.numero }}</td>
+                    <td>{{ cuota.fecha_pago.strftime('%d/%m/%Y') }}</td>
+                    <td>{{ cuota.saldo_inicial | cop }}</td>
+                    <td>{{ cuota.valor_cuota | cop }}</td>
+                    <td>{{ cuota.capital | cop }}</td>
+                    <td>{{ cuota.interes | cop }}</td>
+                    <td>{{ cuota.saldo_restante | cop }}</td>
+                    <td><strong>{{ cuota.saldo_pendiente | cop }}</strong></td>
 
-                <td class="historial">
-                    {% if pagos_por_cuota[cuota.id] %}
-                        {% for pago in pagos_por_cuota[cuota.id] %}
-                            <div style="background:#f8f9fa; padding:8px; border-radius:6px; margin-bottom:8px;">
-                                <strong>Fecha:</strong> {{ pago.fecha.strftime('%d/%m/%Y') }}<br>
-                                <strong>Valor:</strong> {{ pago.valor | cop }}<br>
-                                <strong>Medio:</strong> {{ pago.medio_pago }}<br>
- 
-                                <button type="button"
-                                        onclick="toggleDetallePago('detalle-pago-{{ pago.id }}')"
-                                        style="margin-top:8px; padding:6px 10px; border:none; border-radius:6px; background:#0d6efd; color:white; cursor:pointer;">
-                                    Ver detalle
-                                </button>
+                    <td>
+                        {% if cuota.interes_mora > 0 or cuota.interes_mora_historico > 0 %}
+                            {{ "%.2f"|format(cuota.porcentaje_mora_aplicado) }}%
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
 
-                                <div id="detalle-pago-{{ pago.id }}"
-                                     style="display:none; margin-top:8px; padding:8px; background:white; border:1px solid #dee2e6; border-radius:6px; text-align:left;">
-                                     <strong>Tipo de pago:</strong> {{ pago.tipo_pago if pago.tipo_pago else 'No definido' }}<br>
-                                     <strong>Saldo pendiente antes del pago:</strong> {{ pago.saldo_pendiente_antes_pago | cop }}<br>
-                                     <strong>Total exigible al pago:</strong> {{ pago.total_exigible_al_pago | cop }}<br>
-                                     <strong>Días de mora al pago:</strong> {{ pago.dias_mora_pagados }}<br>
-                                     <strong>Mora generada al pago:</strong> {{ pago.mora_generada_al_pago | cop }}<br>
-                                     <hr style="margin:8px 0;">
-                                     <strong>Aplicado a cuota:</strong> {{ pago.valor_aplicado_capital | cop }}<br>
-                                     <strong>Aplicado a mora:</strong> {{ pago.valor_aplicado_mora | cop }}<br>
-                                     <strong>Prepago a capital:</strong> {{ pago.valor_aplicado_prepago_capital | cop }}<br>
-                                     {% if pago.observacion %}
-                                         <strong>Observación:</strong> {{ pago.observacion }}
-                                     {% endif %}
+                    <td>{{ cuota.dias_mora }}</td>
+                    <td class="rojo">{{ cuota.interes_mora | cop }}</td>
+                    <td class="rojo">{{ cuota.total_cobro | cop }}</td>
+
+                    <td>
+                        {% if cuota.estado == 'PAGADA' %}
+                            <span class="verde">PAGADA</span>
+                        {% elif cuota.estado == 'EN MORA' %}
+                            <span class="rojo">EN MORA</span>
+                        {% elif cuota.estado == 'LIQUIDADA' %}
+                            <span class="azul">LIQUIDADA</span>
+                        {% elif cuota.estado == 'ABONO' %}
+                            ABONO
+                        {% else %}
+                            PENDIENTE
+                        {% endif %}
+                    </td>
+
+                    <td class="historial">
+                        {% if pagos_por_cuota[cuota.id] %}
+                            {% for pago in pagos_por_cuota[cuota.id] %}
+                                <div class="pago-box">
+                                    <strong>Fecha:</strong> {{ pago.fecha.strftime('%d/%m/%Y') }}<br>
+                                    <strong>Valor:</strong> {{ pago.valor | cop }}<br>
+                                    <strong>Medio:</strong> {{ pago.medio_pago }}<br>
+
+                                    <button type="button"
+                                            class="btn-detalle"
+                                            onclick="toggleDetallePago('detalle-pago-{{ pago.id }}')">
+                                        Ver detalle
+                                    </button>
+
+                                    <div id="detalle-pago-{{ pago.id }}" class="detalle-pago">
+                                        <strong>Tipo de pago:</strong> {{ pago.tipo_pago if pago.tipo_pago else 'No definido' }}<br>
+                                        <strong>Saldo pendiente antes del pago:</strong> {{ pago.saldo_pendiente_antes_pago | cop }}<br>
+                                        <strong>Total exigible al pago:</strong> {{ pago.total_exigible_al_pago | cop }}<br>
+                                        <strong>Días de mora al pago:</strong> {{ pago.dias_mora_pagados }}<br>
+                                        <strong>Mora generada al pago:</strong> {{ pago.mora_generada_al_pago | cop }}<br>
+                                        <hr style="margin:8px 0;">
+                                        <strong>Aplicado a interés:</strong> {{ pago.valor_aplicado_interes | cop }}<br>
+                                        <strong>Aplicado a capital:</strong> {{ pago.valor_aplicado_capital | cop }}<br>
+                                        <strong>Aplicado a mora:</strong> {{ pago.valor_aplicado_mora | cop }}<br>
+                                        <strong>Prepago a capital:</strong> {{ pago.valor_aplicado_prepago_capital | cop }}<br>
+                                        {% if pago.observacion %}
+                                            <strong>Observación:</strong> {{ pago.observacion }}
+                                        {% endif %}
+                                    </div>
                                 </div>
-                            </div>
-                        {% endfor %}
-                    {% else %}
-                        Sin pagos
-                    {% endif %}
-                </td>
+                            {% endfor %}
+                        {% else %}
+                            Sin pagos
+                        {% endif %}
+                    </td>
 
-                <td>
-                    {% if cuota.estado in ['PENDIENTE', 'EN MORA', 'ABONO'] %}
-                        <a href="/pagar_cuota/{{ cuota.id }}">Pagar</a>
-                    {% else %}
-                        —
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                    <td>
+                        {% if cuota.estado in ['PENDIENTE', 'EN MORA', 'ABONO'] %}
+                            <a class="btn-pagar" href="/pagar_cuota/{{ cuota.id }}">Pagar</a>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
-    <a class="volver" href="/ver_creditos/{{ credito.sede }}">Volver</a>
+    <div class="pie-botones">
+        <a class="btn btn-volver" href="/ver_creditos/{{ credito.sede }}">⬅ Volver a créditos</a>
+        <a class="btn btn-liquidar" href="/liquidar_credito/{{ credito.id }}">Liquidar crédito</a>
+        <a class="btn btn-deuda" href="/pagar_deuda_fecha/{{ credito.id }}">Pagar deuda a la fecha</a>
+        <a class="btn btn-capital" href="/abono_capital/{{ credito.id }}">Abono a capital</a>
+    </div>
 
 </div>
 </body>

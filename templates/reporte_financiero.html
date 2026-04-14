@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte financiero</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, #eef2f7, #dfe9f3);
+        padding: 30px;
+        color: #1f2937;
+    }
+
+    .contenedor {
+        max-width: 1550px;
+        margin: auto;
+    }
+
+    .encabezado {
+        background: white;
+        border-radius: 24px;
+        padding: 30px 35px;
+        box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+        margin-bottom: 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+
+    .encabezado-texto h1 {
+        margin: 0;
+        font-size: 42px;
+        color: #102a43;
+    }
+
+    .encabezado-texto p {
+        margin: 10px 0 0 0;
+        color: #52606d;
+        font-size: 16px;
+    }
+
+    .logo img {
+        max-height: 100px;
+        width: auto;
+        object-fit: contain;
+    }
+
+    .acciones {
+        margin-top: 18px;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        display: inline-block;
+        padding: 11px 18px;
+        border-radius: 10px;
+        text-decoration: none;
+        color: white;
+        font-weight: bold;
+        font-size: 14px;
+    }
+
+    .btn-volver {
+        background: #6c757d;
+    }
+
+    .seccion {
+        background: white;
+        border-radius: 24px;
+        padding: 25px;
+        box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+        margin-bottom: 30px;
+    }
+
+    .seccion h2 {
+        margin-top: 0;
+        margin-bottom: 22px;
+        font-size: 28px;
+        color: #102a43;
+    }
+
+    .grid-resumen {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 18px;
+    }
+
+    .card {
+        border-radius: 18px;
+        padding: 18px;
+        color: white;
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    }
+
+    .card .label {
+        font-size: 12px;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+        opacity: 0.9;
+        letter-spacing: 0.5px;
+    }
+
+    .card .valor {
+        font-size: 28px;
+        font-weight: bold;
+        line-height: 1.2;
+    }
+
+    .card-1 { background: linear-gradient(135deg, #1677ff, #0d47a1); }
+    .card-2 { background: linear-gradient(135deg, #198754, #0f5132); }
+    .card-3 { background: linear-gradient(135deg, #f59e0b, #b45309); }
+    .card-4 { background: linear-gradient(135deg, #7c3aed, #4c1d95); }
+    .card-5 { background: linear-gradient(135deg, #0ea5e9, #075985); }
+    .card-6 { background: linear-gradient(135deg, #dc3545, #7f1d1d); }
+    .card-7 { background: linear-gradient(135deg, #14b8a6, #115e59); }
+
+    .grid-graficas {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 25px;
+    }
+
+    .grafica-box {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        padding: 20px;
+    }
+
+    .grafica-box h3 {
+        margin-top: 0;
+        margin-bottom: 18px;
+        font-size: 20px;
+        color: #102a43;
+    }
+
+    .canvas-container {
+        position: relative;
+        width: 100%;
+        min-height: 420px;
+    }
+
+    .tabla-wrapper {
+        overflow-x: auto;
+        border-radius: 14px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1100px;
+        background: white;
+    }
+
+    th, td {
+        padding: 12px 10px;
+        border-bottom: 1px solid #e5e7eb;
+        text-align: center;
+        font-size: 14px;
+    }
+
+    th {
+        background: #eaf2ff;
+        color: #102a43;
+        font-weight: bold;
+    }
+
+    tr:hover td {
+        background: #f8fbff;
+    }
+
+    .subtitulo-tabla {
+        margin-bottom: 15px;
+        color: #52606d;
+        font-size: 15px;
+    }
+
+    @media (max-width: 768px) {
+        .encabezado {
+            justify-content: center;
+            text-align: center;
+        }
+
+        .acciones {
+            justify-content: center;
+        }
+
+        .encabezado-texto h1 {
+            font-size: 34px;
+        }
+    }
+</style>
+</head>
+<body>
+    <div class="encabezado">
+    <div class="encabezado-texto">
+        <h1>Reporte financiero</h1>
+        <p>
+           Consolidado general, por sede y mensual -
+           Año {{ anio_seleccionado }} -
+           Sede {{ sede_seleccionada }}
+        </p>
+        <form method="GET" style="margin-top:18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <label for="anio" style="font-weight:bold; color:#374151;">Año:</label>
+
+    <select name="anio" id="anio" style="padding:10px 12px; border-radius:10px; border:1px solid #d1d5db; font-size:14px;">
+        {% for anio in anios_disponibles %}
+            <option value="{{ anio }}" {% if anio == anio_seleccionado %}selected{% endif %}>
+                {{ anio }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label for="sede" style="font-weight:bold; color:#374151;">Sede:</label>
+
+    <select name="sede" id="sede" style="padding:10px 12px; border-radius:10px; border:1px solid #d1d5db; font-size:14px;">
+        {% for sede in sedes_disponibles %}
+            <option value="{{ sede }}" {% if sede == sede_seleccionada %}selected{% endif %}>
+                {{ sede }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <button type="submit" class="btn btn-volver" style="border:none; cursor:pointer;">
+        Consultar
+    </button>
+</form>
+
+        <div class="acciones">
+            <a href="/dashboard" class="btn btn-volver">⬅ Volver al dashboard</a>
+        </div>
+    </div>
+
+        <div class="acciones">
+    <a href="/dashboard" class="btn btn-volver">⬅ Volver al dashboard</a>
+    <a href="/reporte_financiero/excel?anio={{ anio_seleccionado }}&sede={{ sede_seleccionada }}" class="btn btn-volver">
+        Exportar Excel
+    </a>
+    <a href="/reporte_financiero/pdf?anio={{ anio_seleccionado }}&sede={{ sede_seleccionada }}" class="btn btn-volver">
+        Exportar PDF
+    </a>
+</div>
+
+    <div class="logo">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
+    </div>
+</div>
+
+        <div class="seccion">
+    <h2>Resumen general</h2>
+
+    <div class="grid-resumen">
+        <div class="card card-1">
+            <div class="label">Total prestado</div>
+            <div class="valor">{{ resumen_general.total_prestado | cop }}</div>
+        </div>
+
+        <div class="card card-2">
+            <div class="label">Total recaudado</div>
+            <div class="valor">{{ resumen_general.total_recaudado | cop }}</div>
+        </div>
+
+        <div class="card card-3">
+            <div class="label">Saldo actual total</div>
+            <div class="valor">{{ resumen_general.saldo_actual_total | cop }}</div>
+        </div>
+
+        <div class="card card-4">
+            <div class="label">Interés corriente causado</div>
+            <div class="valor">{{ resumen_general.interes_corriente_causado | cop }}</div>
+        </div>
+
+        <div class="card card-5">
+            <div class="label">Interés corriente recaudado</div>
+            <div class="valor">{{ resumen_general.interes_corriente_recaudado | cop }}</div>
+        </div>
+
+        <div class="card card-6">
+            <div class="label">Mora causada</div>
+            <div class="valor">{{ resumen_general.mora_causada | cop }}</div>
+        </div>
+
+        <div class="card card-7">
+            <div class="label">Mora recaudada</div>
+            <div class="valor">{{ resumen_general.mora_recaudada | cop }}</div>
+        </div>
+    </div>
+</div>
+
+        <div class="seccion">
+    <h2>Gráficas financieras</h2>
+
+    <div class="grid-graficas">
+        <div class="grafica-box">
+            <h3>Distribución del saldo actual por sede</h3>
+            <div class="canvas-container">
+                <canvas id="graficaTortaSedes"></canvas>
+            </div>
+        </div>
+
+        <div class="grafica-box">
+            <h3>Comparativo financiero por sede</h3>
+            <div class="canvas-container">
+                <canvas id="graficaBarrasSedes"></canvas>
+            </div>
+        </div>
+
+        <div class="grafica-box">
+            <h3>Comparativo mensual {{ anio_seleccionado }}</h3>
+            <div class="canvas-container">
+                <canvas id="graficaBarrasMensuales"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+        <div class="seccion">
+    <h2>Resumen por sede</h2>
+    <div class="subtitulo-tabla">Vista consolidada de cartera, recaudo e intereses por cada sede.</div>
+
+    <div class="tabla-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Sede</th>
+                    <th>Total prestado</th>
+                    <th>Total recaudado</th>
+                    <th>Saldo actual</th>
+                    <th>Interés corriente causado</th>
+                    <th>Interés corriente recaudado</th>
+                    <th>Mora causada</th>
+                    <th>Mora recaudada</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in resumen_por_sede %}
+                <tr>
+                    <td><strong>{{ fila.sede }}</strong></td>
+                    <td>{{ fila.total_prestado | cop }}</td>
+                    <td>{{ fila.total_recaudado | cop }}</td>
+                    <td>{{ fila.saldo_actual | cop }}</td>
+                    <td>{{ fila.interes_corriente_causado | cop }}</td>
+                    <td>{{ fila.interes_corriente_recaudado | cop }}</td>
+                    <td>{{ fila.mora_causada | cop }}</td>
+                    <td>{{ fila.mora_recaudada | cop }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+        <div class="seccion">
+    <h2>Resumen mensual {{ anio_seleccionado }}</h2>
+    <div class="subtitulo-tabla">Seguimiento mensual de intereses corrientes, mora e ingresos totales.</div>
+
+    <div class="tabla-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Mes</th>
+                    <th>Interés corriente causado</th>
+                    <th>Interés corriente recaudado</th>
+                    <th>Mora causada</th>
+                    <th>Mora recaudada</th>
+                    <th>Total ingresos</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in resumen_mensual %}
+                <tr>
+                    <td><strong>{{ fila.mes }}</strong></td>
+                    <td>{{ fila.interes_corriente_causado | cop }}</td>
+                    <td>{{ fila.interes_corriente_recaudado | cop }}</td>
+                    <td>{{ fila.mora_causada | cop }}</td>
+                    <td>{{ fila.mora_recaudada | cop }}</td>
+                    <td>{{ fila.total_ingresos | cop }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+    </div>
+    <script>
+    const labelsSedes = {{ labels_sedes | tojson }};
+    const saldoActualSedes = {{ saldo_actual_sedes | tojson }};
+    const interesCausadoSedes = {{ interes_causado_sedes | tojson }};
+    const interesRecaudadoSedes = {{ interes_recaudado_sedes | tojson }};
+    const moraCausadaSedes = {{ mora_causada_sedes | tojson }};
+    const moraRecaudadaSedes = {{ mora_recaudada_sedes | tojson }};
+
+    const labelsMeses = {{ labels_meses | tojson }};
+    const interesCausadoMeses = {{ interes_causado_meses | tojson }};
+    const interesRecaudadoMeses = {{ interes_recaudado_meses | tojson }};
+    const moraCausadaMeses = {{ mora_causada_meses | tojson }};
+    const moraRecaudadaMeses = {{ mora_recaudada_meses | tojson }};
+
+    new Chart(document.getElementById('graficaTortaSedes'), {
+        type: 'pie',
+        data: {
+            labels: labelsSedes,
+            datasets: [{
+                data: saldoActualSedes,
+                backgroundColor: [
+                    '#1677ff',
+                    '#198754',
+                    '#dc3545',
+                    '#f59e0b'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('graficaBarrasSedes'), {
+        type: 'bar',
+        data: {
+            labels: labelsSedes,
+            datasets: [
+                {
+                    label: 'Interés causado',
+                    data: interesCausadoSedes,
+                    backgroundColor: '#1677ff'
+                },
+                {
+                    label: 'Interés recaudado',
+                    data: interesRecaudadoSedes,
+                    backgroundColor: '#198754'
+                },
+                {
+                    label: 'Mora causada',
+                    data: moraCausadaSedes,
+                    backgroundColor: '#dc3545'
+                },
+                {
+                    label: 'Mora recaudada',
+                    data: moraRecaudadaSedes,
+                    backgroundColor: '#f59e0b'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('graficaBarrasMensuales'), {
+        type: 'bar',
+        data: {
+            labels: labelsMeses,
+            datasets: [
+                {
+                    label: 'Interés causado',
+                    data: interesCausadoMeses,
+                    backgroundColor: '#1677ff'
+                },
+                {
+                    label: 'Interés recaudado',
+                    data: interesRecaudadoMeses,
+                    backgroundColor: '#198754'
+                },
+                {
+                    label: 'Mora causada',
+                    data: moraCausadaMeses,
+                    backgroundColor: '#dc3545'
+                },
+                {
+                    label: 'Mora recaudada',
+                    data: moraRecaudadaMeses,
+                    backgroundColor: '#f59e0b'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+</script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Panel Principal</title>
+    <title>Financiera CRV</title>
     <style>
         * {
             box-sizing: border-box;
@@ -17,75 +17,90 @@
         }
 
         .contenedor {
-            max-width: 1200px;
+            max-width: 1300px;
             margin: auto;
         }
 
         .encabezado {
             background: white;
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            border-radius: 24px;
+            padding: 35px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
             margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 30px;
+            flex-wrap: wrap;
         }
 
-        .encabezado h1 {
-            margin: 0 0 10px 0;
-            font-size: 38px;
-        }
-
-        .encabezado p {
+        .encabezado-texto h1 {
             margin: 0;
-            font-size: 18px;
-            color: #4b5563;
+            font-size: 46px;
+            color: #102a43;
+            letter-spacing: 0.5px;
+        }
+
+        .encabezado-texto p {
+            margin: 10px 0 0 0;
+            font-size: 17px;
+            color: #52606d;
+        }
+
+        .encabezado-logo img {
+            max-height: 120px;
+            width: auto;
+            object-fit: contain;
         }
 
         .acciones {
             display: flex;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 14px;
             margin-top: 25px;
         }
 
         .btn {
             display: inline-block;
-            padding: 12px 18px;
-            border-radius: 10px;
+            padding: 13px 20px;
+            border-radius: 12px;
             text-decoration: none;
             color: white;
             font-weight: bold;
             transition: 0.2s ease;
+            font-size: 15px;
         }
 
         .btn:hover {
             transform: translateY(-1px);
         }
 
-        .btn-crear { background: #0d6efd; }
+        .btn-crear { background: #1677ff; }
         .btn-tasa { background: #198754; }
         .btn-salir { background: #dc3545; }
 
         .titulo-seccion {
-            margin: 10px 0 18px 0;
-            font-size: 24px;
+            margin: 10px 0 20px 0;
+            font-size: 28px;
             font-weight: bold;
+            color: #102a43;
         }
 
         .grid-sedes {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 22px;
         }
 
         .card-sede {
             background: white;
-            border-radius: 18px;
+            border-radius: 20px;
             padding: 24px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.08);
             text-decoration: none;
             color: inherit;
             transition: 0.25s ease;
-            border-left: 6px solid #0d6efd;
+            border-left: 8px solid #1677ff;
         }
 
         .card-sede:hover {
@@ -94,35 +109,62 @@
         }
 
         .card-sede h3 {
-            margin: 0 0 10px 0;
-            font-size: 24px;
-        }
-
-        .card-sede p {
-            margin: 0;
-            color: #6b7280;
-            font-size: 15px;
+            margin: 0 0 16px 0;
+            font-size: 32px;
+            color: #102a43;
         }
 
         .card-mora {
-            border-left: 6px solid #dc3545;
+            border-left-color: #dc3545;
         }
 
-        .card-dia {
-            border-left: 6px solid #198754;
+        .card-normal {
+            border-left-color: #1677ff;
         }
 
-        .card-vacio {
-            border-left: 6px solid #0d6efd;
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
         }
 
-        .footer-box {
-            margin-top: 30px;
-            background: white;
-            border-radius: 18px;
-            padding: 20px 24px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-            color: #4b5563;
+        .stat-box {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 14px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .mora { color: #dc3545; }
+        .dia { color: #198754; }
+        .cancelado { color: #0d6efd; }
+        .total { color: #111827; }
+
+        @media (max-width: 700px) {
+            .encabezado {
+                text-align: center;
+                justify-content: center;
+            }
+
+            .acciones {
+                justify-content: center;
+            }
+
+            .encabezado-texto h1 {
+                font-size: 38px;
+            }
         }
     </style>
 </head>
@@ -130,13 +172,20 @@
     <div class="contenedor">
 
         <div class="encabezado">
-            <h1>Panel Principal</h1>
-            <p>Bienvenido {{ user }} - Rol: {{ rol }}</p>
+            <div class="encabezado-texto">
+                <h1>FINANCIERA CRV</h1>
+                <p>Panel general de cartera por sede</p>
 
-            <div class="acciones">
-                <a href="/crear_credito" class="btn btn-crear">Crear crédito</a>
-                <a href="/configuracion_tasa" class="btn btn-tasa">Configurar tasa mora</a>
-                <a href="/logout" class="btn btn-salir">Cerrar sesión</a>
+                <div class="acciones">
+                    <a href="/reporte_financiero" class="btn btn-crear">Reporte financiero</a>
+                    <a href="/crear_credito" class="btn btn-crear">Crear crédito</a>
+                    <a href="/configuracion_tasa" class="btn btn-tasa">Configurar tasa mora</a>
+                    <a href="/logout" class="btn btn-salir">Cerrar sesión</a>
+                </div>
+            </div>
+
+            <div class="encabezado-logo">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
             </div>
         </div>
 
@@ -144,30 +193,34 @@
 
         <div class="grid-sedes">
             {% for s in resumen_sedes %}
-            <a href="/ver_creditos/{{ s.sede }}" 
-               class="card-sede 
-               {% if s.en_mora > 0 %}card-mora
-               {% elif s.total > 0 %}card-dia
-               {% else %}card-vacio
-               {% endif %}">
+            <a href="/ver_creditos/{{ s.sede }}"
+               class="card-sede {% if s.en_mora > 0 %}card-mora{% else %}card-normal{% endif %}">
+                
+                <h3>{{ s.sede }}</h3>
 
-               <h3>{{ s.sede }}</h3>
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-label">Total créditos</div>
+                        <div class="stat-value total">{{ s.total }}</div>
+                    </div>
 
-               <p>Total créditos: {{ s.total }}</p>
+                    <div class="stat-box">
+                        <div class="stat-label">En mora</div>
+                        <div class="stat-value mora">{{ s.en_mora }}</div>
+                    </div>
 
-               {% if s.en_mora > 0 %}
-                   <p style="color:#dc3545;"><strong>⚠ {{ s.en_mora }} en mora</strong></p>
-               {% else %}
-                    <p style="color:#198754;">✔ Sin mora</p>
-               {% endif %}
+                    <div class="stat-box">
+                        <div class="stat-label">Cancelados</div>
+                        <div class="stat-value cancelado">{{ s.cancelados }}</div>
+                    </div>
 
-           </a>
+                    <div class="stat-box">
+                        <div class="stat-label">Al día</div>
+                        <div class="stat-value dia">{{ s.al_dia }}</div>
+                    </div>
+                </div>
+            </a>
             {% endfor %}
-        </div>
-        </div>
-
-        <div class="footer-box">
-            Usa las sedes para entrar directamente al grupo correcto de créditos sin revisar toda la cartera mezclada.
         </div>
 
     </div>
