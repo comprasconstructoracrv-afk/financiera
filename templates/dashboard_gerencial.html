@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard gerencial</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #eef2f7, #dfe9f3);
+            padding: 30px;
+            color: #1f2937;
+        }
+
+        .contenedor {
+            max-width: 1550px;
+            margin: auto;
+        }
+
+        .encabezado {
+            background: white;
+            border-radius: 24px;
+            padding: 30px 35px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .encabezado h1 {
+            margin: 0;
+            font-size: 42px;
+            color: #102a43;
+        }
+
+        .encabezado p {
+            margin: 10px 0 0 0;
+            color: #52606d;
+            font-size: 16px;
+        }
+
+        .logo img {
+            max-height: 95px;
+            width: auto;
+        }
+
+        .acciones {
+            margin-top: 18px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 11px 18px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            background: #6c757d;
+        }
+
+        .seccion {
+            background: white;
+            border-radius: 24px;
+            padding: 25px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+
+        .seccion h2 {
+            margin-top: 0;
+            margin-bottom: 22px;
+            font-size: 28px;
+            color: #102a43;
+        }
+
+        .grid-kpis {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+        }
+
+        .card-kpi {
+            border-radius: 18px;
+            padding: 18px;
+            color: white;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        }
+
+        .card-kpi .label {
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            opacity: 0.9;
+            letter-spacing: 0.5px;
+        }
+
+        .card-kpi .valor {
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .k1 { background: linear-gradient(135deg, #1677ff, #0d47a1); }
+        .k2 { background: linear-gradient(135deg, #f59e0b, #b45309); }
+        .k3 { background: linear-gradient(135deg, #198754, #0f5132); }
+        .k4 { background: linear-gradient(135deg, #dc3545, #7f1d1d); }
+        .k5 { background: linear-gradient(135deg, #0ea5e9, #075985); }
+        .k6 { background: linear-gradient(135deg, #7c3aed, #4c1d95); }
+        .k7 { background: linear-gradient(135deg, #14b8a6, #115e59); }
+
+        .grid-graficas {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 25px;
+        }
+
+        .grafica-box {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 18px;
+            padding: 20px;
+        }
+
+        .grafica-box h3 {
+            margin-top: 0;
+            margin-bottom: 18px;
+            font-size: 20px;
+            color: #102a43;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            min-height: 420px;
+        }
+
+        .tabla-wrapper {
+            overflow-x: auto;
+            border-radius: 14px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1000px;
+            background: white;
+        }
+
+        th, td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        th {
+            background: #eaf2ff;
+            color: #102a43;
+            font-weight: bold;
+        }
+
+        tr:hover td {
+            background: #f8fbff;
+        }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+
+        <div class="encabezado">
+            <div>
+                <h1>Dashboard gerencial</h1>
+                <p>
+                   Métricas de cartera y recaudo -
+                   {{ meses_disponibles[mes_seleccionado] }} {{ anio_seleccionado }} -
+                   Sede {{ sede_seleccionada }}
+                </p>
+
+                <form method="GET" style="margin-top:18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <label for="anio" style="font-weight:bold; color:#374151;">Año:</label>
+    <select name="anio" id="anio" style="padding:10px 12px; border-radius:10px; border:1px solid #d1d5db; font-size:14px;">
+        {% for anio in anios_disponibles %}
+            <option value="{{ anio }}" {% if anio == anio_seleccionado %}selected{% endif %}>{{ anio }}</option>
+        {% endfor %}
+    </select>
+
+    <label for="mes" style="font-weight:bold; color:#374151;">Mes:</label>
+    <select name="mes" id="mes" style="padding:10px 12px; border-radius:10px; border:1px solid #d1d5db; font-size:14px;">
+        {% for numero_mes, nombre_mes in meses_disponibles.items() %}
+            <option value="{{ numero_mes }}" {% if numero_mes == mes_seleccionado %}selected{% endif %}>{{ nombre_mes }}</option>
+        {% endfor %}
+    </select>
+
+    <label for="sede" style="font-weight:bold; color:#374151;">Sede:</label>
+    <select name="sede" id="sede" style="padding:10px 12px; border-radius:10px; border:1px solid #d1d5db; font-size:14px;">
+        {% for sede in sedes_disponibles %}
+            <option value="{{ sede }}" {% if sede == sede_seleccionada %}selected{% endif %}>{{ sede }}</option>
+        {% endfor %}
+    </select>
+
+    <button type="submit" class="btn" style="border:none; cursor:pointer;">Consultar</button>
+</form>
+
+                <div class="acciones">
+                    <a href="/dashboard" class="btn">⬅ Inicio</a>
+                </div>
+            </div>
+
+            <div class="logo">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
+            </div>
+        </div>
+
+        <div class="seccion">
+            <h2>KPIs principales</h2>
+
+            <div class="grid-kpis">
+                <div class="card-kpi k1">
+                    <div class="label">Cartera activa</div>
+                    <div class="valor">{{ kpis.cartera_activa }}</div>
+                </div>
+
+                <div class="card-kpi k2">
+                    <div class="label">Saldo total por cobrar</div>
+                    <div class="valor">{{ kpis.saldo_total | cop }}</div>
+                </div>
+
+                <div class="card-kpi k3">
+                    <div class="label">Recaudo del mes</div>
+                    <div class="valor">{{ kpis.recaudo_mes | cop }}</div>
+                </div>
+
+                <div class="card-kpi k4">
+                    <div class="label">Créditos en mora</div>
+                    <div class="valor">{{ kpis.creditos_en_mora }}</div>
+                </div>
+
+                <div class="card-kpi k5">
+                    <div class="label">Créditos al día</div>
+                    <div class="valor">{{ kpis.creditos_al_dia }}</div>
+                </div>
+
+                <div class="card-kpi k6">
+                    <div class="label">Créditos cancelados</div>
+                    <div class="valor">{{ kpis.creditos_cancelados }}</div>
+                </div>
+
+                <div class="card-kpi k7">
+                    <div class="label">Mora acumulada</div>
+                    <div class="valor">{{ kpis.mora_acumulada | cop }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="seccion">
+            <h2>Gráficas gerenciales</h2>
+
+            <div class="grid-graficas">
+                <div class="grafica-box">
+                    <h3>Saldo actual por sede</h3>
+                    <div class="canvas-container">
+                        <canvas id="graficaSaldoSede"></canvas>
+                    </div>
+                </div>
+
+                <div class="grafica-box">
+                    <h3>Recaudo del mes por sede</h3>
+                    <div class="canvas-container">
+                        <canvas id="graficaRecaudoSede"></canvas>
+                    </div>
+                </div>
+
+                <div class="grafica-box">
+                    <h3>Estado de créditos por sede</h3>
+                    <div class="canvas-container">
+                        <canvas id="graficaEstadoSede"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="seccion">
+            <h2>Resumen por sede</h2>
+
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sede</th>
+                            <th>Total créditos</th>
+                            <th>Saldo actual</th>
+                            <th>Recaudo del mes</th>
+                            <th>En mora</th>
+                            <th>Al día</th>
+                            <th>Cancelados</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in datos_sedes %}
+                        <tr>
+                            <td><strong>{{ fila.sede }}</strong></td>
+                            <td>{{ fila.total_creditos }}</td>
+                            <td>{{ fila.saldo_actual | cop }}</td>
+                            <td>{{ fila.recaudo_mes | cop }}</td>
+                            <td>{{ fila.en_mora }}</td>
+                            <td>{{ fila.al_dia }}</td>
+                            <td>{{ fila.cancelados }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const labelsSedes = {{ labels_sedes | tojson }};
+        const saldosSedes = {{ saldos_sedes | tojson }};
+        const recaudoMesSedes = {{ recaudo_mes_sedes | tojson }};
+        const moraSedes = {{ mora_sedes | tojson }};
+        const alDiaSedes = {{ al_dia_sedes | tojson }};
+        const canceladosSedes = {{ cancelados_sedes | tojson }};
+
+        new Chart(document.getElementById('graficaSaldoSede'), {
+            type: 'bar',
+            data: {
+                labels: labelsSedes,
+                datasets: [{
+                    label: 'Saldo actual',
+                    data: saldosSedes,
+                    backgroundColor: '#1677ff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('graficaRecaudoSede'), {
+            type: 'bar',
+            data: {
+                labels: labelsSedes,
+                datasets: [{
+                    label: 'Recaudo del mes',
+                    data: recaudoMesSedes,
+                    backgroundColor: '#198754'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('graficaEstadoSede'), {
+            type: 'bar',
+            data: {
+                labels: labelsSedes,
+                datasets: [
+                    {
+                        label: 'En mora',
+                        data: moraSedes,
+                        backgroundColor: '#dc3545'
+                    },
+                    {
+                        label: 'Al día',
+                        data: alDiaSedes,
+                        backgroundColor: '#0ea5e9'
+                    },
+                    {
+                        label: 'Cancelados',
+                        data: canceladosSedes,
+                        backgroundColor: '#7c3aed'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

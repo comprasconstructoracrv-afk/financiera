@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Créditos por sede</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #eef2f7, #dfe9f3);
+            padding: 40px 20px;
+            color: #1f2937;
+        }
+
+        .contenedor {
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        .encabezado {
+            background: white;
+            border-radius: 24px;
+            padding: 30px 35px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .encabezado h1 {
+            margin: 0;
+            font-size: 42px;
+            color: #102a43;
+        }
+
+        .encabezado p {
+            margin: 10px 0 0 0;
+            color: #52606d;
+            font-size: 16px;
+        }
+
+        .logo img {
+            max-height: 100px;
+            width: auto;
+        }
+
+        .acciones {
+            margin-top: 18px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn-volver {
+            display: inline-block;
+            padding: 11px 18px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            background: linear-gradient(135deg, #6c757d, #495057);
+        }
+
+        .titulo-seccion {
+            margin: 10px 0 22px 0;
+            font-size: 30px;
+            font-weight: bold;
+            color: #102a43;
+        }
+
+        .grid-opciones {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 24px;
+        }
+
+        .card-opcion {
+            background: white;
+            border-radius: 22px;
+            padding: 28px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.25s ease;
+            border: 2px solid transparent;
+            min-height: 240px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .card-opcion:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 18px 36px rgba(0,0,0,0.12);
+        }
+
+        .card-activos {
+            border-left: 8px solid #1677ff;
+        }
+
+        .card-cancelados {
+            border-left: 8px solid #198754;
+        }
+
+        .etiqueta {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+
+        .etiqueta-activos {
+            background: #eaf2ff;
+            color: #0d47a1;
+        }
+
+        .etiqueta-cancelados {
+            background: #eaf7ef;
+            color: #157347;
+        }
+
+        .card-opcion h2 {
+            margin: 0 0 12px 0;
+            font-size: 32px;
+            color: #102a43;
+        }
+
+        .card-opcion p {
+            margin: 0;
+            color: #52606d;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .btn-abrir {
+            margin-top: 24px;
+            display: inline-block;
+            align-self: flex-start;
+            padding: 12px 18px;
+            border-radius: 12px;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            text-decoration: none;
+            transition: 0.2s ease;
+        }
+
+        .btn-abrir:hover {
+            transform: translateY(-1px);
+            opacity: 0.96;
+        }
+
+        .btn-activos {
+            background: linear-gradient(135deg, #1677ff, #0d6efd);
+        }
+
+        .btn-cancelados {
+            background: linear-gradient(135deg, #198754, #157347);
+        }
+
+        @media (max-width: 900px) {
+            .grid-opciones {
+                grid-template-columns: 1fr;
+            }
+
+            .encabezado {
+                text-align: center;
+                justify-content: center;
+            }
+
+            .acciones {
+                justify-content: center;
+            }
+
+            .encabezado h1 {
+                font-size: 34px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+
+        <div class="encabezado">
+            <div>
+                <h1>Créditos - Sede {{ sede_actual }}</h1>
+                <p>Selecciona el grupo de créditos que deseas consultar.</p>
+
+                <div class="acciones">
+                    <a href="/dashboard" class="btn-volver">Volver al inicio</a>
+                </div>
+            </div>
+
+            <div class="logo">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
+            </div>
+        </div>
+
+        <div class="titulo-seccion">Selecciona una opción</div>
+
+        <div class="grid-opciones">
+            <div class="card-opcion card-activos">
+                <div>
+                    <div class="etiqueta etiqueta-activos">Vista operativa</div>
+                    <h2>Créditos activos</h2>
+                    <p>
+                        Consulta los créditos vigentes de la sede, incluyendo los que están al día,
+                        en mora o con abonos pendientes.
+                    </p>
+                </div>
+
+                <a href="/ver_creditos/{{ sede_actual }}" class="btn-abrir btn-activos">
+                    Abrir créditos activos
+                </a>
+            </div>
+
+            <div class="card-opcion card-cancelados">
+                <div>
+                    <div class="etiqueta etiqueta-cancelados">Histórico</div>
+                    <h2>Créditos cancelados</h2>
+                    <p>
+                        Consulta los créditos terminados, ya sea por pago completo del plan
+                        o por liquidación total del crédito.
+                    </p>
+                </div>
+
+                <a href="/ver_creditos_cancelados/{{ sede_actual }}" class="btn-abrir btn-cancelados">
+                    Abrir créditos cancelados
+                </a>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

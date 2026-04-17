@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Detalle del pago</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            margin: 0;
+            padding: 30px;
+            color: #1f2937;
+        }
+
+        .contenedor {
+            max-width: 1200px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 18px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
+
+        .encabezado {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .titulo-box h1 {
+            margin: 0;
+            font-size: 40px;
+            color: #102a43;
+        }
+
+        .titulo-box p {
+            margin: 10px 0 0 0;
+            color: #52606d;
+            font-size: 15px;
+        }
+
+        .logo-box img {
+            max-height: 110px;
+            width: auto;
+        }
+
+        .grid-resumen {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+            margin: 25px 0;
+        }
+
+        .card-info {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 18px;
+            text-align: center;
+        }
+
+        .card-info .label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .card-info .valor {
+            font-size: 22px;
+            font-weight: bold;
+            color: #111827;
+            line-height: 1.35;
+        }
+
+        .card-roja {
+            background: #fff5f5;
+            border: 1px solid #f3c2c2;
+        }
+
+        .card-roja .valor {
+            color: #dc3545;
+        }
+
+        .card-verde {
+            background: #f0fff4;
+            border: 1px solid #b7e4c7;
+        }
+
+        .card-verde .valor {
+            color: #198754;
+        }
+
+        .panel {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 25px;
+        }
+
+        .panel h2 {
+            margin-top: 0;
+            margin-bottom: 18px;
+            font-size: 22px;
+            color: #102a43;
+        }
+
+        .grid-detalle {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+        }
+
+        .detalle-item {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .detalle-item .label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .detalle-item .valor {
+            font-size: 18px;
+            font-weight: bold;
+            color: #111827;
+            line-height: 1.4;
+        }
+
+        .acciones {
+            margin-top: 28px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 18px;
+            border-radius: 12px;
+            text-decoration: none;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            border: none;
+            cursor: pointer;
+            transition: 0.2s ease;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            opacity: 0.97;
+        }
+
+        .btn-volver {
+            background: linear-gradient(135deg, #6c757d, #495057);
+        }
+
+        .btn-pdf {
+            background: linear-gradient(135deg, #1677ff, #0d6efd);
+        }
+
+        .btn-recibo {
+            background: linear-gradient(135deg, #198754, #157347);
+        }
+
+        .observacion {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .modal-carga {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+        }
+
+        .modal-carga-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.30);
+            backdrop-filter: blur(3px);
+        }
+
+        .modal-carga-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            max-width: calc(100vw - 40px);
+            background: white;
+            border-radius: 22px;
+            padding: 30px 28px;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.20);
+            text-align: left;
+        }
+
+        .modal-carga-box h3 {
+            margin: 18px 0 10px 0;
+            font-size: 22px;
+            color: #102a43;
+        }
+
+        .modal-carga-box p {
+            margin: 0;
+            font-size: 14px;
+            color: #64748b;
+            line-height: 1.5;
+        }
+
+        .spinner-carga {
+            width: 54px;
+            height: 54px;
+            border: 6px solid #dbeafe;
+            border-top: 6px solid #3b82f6;
+            border-radius: 50%;
+            animation: girarSpinner 0.9s linear infinite;
+        }
+
+        @keyframes girarSpinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+
+        <div class="encabezado">
+            <div class="titulo-box">
+                <h1>Detalle del pago</h1>
+                <p>Consulta completa de la distribución y aplicación del pago realizado.</p>
+            </div>
+
+            <div class="logo-box">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
+            </div>
+        </div>
+
+        <div class="grid-resumen">
+            <div class="card-info">
+                <div class="label">Cliente</div>
+                <div class="valor">{{ credito.cliente }}</div>
+            </div>
+
+            <div class="card-info">
+                <div class="label">Pagaré</div>
+                <div class="valor">{{ credito.numero_pagare }}</div>
+            </div>
+
+            <div class="card-info">
+                <div class="label">Cuota</div>
+                <div class="valor">{{ cuota.numero }}</div>
+            </div>
+
+            <div class="card-info card-verde">
+                <div class="label">Valor pagado</div>
+                <div class="valor">{{ pago.valor | cop }}</div>
+            </div>
+
+            <div class="card-info card-roja">
+                <div class="label">Mora generada</div>
+                <div class="valor">{{ pago.mora_generada_al_pago | cop }}</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Información general</h2>
+            <div class="grid-detalle">
+                <div class="detalle-item">
+                    <div class="label">Fecha del pago</div>
+                    <div class="valor">{{ pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '' }}</div>
+                </div>
+
+                <div class="detalle-item">
+                    <div class="label">Medio de pago</div>
+                    <div class="valor">{{ pago.medio_pago }}</div>
+                </div>
+
+                <div class="detalle-item">
+                    <div class="label">Tipo de pago</div>
+                    <div class="valor">{{ pago.tipo_pago if pago.tipo_pago else 'No definido' }}</div>
+                </div>
+
+                <div class="detalle-item">
+                    <div class="label">Saldo pendiente antes del pago</div>
+                    <div class="valor">{{ pago.saldo_pendiente_antes_pago | cop }}</div>
+                </div>
+
+                <div class="detalle-item">
+                    <div class="label">Total exigible al pago</div>
+                    <div class="valor">{{ pago.total_exigible_al_pago | cop }}</div>
+                </div>
+
+                <div class="detalle-item">
+                    <div class="label">Días de mora al pago</div>
+                    <div class="valor">{{ pago.dias_mora_pagados }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Distribución del pago</h2>
+            <div class="grid-detalle">
+                <div class="detalle-item">
+                    <div class="label">Aplicado a interés</div>
+                    <div class="valor">{{ pago.valor_aplicado_interes | cop }}</div>
+                </div>
+
+                <div class="detalle-item">
+                    <div class="label">Aplicado a capital</div>
+                    <div class="valor">{{ pago.valor_aplicado_capital | cop }}</div>
+                </div>
+
+                <div class="detalle-item">
+                    <div class="label">Aplicado a mora</div>
+                    <div class="valor">{{ pago.valor_aplicado_mora | cop }}</div>
+                </div>
+
+                <div class="detalle-item">
+                    <div class="label">Prepago a capital</div>
+                    <div class="valor">{{ pago.valor_aplicado_prepago_capital | cop }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Observación</h2>
+            <div class="observacion">
+                {{ pago.observacion if pago.observacion else 'Sin observación registrada.' }}
+            </div>
+        </div>
+
+        <div class="acciones">
+            <a href="/detalle_pago_pdf/{{ pago.id }}"
+            class="btn btn-pdf"
+            onclick="mostrarCargaPDF('Generando detalle del pago...', 'Estamos armando el archivo PDF del detalle.')">
+                Descargar detalle PDF
+            </a>
+
+            <a href="/recibo_pago/{{ pago.id }}"
+            class="btn btn-recibo"
+            onclick="mostrarCargaPDF('Generando recibo PDF...', 'Estamos armando el recibo de caja en formato PDF.')">
+                Descargar recibo PDF
+            </a>
+
+            <a href="/ver_cuotas/{{ credito.id }}" class="btn btn-volver">
+                Volver a cuotas
+            </a>
+        </div>
+
+    </div>
+
+    <div id="modalCargaPDF" class="modal-carga" style="display:none;">
+        <div class="modal-carga-backdrop"></div>
+
+        <div class="modal-carga-box">
+            <div class="spinner-carga"></div>
+            <h3 id="tituloCargaPDF">Generando archivo PDF...</h3>
+            <p id="textoCargaPDF">Estamos armando el reporte en formato PDF.</p>
+        </div>
+    </div>
+
+    <script>
+    function mostrarCargaPDF(titulo, texto) {
+        const modal = document.getElementById('modalCargaPDF');
+        const tituloModal = document.getElementById('tituloCargaPDF');
+        const textoModal = document.getElementById('textoCargaPDF');
+
+        if (tituloModal) tituloModal.textContent = titulo;
+        if (textoModal) textoModal.textContent = texto;
+        if (modal) modal.style.display = 'block';
+
+        setTimeout(() => {
+            if (modal) modal.style.display = 'none';
+        }, 7000);
+    }
+    </script>
+</body>
+</html>

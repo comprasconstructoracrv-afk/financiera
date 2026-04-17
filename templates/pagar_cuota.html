@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <meta charset="UTF-8">
+    <title>Registrar pago</title>
+
     <script>
     function soloDigitos(valor) {
         return valor.replace(/\D/g, '');
@@ -62,104 +65,285 @@
             });
         });
     });
-</script>
-    <meta charset="UTF-8">
-    <title>Registrar pago</title>
+
+    function mostrarOtroMedio() {
+        const medio = document.getElementById("medio_pago").value;
+        const otro = document.getElementById("otro_medio_box");
+        otro.style.display = medio === "OTRO" ? "block" : "none";
+    }
+    </script>
+
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
+            margin: 0;
             font-family: Arial, sans-serif;
             background: #f4f6f9;
             padding: 30px;
+            color: #1f2937;
         }
+
         .contenedor {
-            max-width: 500px;
+            max-width: 1100px;
             margin: auto;
             background: white;
             padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.08);
+            border-radius: 18px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
         }
+
+        .encabezado {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 22px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .titulo-box h1 {
+            margin: 0;
+            font-size: 40px;
+            color: #102a43;
+        }
+
+        .titulo-box p {
+            margin: 10px 0 0 0;
+            color: #52606d;
+            font-size: 15px;
+        }
+
+        .logo-box img {
+            max-height: 110px;
+            width: auto;
+        }
+
+        .grid-resumen {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+            margin: 25px 0 30px 0;
+        }
+
+        .card-info {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 18px;
+            text-align: center;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .card-info .label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .card-info .valor {
+            font-size: 28px;
+            font-weight: bold;
+            color: #111827;
+            line-height: 1.25;
+        }
+
+        .card-roja {
+            background: #fff5f5;
+            border: 1px solid #f3c2c2;
+        }
+
+        .card-roja .valor {
+            color: #dc3545;
+        }
+
+        .card-azul {
+            background: #eef6ff;
+            border: 1px solid #cfe2ff;
+        }
+
+        .card-azul .valor {
+            color: #0d6efd;
+        }
+
+        .panel-formulario {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .panel-formulario h2 {
+            margin-top: 0;
+            margin-bottom: 18px;
+            font-size: 22px;
+            color: #102a43;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+
+        .campo-completo {
+            grid-column: 1 / -1;
+        }
+
         label {
             display: block;
-            margin-top: 15px;
             margin-bottom: 8px;
             font-weight: bold;
+            color: #374151;
         }
+
         input, select {
             width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            box-sizing: border-box;
+            padding: 12px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            font-size: 14px;
+            background: white;
         }
-        button, a {
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.12);
+        }
+
+        .acciones {
+            margin-top: 22px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
             display: inline-block;
-            margin-top: 20px;
-            padding: 10px 16px;
-            border-radius: 8px;
+            padding: 11px 18px;
+            border-radius: 10px;
             text-decoration: none;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
             border: none;
             cursor: pointer;
+            transition: 0.2s ease;
         }
-        button {
-            background: #28a745;
-            color: white;
+
+        .btn:hover {
+            transform: translateY(-1px);
+            opacity: 0.96;
         }
-        a {
+
+        .btn-guardar {
+            background: linear-gradient(135deg, #198754, #157347);
+        }
+
+        .btn-volver {
             background: #6c757d;
-            color: white;
-            margin-left: 10px;
         }
-        .dato {
-            margin-bottom: 10px;
-            font-size: 18px;
-        }
-        .rojo {
-            color: red;
-            font-weight: bold;
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .titulo-box h1 {
+                font-size: 32px;
+            }
         }
     </style>
-    <script>
-        function mostrarOtroMedio() {
-            const medio = document.getElementById("medio_pago").value;
-            const otro = document.getElementById("otro_medio_box");
-            otro.style.display = medio === "OTRO" ? "block" : "none";
-        }
-    </script>
 </head>
 <body>
     <div class="contenedor">
-        <h1>Registrar pago</h1>
 
-        <p class="dato"><strong>Cuota:</strong> {{ cuota.numero }}</p>
-        <p class="dato"><strong>Valor cuota:</strong> {{ cuota.valor_cuota | cop }}</p>
-        <p class="dato"><strong>Saldo pendiente:</strong> {{ cuota.saldo_pendiente | cop }}</p>
-        <p class="dato rojo"><strong>Mora acumulada:</strong> {{ cuota.interes_mora | cop }}</p>
-        <p class="dato rojo"><strong>Total a pagar hoy:</strong> {{ cuota.total_cobro | cop }}</p>
-
-        <form method="POST">
-            <label>Fecha de pago:</label>
-            <input type="date" name="fecha_pago" required>
-
-            <label>Valor a pagar:</label>
-            <input type="text" name="valor" class="input-moneda" inputmode="numeric" required>
-
-            <label>Medio de pago:</label>
-            <select name="medio_pago" id="medio_pago" onchange="mostrarOtroMedio()" required>
-                <option value="">Seleccione</option>
-                <option value="Bancolombia">Bancolombia</option>
-                <option value="Efectivo">Efectivo</option>
-                <option value="OTRO">Otro</option>
-            </select>
-
-            <div id="otro_medio_box" style="display:none;">
-                <label>Escriba el otro medio de pago:</label>
-                <input type="text" name="medio_pago_otro">
+        <div class="encabezado">
+            <div class="titulo-box">
+                <h1>Registrar pago</h1>
+                <p>Registra el pago de la cuota y genera el recibo de caja.</p>
             </div>
 
-            <button type="submit">Registrar pago</button>
-            <a href="/ver_cuotas/{{ cuota.credito_id }}">Volver</a>
-        </form>
+            <div class="logo-box">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
+            </div>
+        </div>
+
+        <div class="grid-resumen">
+            <div class="card-info">
+                <div class="label">Cuota</div>
+                <div class="valor">{{ cuota.numero }}</div>
+            </div>
+
+            <div class="card-info">
+                <div class="label">Valor cuota</div>
+                <div class="valor">{{ cuota.valor_cuota | cop }}</div>
+            </div>
+
+            <div class="card-info">
+                <div class="label">Saldo pendiente</div>
+                <div class="valor">{{ cuota.saldo_pendiente | cop }}</div>
+            </div>
+
+            <div class="card-info card-roja">
+                <div class="label">Mora acumulada</div>
+                <div class="valor">{{ cuota.interes_mora | cop }}</div>
+            </div>
+
+            <div class="card-info card-azul">
+                <div class="label">Total a pagar hoy</div>
+                <div class="valor">{{ cuota.total_cobro | cop }}</div>
+            </div>
+        </div>
+
+        <div class="panel-formulario">
+            <h2>Datos del pago</h2>
+
+            <form method="POST">
+                <div class="form-grid">
+                    <div>
+                        <label>Fecha de pago</label>
+                        <input type="date" name="fecha_pago" required>
+                    </div>
+
+                    <div>
+                        <label>Medio de pago</label>
+                        <select name="medio_pago" id="medio_pago" onchange="mostrarOtroMedio()" required>
+                            <option value="">Seleccione</option>
+                            <option value="Bancolombia">Bancolombia</option>
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="OTRO">Otro</option>
+                        </select>
+                    </div>
+
+                    <div class="campo-completo">
+                        <label>Valor a pagar</label>
+                        <input type="text" name="valor" class="input-moneda" inputmode="numeric" required>
+                    </div>
+
+                    <div id="otro_medio_box" class="campo-completo" style="display:none;">
+                        <label>Escriba el otro medio de pago</label>
+                        <input type="text" name="medio_pago_otro">
+                    </div>
+                </div>
+
+                <div class="acciones">
+                    <button type="submit" class="btn btn-guardar">Registrar pago</button>
+                    <a href="/ver_cuotas/{{ cuota.credito_id }}" class="btn btn-volver">Volver</a>
+                </div>
+            </form>
+        </div>
+
     </div>
 </body>
 </html>

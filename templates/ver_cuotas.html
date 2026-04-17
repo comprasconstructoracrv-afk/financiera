@@ -4,372 +4,638 @@
     <meta charset="UTF-8">
     <title>Cuotas del crédito</title>
 
-    <script>
-        function toggleDeudaFecha() {
-            const panel = document.getElementById('panel-deuda-fecha');
-            if (!panel) return;
-            panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
-        }
 
-        function toggleDetallePago(id) {
-            const panel = document.getElementById(id);
-            if (!panel) return;
-            panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
-        }
+<style>
+    * {
+        box-sizing: border-box;
+    }
 
-        function toggleDetalleCliente() {
-            const panel = document.getElementById('panel-detalle-cliente');
-            if (!panel) return;
-            panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
-        }
-    </script>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f4f6f9;
+        margin: 0;
+        padding: 30px;
+        color: #1f2937;
+    }
 
-    <style>
-        * {
-            box-sizing: border-box;
-        }
+    .contenedor {
+        max-width: 1500px;
+        margin: auto;
+        background: white;
+        padding: 30px;
+        border-radius: 18px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    }
 
-        body {
-            font-family: Arial, sans-serif;
-            background: #f4f6f9;
-            margin: 0;
-            padding: 30px;
-            color: #1f2937;
-        }
+    .encabezado-principal {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 20px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e5e7eb;
+    }
 
-        .contenedor {
-            max-width: 1500px;
-            margin: auto;
-            background: white;
-            padding: 30px;
-            border-radius: 18px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-        }
+    .titulo-box {
+        flex: 1;
+        min-width: 320px;
+    }
 
+    .titulo-box h1 {
+        margin: 0;
+        font-size: 42px;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+        color: #102a43;
+    }
+
+    .titulo-box p {
+        margin: 10px 0 0 0;
+        color: #52606d;
+        font-size: 15px;
+    }
+
+    .logo-box {
+        min-width: 140px;
+        text-align: right;
+    }
+
+    .logo-box img {
+        max-height: 280px;
+        width: auto;
+        object-fit: contain;
+    }
+
+    .barra-superior {
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 25px;
+    }
+
+    .acciones-superiores {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .barra-botones {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin: 20px 0;
+    }
+
+    .btn-accion {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+
+        padding: 12px 18px;
+        border-radius: 14px;
+
+        font-size: 14px;
+        font-weight: 600;
+
+        text-decoration: none;
+        color: white;
+
+        border: none;
+        cursor: pointer;
+
+        transition: all 0.25s ease;
+
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+    }
+
+    /* HOVER GENERAL */
+    .btn-accion:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
+        opacity: 0.97;
+    }
+
+    /* BOTÓN VOLVER */
+    .btn-volver {
+        background: linear-gradient(135deg, #6c757d, #495057);
+    }
+
+    /* LIQUIDAR (ROJO MÁS PROFESIONAL) */
+    .btn-liquidar {
+        background: linear-gradient(135deg, #e03131, #c92a2a);
+    }
+
+    /* PAGAR DEUDA */
+    .btn-pagar {
+        background: linear-gradient(135deg, #1677ff, #0d6efd);
+    }
+
+    /* ABONO CAPITAL */
+    .btn-abono {
+        background: linear-gradient(135deg, #198754, #157347);
+    }
+    .grid-resumen {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 18px;
+        margin: 25px 0;
+        align-items: stretch;
+    }
+
+    .card-info {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 18px;
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .card-info .label {
+        font-size: 12px;
+        color: #6b7280;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
+    }
+
+    .card-info .valor {
+        font-size: 18px;
+        font-weight: bold;
+        color: #111827;
+        line-height: 1.35;
+    }
+
+    .card-info .mini-btn {
+        margin-top: 12px;
+        padding: 8px 12px;
+        border: none;
+        border-radius: 8px;
+        background: #0d6efd;
+        color: white;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: bold;
+    }
+
+    .card-estado-mora {
+        background: #fff5f5;
+        border: 1px solid #f3c2c2;
+        color: #c82333;
+    }
+
+    .card-estado-cancelado {
+        background: #f0fff4;
+        border: 1px solid #b7e4c7;
+        color: #198754;
+    }
+
+    .card-estado-abono {
+        background: #fff8e1;
+        border: 1px solid #f3d48a;
+        color: #9a6700;
+    }
+
+    .card-estado-dia {
+        background: #eef6ff;
+        border: 1px solid #cfe2ff;
+        color: #0d6efd;
+    }
+
+    .panel-detalle {
+        display: none;
+        margin: 20px 0 30px 0;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 12px;
+        padding: 20px;
+    }
+
+    .panel-detalle h3,
+    .panel-detalle h4 {
+        margin-top: 0;
+        margin-bottom: 14px;
+        color: #102a43;
+    }
+
+    .panel-titulo {
+        margin-top: 0;
+        margin-bottom: 18px;
+        font-size: 18px;
+        font-weight: bold;
+        color: #102a43;
+    }
+
+    .grid-resumen-detalle {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin-bottom: 22px;
+    }
+
+    .card-detalle {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 18px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+
+    .card-detalle .label {
+        font-size: 12px;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        margin-bottom: 8px;
+    }
+
+    .card-detalle .valor {
+        font-size: 24px;
+        font-weight: bold;
+        color: #0f172a;
+        line-height: 1.3;
+    }
+
+    .card-detalle .valor.rojo {
+        color: #dc3545;
+    }
+
+    .card-detalle .valor.verde {
+        color: #198754;
+    }
+
+    .card-detalle .valor.azul {
+        color: #0d6efd;
+    }
+
+    .subseccion-titulo {
+        margin: 10px 0 14px 0;
+        font-size: 16px;
+        font-weight: bold;
+        color: #102a43;
+    }
+
+    .panel-detalle-elegante {
+        display: none;
+        margin: 20px 0 30px 0;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 22px;
+    }    
+
+    .grid-cliente {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-top: 10px;
+    }
+
+    .item {
+        background: #ffffff;
+        padding: 12px;
+        border-radius: 10px;
+        text-align: center;
+        border: 1px solid #e2e8f0;
+    }
+
+    .item span {
+        font-size: 12px;
+        color: #64748b;
+    }
+
+    .item strong {
+        display: block;
+        margin-top: 4px;
+        font-size: 14px;
+        color: #0f172a;
+        line-height: 1.35;
+        word-break: break-word;
+    }
+
+    .item.full {
+        grid-column: span 2;
+    }
+
+    .tabla-wrapper {
+        overflow-x: auto;
+        margin-top: 10px;
+        border-radius: 12px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1400px;
+        background: white;
+    }
+
+    th, td {
+        padding: 11px 10px;
+        border-bottom: 1px solid #e5e7eb;
+        text-align: center;
+        font-size: 13px;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    td {
+        font-variant-numeric: tabular-nums;
+    }
+
+    th {
+        background: #f1f5f9;
+        font-weight: bold;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    th:nth-child(14),
+    td:nth-child(14) {
+        min-width: 210px;
+        width: 210px;
+    }
+
+    th:nth-child(15),
+    td:nth-child(15) {
+        min-width: 80px;
+        width: 80px;
+    }
+
+    .fila-mora {
+        background: #fff5f5;
+    }
+
+    .fila-pagada {
+        background: #f6fff6;
+    }
+
+    .fila-liquidada {
+        background: #f0f4ff;
+    }
+
+    .rojo {
+        color: #dc3545;
+        font-weight: bold;
+    }
+
+    .verde {
+        color: #198754;
+        font-weight: bold;
+    }
+
+    .azul {
+        color: #0d6efd;
+        font-weight: bold;
+    }
+
+    .col-moneda {
+        white-space: nowrap;
+        text-align: center;
+    }
+
+    .historial {
+        text-align: left;
+        font-size: 12px;
+        line-height: 1.45;
+        min-width: 210px;
+        width: 210px;
+        white-space: normal;
+        vertical-align: top;
+    }
+
+    .historial-vacio {
+        color: #6b7280;
+        font-style: italic;
+        text-align: center;
+        padding-top: 8px;
+        white-space: nowrap;
+    }
+
+    .pago-box {
+        background: #f8fafc;
+        padding: 10px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+
+    .pago-box:last-child {
+        margin-bottom: 0;
+    }
+
+    .detalle-pago {
+        display: none;
+        margin-top: 10px;
+        padding: 10px;
+        background: white;
+        border: 1px solid #d9e2ec;
+        border-radius: 10px;
+        text-align: left;
+        white-space: normal;
+        line-height: 1.45;
+    }
+
+    .detalle-linea {
+        margin-bottom: 4px;
+    }
+
+    .detalle-linea strong {
+        color: #102a43;
+    }
+
+    .detalle-separador {
+        margin: 8px 0;
+        border: none;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .detalle-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+
+    .btn-detalle {
+        margin-top: 6px;
+        padding: 5px 8px;
+        border: none;
+        border-radius: 6px;
+        background: #0d6efd;
+        color: white;
+        cursor: pointer;
+        font-size: 11px;
+    }
+
+    .btn-pagar {
+        display: inline-block;
+        width: auto !important;
+        padding: 5px 9px;
+        font-size: 12px;
+        border-radius: 7px;
+        background: linear-gradient(135deg, #1677ff, #0d6efd);
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+        white-space: nowrap;
+        box-shadow: 0 4px 10px rgba(13, 110, 253, 0.15);
+        transition: 0.2s ease;
+    }
+
+    .btn-pagar:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 14px rgba(13, 110, 253, 0.25);
+    }
+
+    @media (max-width: 900px) {
         .encabezado-principal {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 20px;
-            flex-wrap: wrap;
-            margin-bottom: 25px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .titulo-box h1 {
-            margin: 0;
-            font-size: 42px;
-            font-weight: bold;
-            letter-spacing: 0.5px;
-        }
-
-        .titulo-box p {
-            margin: 8px 0 0 0;
-            color: #6b7280;
-            font-size: 15px;
+            flex-direction: column;
+            align-items: flex-start;
         }
 
         .logo-box {
-            text-align: right;
+            width: 100%;
+            text-align: left;
         }
 
-        .logo-box img {
-            max-height: 90px;
-            width: auto;
-            object-fit: contain;
-        }
-
-        .barra-superior {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 15px;
-            flex-wrap: wrap;
-            margin-bottom: 25px;
-        }
-
-        .acciones-superiores {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 11px 18px;
-            border-radius: 10px;
-            text-decoration: none;
-            color: white;
-            font-weight: bold;
-            font-size: 14px;
-            border: none;
-            cursor: pointer;
-        }
-
-        .btn-volver {
-            background: #6c757d;
-        }
-
-        .btn-liquidar {
-            background: #dc3545;
-        }
-
-        .btn-deuda {
-            background: #0d6efd;
-        }
-
-        .btn-capital {
-            background: #198754;
+        .titulo-box h1 {
+            font-size: 34px;
         }
 
         .grid-resumen {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 18px;
-            margin-bottom: 25px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         }
 
-        .card-info {
-            background: #f8fafc;
-            border: 1px solid #e5e7eb;
-            border-radius: 14px;
-            padding: 18px;
-            min-height: 120px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            text-align: center;
+        .item.full {
+            grid-column: span 1;
         }
+    }
 
-        .card-info .label {
-            font-size: 12px;
-            color: #6b7280;
-            text-transform: uppercase;
-            margin-bottom: 8px;
-            letter-spacing: 0.5px;
-        }
+    th:last-child,
+    td:last-child {
+        padding-right: 30px;
+    }
 
-        .card-info .valor {
-            font-size: 18px;
-            font-weight: bold;
-            color: #111827;
-            line-height: 1.35;
-        }
+    .scroll-superior {
+        overflow-x: auto;
+        overflow-y: hidden;
+        height: 16px;
+        margin-bottom: 5px;
+    }
 
-        .card-info .mini-btn {
-            margin-top: 12px;
-            padding: 8px 12px;
-            border: none;
-            border-radius: 8px;
-            background: #0d6efd;
-            color: white;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: bold;
-        }
+    .scroll-superior div {
+        height: 1px;
+    }
 
-        .card-estado-mora {
-            background: #fff5f5;
-            border: 1px solid #f3c2c2;
-            color: #c82333;
-        }
+    .tabla-wrapper {
+        overflow-x: auto;
+        margin-top: 10px;
+        border-radius: 12px;
+    }
 
-        .card-estado-cancelado {
-            background: #f0fff4;
-            border: 1px solid #b7e4c7;
-            color: #198754;
-        }
+    .btn-accion:active {
+        transform: scale(0.97);
+    }
 
-        .card-estado-abono {
-            background: #fff8e1;
-            border: 1px solid #f3d48a;
-            color: #9a6700;
-        }
+    .barra-botones {
+        justify-content: flex-start;
+        align-items: center;
+    }
 
-        .card-estado-dia {
-            background: #eef6ff;
-            border: 1px solid #cfe2ff;
-            color: #0d6efd;
-        }
+    .barra-botones .btn-accion {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 0 18px !important;
+        border-radius: 14px;
+        font-size: 14px !important;
+        font-weight: 700;
+        line-height: 1;
+        text-decoration: none;
+        color: white;
+        border: none;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+        white-space: nowrap;
+    }
 
-        .panel-detalle {
-            display: none;
-            margin: 20px 0 30px 0;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 12px;
-            padding: 20px;
-        }
+    .barra-botones .btn-pagar {
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        padding: 0 18px !important;
+        font-size: 14px !important;
+    }
 
-        .panel-detalle h3,
-        .panel-detalle h4 {
-            margin-top: 0;
-        }
-
-        .grid-panel {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        .mini-card {
-            background: white;
-            padding: 14px;
-            border-radius: 10px;
-            min-width: 220px;
-            border: 1px solid #e9ecef;
-        }
-
-        .mini-card .label {
-            font-size: 12px;
-            color: #6c757d;
-            margin-bottom: 6px;
-        }
-
-        .mini-card .valor {
-            font-size: 20px;
-            font-weight: bold;
-        }
-
-        .tabla-wrapper {
-            overflow-x: auto;
-            margin-top: 10px;
-            border-radius: 12px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 1400px;
-            background: white;
-        }
-
-        th, td {
-            padding: 12px 10px;
-            border-bottom: 1px solid #e5e7eb;
-            text-align: center;
-            font-size: 13px;
-            vertical-align: top;
-        }
-
-        th {
-            background: #f1f5f9;
-            font-weight: bold;
-            position: sticky;
-            top: 0;
-            z-index: 1;
-        }
-
-        .fila-mora {
-            background: #fff5f5;
-        }
-
-        .fila-pagada {
-            background: #f6fff6;
-        }
-
-        .fila-liquidada {
-            background: #f0f4ff;
-        }
-
-        .rojo {
-            color: #dc3545;
-            font-weight: bold;
-        }
-
-        .verde {
-            color: #198754;
-            font-weight: bold;
-        }
-
-        .azul {
-            color: #0d6efd;
-            font-weight: bold;
-        }
-
-        .historial {
-            text-align: left;
-            font-size: 12px;
-            line-height: 1.5;
-            min-width: 190px;
-        }
-
-        .pago-box {
-            background: #f8f9fa;
-            padding: 8px;
-            border-radius: 8px;
-            margin-bottom: 8px;
-        }
-
-        .detalle-pago {
-            display: none;
-            margin-top: 8px;
-            padding: 8px;
-            background: white;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            text-align: left;
-        }
-
-        .btn-detalle {
-            margin-top: 8px;
-            padding: 6px 10px;
-            border: none;
-            border-radius: 6px;
-            background: #0d6efd;
-            color: white;
-            cursor: pointer;
-            font-size: 12px;
-        }
-
-        .btn-pagar {
-            color: #0d6efd;
-            font-weight: bold;
-            text-decoration: none;
-        }
-
-        .pie-botones {
-            margin-top: 25px;
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-    </style>
+    .barra-botones .btn-pagar:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 22px rgba(29, 78, 216, 0.3);
+    }
+</style>
 </head>
 <body>
 <div class="contenedor">
 
+    <!-- ENCABEZADO -->
     <div class="encabezado-principal">
+        
         <div class="titulo-box">
-            <h1>Tabla de amortización</h1>
+            <h1>TABLA DE AMORTIZACIÓN</h1>
             <p>Consulta completa del crédito, cuotas, mora, pagos y movimientos aplicados.</p>
         </div>
 
         <div class="logo-box">
-            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo empresa">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
         </div>
+
     </div>
 
+    <!-- BOTONES -->
     <div class="barra-superior">
-        <div class="acciones-superiores">
-            <a class="btn btn-volver" href="/ver_creditos/{{ credito.sede }}">⬅ Volver a créditos</a>
-            <a class="btn btn-liquidar" href="/liquidar_credito/{{ credito.id }}">Liquidar crédito</a>
-            <a class="btn btn-deuda" href="/pagar_deuda_fecha/{{ credito.id }}">Pagar deuda a la fecha</a>
-            <a class="btn btn-capital" href="/abono_capital/{{ credito.id }}">Abono a capital</a>
+        <div class="barra-botones">
+            
+            <a href="/ver_creditos/{{ credito.sede }}" class="btn-accion btn-volver">
+                Volver a créditos
+            </a>
+
+            <a href="/liquidar_credito/{{ credito.id }}" class="btn-accion btn-liquidar">
+                Liquidar crédito
+            </a>
+
+            <a href="/pagar_deuda_fecha/{{ credito.id }}" class="btn-accion btn-pagar">
+                Pagar deuda a la fecha
+            </a>
+
+            <a href="/abono_capital/{{ credito.id }}" class="btn-accion btn-abono">
+                Abono a capital
+            </a>
+
         </div>
     </div>
 
+    <!-- RESUMEN DEL CRÉDITO -->
     <div class="grid-resumen">
+
         <div class="card-info">
             <div class="label">Pagaré</div>
-            <div class="valor">{{ credito.numero_pagare if credito.numero_pagare else 'Sin asignar' }}</div>
+            <div class="valor">{{ credito.numero_pagare }}</div>
         </div>
 
         <div class="card-info">
             <div class="label">Cliente</div>
             <div class="valor">{{ credito.cliente }}</div>
-            <button type="button" class="mini-btn" onclick="toggleDetalleCliente()">Ver detalle</button>
+            <button class="mini-btn" onclick="toggleDetalleCliente()">Ver detalle</button>
         </div>
 
         <div class="card-info">
@@ -389,132 +655,143 @@
 
         <div class="card-info">
             <div class="label">Fecha del crédito</div>
-            <div class="valor">{{ credito.fecha_creacion.strftime('%d/%m/%Y') }}</div>
+            <div class="valor">
+                {{ credito.fecha_creacion.strftime('%d/%m/%Y') if credito.fecha_creacion else '' }}
+            </div>
         </div>
 
         <div class="card-info">
             <div class="label">Último pago</div>
             <div class="valor">
-                {% if ultimo_pago %}
-                    {{ ultimo_pago.fecha.strftime('%d/%m/%Y') }}
-                {% else %}
-                    Sin pagos
-                {% endif %}
+                {{ ultimo_pago.fecha.strftime('%d/%m/%Y') if ultimo_pago else 'Sin pagos' }}
             </div>
         </div>
 
         <div class="card-info">
             <div class="label">Deuda a la fecha</div>
-            {% if esta_al_dia %}
-                <div class="valor verde">AL DÍA</div>
-            {% else %}
-                <div class="valor">{{ deuda_total_fecha | cop }}</div>
-                <button type="button" class="mini-btn" onclick="toggleDeudaFecha()">Ver detalle</button>
-            {% endif %}
+            <div class="valor">{{ deuda_total_fecha | cop }}</div>
+            <button class="mini-btn" type="button" onclick="togglePanelDeuda()">Ver detalle</button>
         </div>
 
         <div class="card-info
-            {% if estado_credito == 'EN MORA' %}card-estado-mora
-            {% elif estado_credito == 'CANCELADO' %}card-estado-cancelado
-            {% elif estado_credito == 'CON ABONOS' %}card-estado-abono
-            {% else %}card-estado-dia
-            {% endif %}">
+            {% if estado_credito == 'EN MORA' %}card-estado-mora{% endif %}
+            {% if estado_credito == 'CANCELADO' %}card-estado-cancelado{% endif %}
+            {% if estado_credito == 'ABONO' %}card-estado-abono{% endif %}
+            {% if estado_credito == 'AL DÍA' %}card-estado-dia{% endif %}
+        ">
             <div class="label">Estado</div>
             <div class="valor">{{ estado_credito }}</div>
         </div>
+
     </div>
 
-    <div id="panel-deuda-fecha" class="panel-detalle">
-        <h3>Detalle deuda a la fecha</h3>
+    <div id="panel-deuda-fecha" class="panel-detalle-elegante" style="display: none;">
+        <h3 class="panel-titulo">Detalle deuda a la fecha</h3>
 
         {% if esta_al_dia %}
-            <p class="verde">El crédito se encuentra al día.</p>
+            <div class="grid-resumen-detalle">
+                <div class="card-detalle">
+                    <div class="label">Estado del crédito</div>
+                    <div class="valor verde">AL DÍA</div>
+                </div>
+            </div>
         {% else %}
-            <div class="grid-panel">
-                <div class="mini-card">
+            <div class="grid-resumen-detalle">
+                <div class="card-detalle">
                     <div class="label">Cuotas exigibles a hoy</div>
                     <div class="valor">{{ cuota_pendiente_total | cop }}</div>
                 </div>
 
-                <div class="mini-card">
+                <div class="card-detalle">
                     <div class="label">Mora acumulada a hoy</div>
                     <div class="valor rojo">{{ mora_total | cop }}</div>
                 </div>
 
-                <div class="mini-card">
+                <div class="card-detalle">
                     <div class="label">Total exigible a hoy</div>
-                    <div class="valor">{{ deuda_total_fecha | cop }}</div>
+                    <div class="valor azul">{{ deuda_total_fecha | cop }}</div>
                 </div>
             </div>
 
-            <div style="margin-top:20px;">
-                <h4>Cuotas exigibles</h4>
-                <div class="tabla-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Fecha cuota</th>
-                                <th>Saldo pendiente</th>
-                                <th>Mora</th>
-                                <th>Total exigible</th>
-                                <th>Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for cuota in cuotas_exigibles_hoy %}
-                            <tr>
-                                <td>{{ cuota.numero }}</td>
-                                <td>{{ cuota.fecha_pago.strftime('%d/%m/%Y') }}</td>
-                                <td>{{ cuota.saldo_pendiente | cop }}</td>
-                                <td>{{ cuota.interes_mora | cop }}</td>
-                                <td>{{ cuota.total_cobro | cop }}</td>
-                                <td>{{ cuota.estado }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+            <h4 class="subseccion-titulo">Cuotas exigibles</h4>
+
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Fecha cuota</th>
+                            <th>Saldo pendiente</th>
+                            <th>Mora</th>
+                            <th>Total exigible</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cuota in cuotas_exigibles_hoy %}
+                        <tr>
+                            <td>{{ cuota.numero }}</td>
+                            <td>{{ cuota.fecha_pago.strftime('%d/%m/%Y') }}</td>
+                            <td>{{ cuota.saldo_pendiente | cop }}</td>
+                            <td>{{ cuota.interes_mora | cop }}</td>
+                            <td>{{ cuota.total_cobro | cop }}</td>
+                            <td>
+                                {% if cuota.estado == 'EN MORA' %}
+                                    <span class="rojo">EN MORA</span>
+                                {% elif cuota.estado == 'PAGADA' %}
+                                    <span class="verde">PAGADA</span>
+                                {% else %}
+                                    {{ cuota.estado }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         {% endif %}
     </div>
 
-    <div id="panel-detalle-cliente" class="panel-detalle">
-        <h3>Detalle del cliente</h3>
+ <div id="panel-detalle-cliente" class="panel-detalle" style="display: none;">
+    <h3 style="text-align:center; margin-bottom:10px;">Detalle del cliente</h3>
 
-        <div class="grid-panel">
-            <div class="mini-card">
-                <div class="label">Cédula</div>
-                <div class="valor">{{ credito.cedula_cliente if credito.cedula_cliente else 'No registrada' }}</div>
-            </div>
+    <div class="grid-cliente">
+        <div class="item">
+            <span>Cédula</span>
+            <strong>{{ credito.cedula_cliente or 'No registrada' }}</strong>
+        </div>
 
-            <div class="mini-card">
-                <div class="label">Teléfono 1</div>
-                <div class="valor">{{ credito.telefono_1 if credito.telefono_1 else 'No registrado' }}</div>
-            </div>
+        <div class="item">
+            <span>Teléfono 1</span>
+            <strong>{{ credito.telefono_1 or 'No registrado' }}</strong>
+        </div>
 
-            <div class="mini-card">
-                <div class="label">Teléfono 2</div>
-                <div class="valor">{{ credito.telefono_2 if credito.telefono_2 else 'No registrado' }}</div>
-            </div>
+        <div class="item">
+            <span>Teléfono 2</span>
+            <strong>{{ credito.telefono_2 or 'No registrado' }}</strong>
+        </div>
 
-            <div class="mini-card">
-                <div class="label">Dirección</div>
-                <div class="valor">{{ credito.direccion_cliente if credito.direccion_cliente else 'No registrada' }}</div>
-            </div>
+        <div class="item">
+            <span>Dirección</span>
+            <strong>{{ credito.direccion_cliente or 'No registrada' }}</strong>
+        </div>
 
-            <div class="mini-card">
-                <div class="label">Correo</div>
-                <div class="valor">{{ credito.correo_cliente if credito.correo_cliente else 'No registrado' }}</div>
-            </div>
+        <div class="item full">
+            <span>Correo</span>
+            <strong>{{ credito.correo_cliente or 'No registrado' }}</strong>
         </div>
     </div>
+</div>   
 
-    <div class="tabla-wrapper">
+    <div class="scroll-superior" id="scroll-top-cuotas">
+        <div></div>
+    </div>
+
+    <div class="tabla-wrapper" id="scroll-bottom-cuotas">
         <table>
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th>N° Cuota</th>
                     <th>Fecha cuota</th>
                     <th>Saldo inicial</th>
                     <th>Valor cuota</th>
@@ -545,12 +822,12 @@
                 >
                     <td>{{ cuota.numero }}</td>
                     <td>{{ cuota.fecha_pago.strftime('%d/%m/%Y') }}</td>
-                    <td>{{ cuota.saldo_inicial | cop }}</td>
-                    <td>{{ cuota.valor_cuota | cop }}</td>
-                    <td>{{ cuota.capital | cop }}</td>
-                    <td>{{ cuota.interes | cop }}</td>
-                    <td>{{ cuota.saldo_restante | cop }}</td>
-                    <td><strong>{{ cuota.saldo_pendiente | cop }}</strong></td>
+                    <td class="col-moneda">{{ cuota.saldo_inicial | cop }}</td>
+                    <td class="col-moneda">{{ cuota.valor_cuota | cop }}</td>
+                    <td class="col-moneda">{{ cuota.capital | cop }}</td>
+                    <td class="col-moneda">{{ cuota.interes | cop }}</td>
+                    <td class="col-moneda">{{ cuota.saldo_restante | cop }}</td>
+                    <td class="col-moneda"><strong>{{ cuota.saldo_pendiente | cop }}</strong></td>
 
                     <td>
                         {% if cuota.interes_mora > 0 or cuota.interes_mora_historico > 0 %}
@@ -561,8 +838,8 @@
                     </td>
 
                     <td>{{ cuota.dias_mora }}</td>
-                    <td class="rojo">{{ cuota.interes_mora | cop }}</td>
-                    <td class="rojo">{{ cuota.total_cobro | cop }}</td>
+                    <td class="col-moneda rojo">{{ cuota.interes_mora | cop }}</td>
+                    <td class="col-moneda rojo">{{ cuota.total_cobro | cop }}</td>
 
                     <td>
                         {% if cuota.estado == 'PAGADA' %}
@@ -586,31 +863,13 @@
                                     <strong>Valor:</strong> {{ pago.valor | cop }}<br>
                                     <strong>Medio:</strong> {{ pago.medio_pago }}<br>
 
-                                    <button type="button"
-                                            class="btn-detalle"
-                                            onclick="toggleDetallePago('detalle-pago-{{ pago.id }}')">
+                                    <a href="/detalle_pago/{{ pago.id }}" class="btn-detalle" style="display:inline-block; text-decoration:none;">
                                         Ver detalle
-                                    </button>
-
-                                    <div id="detalle-pago-{{ pago.id }}" class="detalle-pago">
-                                        <strong>Tipo de pago:</strong> {{ pago.tipo_pago if pago.tipo_pago else 'No definido' }}<br>
-                                        <strong>Saldo pendiente antes del pago:</strong> {{ pago.saldo_pendiente_antes_pago | cop }}<br>
-                                        <strong>Total exigible al pago:</strong> {{ pago.total_exigible_al_pago | cop }}<br>
-                                        <strong>Días de mora al pago:</strong> {{ pago.dias_mora_pagados }}<br>
-                                        <strong>Mora generada al pago:</strong> {{ pago.mora_generada_al_pago | cop }}<br>
-                                        <hr style="margin:8px 0;">
-                                        <strong>Aplicado a interés:</strong> {{ pago.valor_aplicado_interes | cop }}<br>
-                                        <strong>Aplicado a capital:</strong> {{ pago.valor_aplicado_capital | cop }}<br>
-                                        <strong>Aplicado a mora:</strong> {{ pago.valor_aplicado_mora | cop }}<br>
-                                        <strong>Prepago a capital:</strong> {{ pago.valor_aplicado_prepago_capital | cop }}<br>
-                                        {% if pago.observacion %}
-                                            <strong>Observación:</strong> {{ pago.observacion }}
-                                        {% endif %}
-                                    </div>
+                                    </a>
                                 </div>
                             {% endfor %}
                         {% else %}
-                            Sin pagos
+                            <div class="historial-vacio">Sin pagos</div>
                         {% endif %}
                     </td>
 
@@ -627,13 +886,53 @@
         </table>
     </div>
 
-    <div class="pie-botones">
-        <a class="btn btn-volver" href="/ver_creditos/{{ credito.sede }}">⬅ Volver a créditos</a>
-        <a class="btn btn-liquidar" href="/liquidar_credito/{{ credito.id }}">Liquidar crédito</a>
-        <a class="btn btn-deuda" href="/pagar_deuda_fecha/{{ credito.id }}">Pagar deuda a la fecha</a>
-        <a class="btn btn-capital" href="/abono_capital/{{ credito.id }}">Abono a capital</a>
-    </div>
-
 </div>
+<script>
+function togglePanelDeuda() {
+    const panel = document.getElementById('panel-deuda-fecha');
+    if (!panel) return;
+
+    if (panel.style.display === 'none' || panel.style.display === '') {
+        panel.style.display = 'block';
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+        panel.style.display = 'none';
+    }
+}
+
+function toggleDetalleCliente() {
+    const panel = document.getElementById('panel-detalle-cliente');
+    if (!panel) return;
+
+    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+
+</script>
+
+<script>
+function sincronizarScroll(tablaTopId, tablaBottomId) {
+    const topScroll = document.getElementById(tablaTopId);
+    const bottomScroll = document.getElementById(tablaBottomId);
+
+    if (!topScroll || !bottomScroll) return;
+
+    const inner = topScroll.firstElementChild;
+    inner.style.width = bottomScroll.scrollWidth + "px";
+
+    topScroll.addEventListener("scroll", () => {
+        bottomScroll.scrollLeft = topScroll.scrollLeft;
+    });
+
+    bottomScroll.addEventListener("scroll", () => {
+        topScroll.scrollLeft = bottomScroll.scrollLeft;
+    });
+
+    window.addEventListener("resize", () => {
+        inner.style.width = bottomScroll.scrollWidth + "px";
+    });
+}
+
+sincronizarScroll("scroll-top-cuotas", "scroll-bottom-cuotas");
+</script>
 </body>
 </html>

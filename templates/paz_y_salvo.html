@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Paz y salvo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            padding: 30px;
+            color: #1f2937;
+        }
+
+        .contenedor {
+            max-width: 1600px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+        }
+
+        .encabezado {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+
+        .encabezado h1 {
+            margin: 0;
+            font-size: 40px;
+            color: #102a43;
+        }
+
+        .encabezado p {
+            margin: 10px 0 0 0;
+            color: #52606d;
+            font-size: 15px;
+        }
+
+        .logo img {
+            max-height: 110px;
+            width: auto;
+        }
+
+        .acciones {
+            margin-top: 18px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 11px 18px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-volver {
+            background: linear-gradient(135deg, #6c757d, #495057);
+        }
+
+        .btn-buscar {
+            background: linear-gradient(135deg, #1677ff, #0d6efd);
+        }
+
+        .btn-pdf {
+            background: linear-gradient(135deg, #198754, #157347);
+        }
+
+        form {
+            margin: 20px 0 24px 0;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            min-width: 320px;
+            padding: 12px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1200px;
+        }
+
+        th, td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        th {
+            background: #f8fafc;
+            color: #102a43;
+            font-weight: bold;
+        }
+
+        .tabla-wrapper {
+            overflow-x: auto;
+        }
+
+        .cliente-col {
+            text-align: left;
+            font-weight: bold;
+            white-space: normal;
+        }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+
+        <div class="encabezado">
+            <div>
+                <h1>Módulo de Paz y Salvo</h1>
+                <p>Busca créditos cancelados o liquidados para emitir el documento.</p>
+
+                <div class="acciones">
+                    <a href="/dashboard" class="btn btn-volver">Volver al inicio</a>
+                </div>
+            </div>
+
+            <div class="logo">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
+            </div>
+        </div>
+
+        <form method="GET">
+            <input type="text" name="q" value="{{ q }}" placeholder="Buscar por cliente, cédula, pagaré o sede...">
+            <button type="submit" class="btn btn-buscar">Buscar</button>
+        </form>
+
+        <div class="tabla-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Pagaré</th>
+                        <th>Fecha crédito</th>
+                        <th>Cliente</th>
+                        <th>Cédula</th>
+                        <th>Sede</th>
+                        <th>Monto financiado</th>
+                        <th>Saldo actual</th>
+                        <th>Generar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for credito in creditos %}
+                    <tr>
+                        <td>{{ credito.numero_pagare }}</td>
+                        <td>{{ credito.fecha_creacion.strftime('%d/%m/%Y') if credito.fecha_creacion else '' }}</td>
+                        <td class="cliente-col">{{ credito.cliente }}</td>
+                        <td>{{ credito.cedula_cliente or 'No registrada' }}</td>
+                        <td>{{ credito.sede }}</td>
+                        <td>{{ credito.monto_financiado | cop }}</td>
+                        <td>{{ credito.saldo_actual | cop }}</td>
+                        <td>
+                            <a href="/generar_paz_y_salvo/{{ credito.id }}" class="btn btn-pdf" target="_blank">
+                                Generar PDF
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8">No se encontraron créditos cancelados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</body>
+</html>

@@ -12,7 +12,7 @@
         }
 
         .contenedor {
-            max-width: 1450px;
+            max-width: 1800px;
             margin: auto;
             background: white;
             padding: 30px;
@@ -28,7 +28,7 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
-            table-layout: auto;
+            table-layout: fixed;
         }
 
         th, td {
@@ -36,7 +36,38 @@
             border-bottom: 1px solid #ddd;
             text-align: center;
             vertical-align: middle;
-            font-size: 14px;
+            word-wrap: break-word;
+        }
+
+        /* Últimas dos columnas: Ver cuotas y Extracto */
+        th:nth-child(12),
+        td:nth-child(12),
+        th:nth-child(13),
+        td:nth-child(13) {
+            width: 120px;
+            min-width: 120px;
+            max-width: 120px;
+            text-align: center;
+        }
+
+        /* Contenedor interno de botones */
+        .accion-col {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        td {
+            vertical-align: middle;
+        }
+
+        td:nth-last-child(1),
+        td:nth-last-child(2) {
+            text-align: center;
+        }
+
+        th {
+            text-align: center;
         }
 
         th {
@@ -63,17 +94,43 @@
         }
 
         .btn {
-            display: inline-block;
-            padding: 10px 14px;
-            background: #007bff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 18px;
+            background: linear-gradient(135deg, #1677ff, #0d6efd);
             color: white;
             text-decoration: none;
-            border-radius: 8px;
+            border-radius: 12px;
             font-size: 14px;
+            font-weight: bold;
+            border: none;
+            transition: 0.2s ease;
+            box-shadow: 0 6px 16px rgba(13, 110, 253, 0.15);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            opacity: 0.96;
+            box-shadow: 0 10px 22px rgba(13, 110, 253, 0.22);
         }
 
         .btn-panel {
-            background: #6c757d;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 18px;
+            background: linear-gradient(135deg, #6c757d, #495057);
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            transition: 0.2s ease;
+            box-shadow: 0 6px 16px rgba(73, 80, 87, 0.18);
         }
 
         .estado-mora {
@@ -94,10 +151,54 @@
         .header-creditos {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #e5e7eb;
+            align-items: flex-start; /* IMPORTANTE */
+            margin-bottom: 20px;
+        }
+
+        .header-izquierda {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .header-izquierda h1 {
+            margin: 0;
+        }
+
+        .header-izquierda p {
+            margin: 0;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .header-acciones {
+            margin-bottom: 10px;
+        }
+
+        .header-acciones h1 {
+            margin: 0 0 8px 0;
+            font-size: 38px;
+            font-weight: bold;
+        }
+
+        .header-acciones p {
+            margin: 0;
+            color: #111827;
+            font-size: 15px;
+        }
+
+        .header-boton {
+            margin-top: 10px;
+        }
+
+        .header-logo {
+            flex-shrink: 0;
+            text-align: right;
+        }
+
+        .header-logo img {
+            max-height: 200px;
+            width: 180px;
         }
 
         .header-texto h1 {
@@ -112,30 +213,169 @@
             font-size: 15px;
         }
 
-        .header-logo img {
-            max-height: 100px; /* ← aquí haces el logo grande */
-            width: auto;
-            }
+        .btn-extracto {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #7c3aed, #6f42c1);
+            color: white;
+            text-decoration: none;
+            padding: 9px 15px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 13px;
+            box-shadow: 0 6px 16px rgba(111, 66, 193, 0.18);
+            transition: 0.2s ease;
+        }
+
+        .btn-extracto:hover {
+            transform: translateY(-1px);
+            opacity: 0.96;
+            box-shadow: 0 10px 20px rgba(111, 66, 193, 0.24);
+        }
+
+        .btn-cuotas {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1677ff, #0d6efd);
+            color: white;
+            text-decoration: none;
+            padding: 9px 15px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 13px;
+            box-shadow: 0 6px 16px rgba(13, 110, 253, 0.18);
+            transition: 0.2s ease;
+        }
+
+        .btn-cuotas:hover {
+            transform: translateY(-1px);
+            opacity: 0.96;
+            box-shadow: 0 10px 20px rgba(13, 110, 253, 0.24);
+        }
+
+        .btn-eliminar {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+            color: white;
+            text-decoration: none;
+            padding: 9px 15px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 13px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 6px 16px rgba(185, 28, 28, 0.18);
+            transition: 0.2s ease;
+        }
+
+        .btn-eliminar:hover {
+            transform: translateY(-1px);
+            opacity: 0.96;
+            box-shadow: 0 10px 20px rgba(185, 28, 28, 0.24);
+        }
+
+        .tabla-wrapper {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .tabla-creditos {
+            width: 100%;
+            min-width: 1620px;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .acciones-footer {
+            margin-top: 24px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .header-acciones {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .header-acciones h1 {
+            margin-bottom: 4px;
+        }
+
+        td {
+            white-space: nowrap;
+        }
+
+        th, td {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        td {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .header-boton {
+            margin-top: 10px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .btn-volver-sede {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 18px;
+            background: linear-gradient(135deg, #1677ff, #0d6efd);
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            transition: 0.2s ease;
+            box-shadow: 0 6px 16px rgba(13, 110, 253, 0.15);
+        }
+
+        .btn-volver-sede:hover,
+        .btn-panel:hover {
+            transform: translateY(-1px);
+            opacity: 0.96;
+        }
     </style>
 </head>
 
 <body>
 
 <div class="contenedor">
-
     <div class="header-creditos">
-    
-    <div class="header-texto">
-        <h1>Créditos Activos</h1>
-        <p><strong>Sede:</strong> {{ sede_actual }}</p>
+
+        <div class="header-izquierda">
+            <h1>Créditos Activos</h1>
+            <p><strong>Sede:</strong> {{ sede_actual }}</p>
+            <div style="margin-top: 10px; display: flex; gap: 10px;">
+                <a href="/creditos/{{ sede_actual }}" class="btn btn-volver-sede">
+                    Volver a sede
+                </a>
+
+                <a href="/dashboard" class="btn btn-panel">
+                    Inicio
+                </a>
+            </div>
+        </div>
+
+        <div class="header-logo">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo empresa">
+        </div>
+
     </div>
-
-    <div class="header-logo">
-        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo empresa">
-    </div>
-
-</div>
-
     <!-- BUSCADOR -->
     <div style="margin: 20px 0;">
         <input
@@ -148,7 +388,24 @@
     </div>
 
     <!-- TABLA -->
-    <table>
+    <div class="tabla-wrapper">
+    <table class="tabla-creditos">
+        <colgroup>
+            <col style="width: 90px;">
+            <col style="width: 110px;">
+            <col style="width: 250px;">
+            <col style="width: 140px;">
+            <col style="width: 120px;">
+            <col style="width: 150px;">
+            <col style="width: 80px;">
+            <col style="width: 70px;">
+            <col style="width: 130px;">
+            <col style="width: 120px;">
+            <col style="width: 130px;">
+            <col style="width: 120px;">
+            <col style="width: 120px;">
+            <col style="width: 120px;">
+        </colgroup>
         <thead>
             <tr>
                 <th>Número de pagaré</th>
@@ -162,7 +419,9 @@
                 <th>Cuota mensual</th>
                 <th>Estado</th>
                 <th>Saldo actual</th>
-                <th>Acción</th>
+                <th>Ver cuotas</th>
+                <th>Extracto</th>
+                <th>Eliminar</th>
             </tr>
         </thead>
 
@@ -222,17 +481,30 @@
                 </td>
 
                 <td class="accion-columna">
-                    <a href="/ver_cuotas/{{ item.credito.id }}" class="btn">Ver cuotas</a>
+                    <div class="accion-col">
+                        <a class="btn-cuotas" href="/ver_cuotas/{{ item.credito.id }}">Ver cuotas</a>
+                    </div>
                 </td>
+
+                <td class="accion-columna">
+                    <div class="accion-col">
+                        <a class="btn-extracto" href="/extracto_credito/{{ item.credito.id }}">Extracto</a>
+                    </div>
+                </td>
+
+                <td class="accion-columna">
+                    <div class="accion-col">
+                        <form action="/eliminar_credito/{{ item.credito.id }}" method="POST"
+                            onsubmit="return confirm('¿Seguro que deseas eliminar este crédito? Esta acción borrará también cuotas y pagos relacionados.');">
+                            <button type="submit" class="btn-eliminar">Eliminar</button>
+                        </form>
+                    </div>
+                </td>
+
             </tr>
             {% endfor %}
         </tbody>
     </table>
-
-    <!-- BOTONES -->
-    <div style="margin-top:20px;">
-        <a href="/dashboard" class="btn btn-panel">⬅ Panel</a>
-        <a href="/crear_credito" class="btn">➕ Nuevo crédito</a>
     </div>
 
 </div>

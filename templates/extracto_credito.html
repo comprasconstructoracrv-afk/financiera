@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Extracto del crédito</title>
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            padding: 30px;
+            color: #1f2937;
+        }
+
+        .contenedor {
+            max-width: 1550px;
+            margin: auto;
+        }
+
+        .encabezado, .seccion {
+            background: white;
+            border-radius: 22px;
+            padding: 25px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+            margin-bottom: 25px;
+        }
+
+        .encabezado {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .encabezado h1 {
+            margin: 0;
+            font-size: 40px;
+            color: #102a43;
+        }
+
+        .encabezado p {
+            margin: 10px 0 0 0;
+            color: #52606d;
+        }
+
+        .logo img {
+            max-height: 90px;
+            width: auto;
+        }
+
+        .acciones {
+            margin-top: 18px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 11px 18px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            background: #6c757d;
+        }
+
+        .btn-pdf {
+            background: linear-gradient(135deg, #102a43, #1f4e78);
+        }
+
+        .seccion h2 {
+            margin-top: 0;
+            color: #102a43;
+        }
+
+        .grid-resumen {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+        }
+
+        .card {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 18px;
+        }
+
+        .card .label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .card .valor {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .tabla-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1100px;
+        }
+
+        th, td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        th {
+            background: #eaf2ff;
+            color: #102a43;
+        }
+
+        tr:hover td {
+            background: #f8fbff;
+        }
+
+        .rojo { color: #dc3545; font-weight: bold; }
+        .verde { color: #198754; font-weight: bold; }
+        .azul { color: #0d6efd; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div class="contenedor">
+
+    <div class="encabezado">
+        <div>
+            <h1>Extracto del crédito</h1>
+            <p>{{ credito.cliente }} - Pagaré {{ credito.numero_pagare if credito.numero_pagare else 'Sin asignar' }}</p>
+
+            <div class="acciones">
+                <a href="/ver_cuotas/{{ credito.id }}" class="btn">Volver al crédito</a>
+                <a href="/extracto_credito_pdf/{{ credito.id }}" class="btn btn-pdf" target="_blank">Descargar PDF</a>
+            </div>
+        </div>
+
+        <div class="logo">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
+        </div>
+    </div>
+
+    <div class="seccion">
+        <h2>Resumen del cliente y crédito</h2>
+
+        <div class="grid-resumen">
+            <div class="card"><div class="label">Cliente</div><div class="valor">{{ credito.cliente }}</div></div>
+            <div class="card"><div class="label">Cédula</div><div class="valor">{{ credito.cedula_cliente if credito.cedula_cliente else 'No registrada' }}</div></div>
+            <div class="card"><div class="label">Sede</div><div class="valor">{{ credito.sede }}</div></div>
+            <div class="card"><div class="label">Monto financiado</div><div class="valor">{{ credito.monto_financiado | cop }}</div></div>
+            <div class="card"><div class="label">Saldo actual</div><div class="valor">{{ credito.saldo_actual | cop }}</div></div>
+            <div class="card"><div class="label">Deuda total a hoy</div><div class="valor">{{ deuda_total_hoy | cop }}</div></div>
+            <div class="card"><div class="label">Interés</div><div class="valor">{{ credito.interes }}%</div></div>
+            <div class="card"><div class="label">Estado</div><div class="valor">{{ estado_credito }}</div></div>
+        </div>
+    </div>
+
+    <div class="seccion">
+        <h2>Resumen de pagos</h2>
+
+        <div class="grid-resumen">
+            <div class="card"><div class="label">Total pagado</div><div class="valor">{{ total_pagado | cop }}</div></div>
+            <div class="card"><div class="label">Interés pagado</div><div class="valor">{{ total_interes_pagado | cop }}</div></div>
+            <div class="card"><div class="label">Capital pagado</div><div class="valor">{{ total_capital_pagado | cop }}</div></div>
+            <div class="card"><div class="label">Mora pagada</div><div class="valor">{{ total_mora_pagada | cop }}</div></div>
+            <div class="card"><div class="label">Prepago a capital</div><div class="valor">{{ total_prepago_capital | cop }}</div></div>
+        </div>
+    </div>
+
+    <div class="seccion">
+        <h2>Historial de pagos</h2>
+
+        <div class="tabla-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Cuota</th>
+                        <th>Valor pagado</th>
+                        <th>Interés</th>
+                        <th>Capital</th>
+                        <th>Mora</th>
+                        <th>Prepago capital</th>
+                        <th>Medio de pago</th>
+                        <th>Tipo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pago in pagos %}
+                    <tr>
+                        <td>{{ pago.fecha.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ pago.cuota_id }}</td>
+                        <td>{{ pago.valor | cop }}</td>
+                        <td>{{ pago.valor_aplicado_interes | cop }}</td>
+                        <td>{{ pago.valor_aplicado_capital | cop }}</td>
+                        <td>{{ pago.valor_aplicado_mora | cop }}</td>
+                        <td>{{ pago.valor_aplicado_prepago_capital | cop }}</td>
+                        <td>{{ pago.medio_pago }}</td>
+                        <td>{{ pago.tipo_pago if pago.tipo_pago else 'N/A' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9">No hay pagos registrados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="seccion">
+        <h2>Tabla de cuotas</h2>
+
+        <div class="tabla-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Fecha cuota</th>
+                        <th>Valor cuota</th>
+                        <th>Capital</th>
+                        <th>Interés</th>
+                        <th>Saldo pendiente</th>
+                        <th>Mora</th>
+                        <th>Total cobro</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cuota in cuotas %}
+                    <tr>
+                        <td>{{ cuota.numero }}</td>
+                        <td>{{ cuota.fecha_pago.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ cuota.valor_cuota | cop }}</td>
+                        <td>{{ cuota.capital | cop }}</td>
+                        <td>{{ cuota.interes | cop }}</td>
+                        <td>{{ cuota.saldo_pendiente | cop }}</td>
+                        <td>{{ cuota.interes_mora | cop }}</td>
+                        <td>{{ cuota.total_cobro | cop }}</td>
+                        <td>
+                            {% if cuota.estado == 'EN MORA' %}
+                                <span class="rojo">EN MORA</span>
+                            {% elif cuota.estado == 'PAGADA' %}
+                                <span class="verde">PAGADA</span>
+                            {% elif cuota.estado == 'LIQUIDADA' %}
+                                <span class="azul">LIQUIDADA</span>
+                            {% else %}
+                                {{ cuota.estado }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

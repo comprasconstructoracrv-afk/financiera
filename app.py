@@ -10,7 +10,10 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, KeepTogether
+from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.lib.utils import ImageReader
+from reportlab.lib.pagesizes import letter
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
@@ -21,11 +24,119 @@ db.init_app(app)
 
 @app.template_filter('cop')
 def formato_cop(valor):
-    if valor is None:
+    try:
+        if valor is None:
+            return "$ 0"
+        valor = int(round(float(valor)))
+        return "$ {:,}".format(valor).replace(",", ".")
+    except:
         return "$ 0"
-    valor_redondeado = int(round(valor))
-    texto = f"{valor_redondeado:,}".replace(",", ".")
-    return f"$ {texto}"
+
+MESES_ES = {
+    1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL",
+    5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO",
+    9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
+}
+
+def fecha_recibo_es(fecha):
+    return f"{fecha.day:02d} {MESES_ES[fecha.month]} {fecha.year}"
+
+UNIDADES = (
+    '', 'UNO', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE'
+)
+DECENAS = (
+    'DIEZ', 'ONCE', 'DOCE', 'TRECE', 'CATORCE', 'QUINCE',
+    'DIECISEIS', 'DIECISIETE', 'DIECIOCHO', 'DIECINUEVE'
+)
+DIEZ_DIEZ = (
+    '', '', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA',
+    'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA'
+)
+CIENTOS = (
+    '', 'CIENTO', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS',
+    'QUINIENTOS', 'SEISCIENTOS', 'SETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS'
+)
+
+MESES_ES_TEXTO = {
+    1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
+    5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
+    9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+}
+
+DIAS_ES = {
+    0: "Lunes", 1: "Martes", 2: "Miércoles", 3: "Jueves",
+    4: "Viernes", 5: "Sábado", 6: "Domingo"
+}
+
+def fecha_larga_es(fecha):
+    return f"{DIAS_ES[fecha.weekday()]}, {fecha.day:02d} de {MESES_ES_TEXTO[fecha.month]} del {fecha.year}"
+
+def fecha_documento_es(fecha):
+    return f"{fecha.day:02d} de {MESES_ES_TEXTO[fecha.month]} del {fecha.year}"
+
+def convertir_menor_100(n):
+    if n < 10:
+        return UNIDADES[n]
+    if 10 <= n < 20:
+        return DECENAS[n - 10]
+    if 20 <= n < 30:
+        if n == 20:
+            return 'VEINTE'
+        return 'VEINTI' + UNIDADES[n - 20].lower()
+    d = n // 10
+    u = n % 10
+    if u == 0:
+        return DIEZ_DIEZ[d]
+    return f"{DIEZ_DIEZ[d]} Y {UNIDADES[u]}"
+
+def convertir_menor_1000(n):
+    if n == 0:
+        return ''
+    if n == 100:
+        return 'CIEN'
+    c = n // 100
+    resto = n % 100
+    if c == 0:
+        return convertir_menor_100(resto)
+    if resto == 0:
+        return CIENTOS[c]
+    return f"{CIENTOS[c]} {convertir_menor_100(resto)}"
+
+def numero_a_letras(n):
+    n = int(round(n))
+    if n == 0:
+        return 'CERO PESOS'
+
+    millones = n // 1000000
+    miles = (n % 1000000) // 1000
+    cientos = n % 1000
+
+    partes = []
+
+    if millones:
+        if millones == 1:
+            partes.append('UN MILLON')
+        else:
+            partes.append(f"{convertir_menor_1000(millones)} MILLONES")
+
+    if miles:
+        if miles == 1:
+            partes.append('MIL')
+        else:
+            partes.append(f"{convertir_menor_1000(miles)} MIL")
+
+    if cientos:
+        partes.append(convertir_menor_1000(cientos))
+
+    texto = ' '.join(partes).replace('  ', ' ').strip().upper()
+    return f"{texto} PESOS"
+
+def truncar_texto(canvas_obj, texto, x, y, ancho_max, font_name="Helvetica", font_size=10):
+    texto = str(texto or "")
+    while stringWidth(texto, font_name, font_size) > ancho_max and len(texto) > 0:
+        texto = texto[:-1]
+    canvas_obj.setFont(font_name, font_size)
+    canvas_obj.drawString(x, y, texto)
 
 def limpiar_valor_moneda(valor):
     if valor is None:
@@ -46,12 +157,22 @@ def calcular_cuota(monto, interes, cuotas):
     cuota = monto * (i * (1 + i) ** cuotas) / ((1 + i) ** cuotas - 1)
     return round(cuota, 2)
 
-def sumar_meses(fecha, meses):
-    mes = fecha.month - 1 + meses
-    anio = fecha.year + mes // 12
+def sumar_meses(fecha_base, meses, dia_fijo=None):
+    """
+    Mantiene el día original del crédito.
+    Si el mes no tiene ese día (ej: febrero), usa el último día del mes.
+    """
+    if dia_fijo is None:
+        dia_fijo = fecha_base.day
+
+    mes = fecha_base.month - 1 + meses
+    anio = fecha_base.year + mes // 12
     mes = mes % 12 + 1
-    dia = min(fecha.day, calendar.monthrange(anio, mes)[1])
-    return fecha.replace(year=anio, month=mes, day=dia)
+
+    ultimo_dia_mes = calendar.monthrange(anio, mes)[1]
+    dia = min(dia_fijo, ultimo_dia_mes)
+
+    return fecha_base.replace(year=anio, month=mes, day=dia)
 
 def convertir_tasa_anual_a_mensual(tasa_anual):
     return round((((1 + (tasa_anual / 100)) ** (1/12)) - 1) * 100, 6)
@@ -84,6 +205,8 @@ def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
     tasa = interes / 100
     cuota_fija = calcular_cuota(monto, interes, cuotas)
 
+    dia_original = fecha_base.day
+
     for n in range(cuotas):
         saldo_inicial = round(saldo, 2)
         interes_mes = round(saldo_inicial * tasa, 2)
@@ -91,26 +214,28 @@ def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
         saldo = round(saldo_inicial - capital, 2)
 
         if saldo < 0:
+            capital = round(capital + saldo, 2)
             saldo = 0
 
-        fecha_pago = sumar_meses(fecha_base, n)
+        fecha_pago = sumar_meses(fecha_base, n, dia_fijo=dia_original)
 
-        nueva_cuota = Cuota(
+        cuota = Cuota(
             credito_id=credito_id,
             numero=n + 1,
             fecha_pago=fecha_pago,
-            valor_cuota=cuota_fija,
             saldo_inicial=saldo_inicial,
+            valor_cuota=round(cuota_fija, 2),
             capital=capital,
             interes=interes_mes,
             saldo_restante=saldo,
-            saldo_pendiente=cuota_fija,
+            saldo_pendiente=round(cuota_fija, 2),
             dias_mora=0,
             interes_mora=0,
-            total_cobro=cuota_fija,
+            total_cobro=round(cuota_fija, 2),
             estado='PENDIENTE'
         )
-        db.session.add(nueva_cuota)
+
+        db.session.add(cuota)
 
 def ultimo_dia_mes(fecha):
     ultimo = calendar.monthrange(fecha.year, fecha.month)[1]
@@ -205,6 +330,7 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
     tasa_credito = credito.interes / 100
 
     config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
+    dia_original = fecha_base.day
 
     for i, cuota in enumerate(cuotas_futuras):
         saldo_inicial = round(saldo, 2)
@@ -216,7 +342,7 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
             capital = round(capital + saldo, 2)
             saldo = 0
 
-        nueva_fecha = sumar_meses(fecha_base, i + 1)
+        nueva_fecha = sumar_meses(fecha_base, i + 1, dia_fijo=dia_original)
 
         tasa_periodo = TasaPeriodo.query.filter_by(
             anio=nueva_fecha.year,
@@ -636,6 +762,17 @@ def dashboard():
         resumen_sedes=resumen_sedes
     )
 
+@app.route('/creditos/<sede>')
+def creditos_sede(sede):
+    if 'user' not in session:
+        return redirect('/login')
+
+    sede = sede.strip().upper()
+
+    return render_template(
+        'creditos_sede.html',
+        sede_actual=sede
+    )
 
 # 🚪 LOGOUT
 @app.route('/logout')
@@ -660,12 +797,21 @@ def ver_creditos(sede):
 
         cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
 
+        if not cuotas:
+            continue
+
         if any(c.estado == 'EN MORA' for c in cuotas):
             estado_credito = 'EN MORA'
         elif all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
             estado_credito = 'CANCELADO'
+        elif any(c.estado == 'ABONO' for c in cuotas):
+            estado_credito = 'CON ABONOS'
         else:
             estado_credito = 'AL DÍA'
+
+        # SOLO mostrar créditos activos en esta vista
+        if all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
+            continue
 
         resumen_creditos.append({
             'credito': credito,
@@ -676,6 +822,45 @@ def ver_creditos(sede):
 
     return render_template(
         'ver_creditos.html',
+        resumen_creditos=resumen_creditos,
+        sede_actual=sede
+    )
+
+@app.route('/ver_creditos_cancelados/<sede>')
+def ver_creditos_cancelados(sede):
+    if 'user' not in session:
+        return redirect('/login')
+
+    sede = sede.strip().upper()
+
+    creditos = Credito.query.filter_by(sede=sede).order_by(Credito.fecha_creacion.desc()).all()
+    hoy = date.today()
+
+    resumen_creditos = []
+
+    for credito in creditos:
+        actualizar_mora_credito(credito, hoy)
+
+        cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+
+        if not cuotas:
+            continue
+
+        # SOLO mostrar créditos completamente terminados
+        if not all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
+            continue
+
+        estado_credito = 'CANCELADO'
+
+        resumen_creditos.append({
+            'credito': credito,
+            'estado_credito': estado_credito
+        })
+
+    db.session.commit()
+
+    return render_template(
+        'ver_creditos_cancelados.html',
         resumen_creditos=resumen_creditos,
         sede_actual=sede
     )
@@ -893,7 +1078,7 @@ def pagar_cuota(cuota_id):
         db.session.add(pago)
 
         db.session.commit()
-        return redirect(f'/ver_cuotas/{cuota.credito_id}')
+        return redirect(url_for('recibo_pago_pdf', pago_id=pago.id))
 
     actualizar_mora_credito(credito, datetime.utcnow().date())
     db.session.commit()
@@ -1624,6 +1809,964 @@ def exportar_reporte_pdf():
         output,
         as_attachment=True,
         download_name=nombre,
+        mimetype='application/pdf'
+    )
+
+@app.route('/dashboard_gerencial')
+def dashboard_gerencial():
+    if 'user' not in session:
+        return redirect('/login')
+
+    hoy = date.today()
+    anio_actual = hoy.year
+    mes_actual = hoy.month
+
+    anio_seleccionado = request.args.get('anio', type=int) or anio_actual
+    mes_seleccionado = request.args.get('mes', type=int) or mes_actual
+    sede_seleccionada = request.args.get('sede', default='TODAS', type=str).strip().upper()
+
+    sedes = ['IBAGUE', 'ESPINAL', 'GIRARDOT', 'CRV']
+
+    if sede_seleccionada == 'TODAS':
+        sedes_filtradas = sedes
+    else:
+        sedes_filtradas = [sede_seleccionada]
+
+    meses_nombres = {
+        1: 'ENERO',
+        2: 'FEBRERO',
+        3: 'MARZO',
+        4: 'ABRIL',
+        5: 'MAYO',
+        6: 'JUNIO',
+        7: 'JULIO',
+        8: 'AGOSTO',
+        9: 'SEPTIEMBRE',
+        10: 'OCTUBRE',
+        11: 'NOVIEMBRE',
+        12: 'DICIEMBRE'
+    }
+
+    kpis = {
+        'cartera_activa': 0,
+        'saldo_total': 0,
+        'recaudo_mes': 0,
+        'creditos_en_mora': 0,
+        'creditos_al_dia': 0,
+        'creditos_cancelados': 0,
+        'mora_acumulada': 0
+    }
+
+    datos_sedes = []
+
+    for sede in sedes_filtradas:
+        creditos = Credito.query.filter_by(sede=sede).all()
+        total_creditos = len(creditos)
+        saldo_actual_sede = round(sum(c.saldo_actual or 0 for c in creditos), 2)
+
+        creditos_en_mora = 0
+        creditos_cancelados = 0
+        creditos_al_dia = 0
+        recaudo_mes_sede = 0
+        mora_acumulada_sede = 0
+
+        creditos_ids = [c.id for c in creditos]
+
+        if creditos_ids:
+            cuotas = Cuota.query.filter(Cuota.credito_id.in_(creditos_ids)).all()
+            cuotas_ids = [q.id for q in cuotas]
+
+            for credito in creditos:
+                cuotas_credito = [q for q in cuotas if q.credito_id == credito.id]
+
+                if not cuotas_credito:
+                    continue
+
+                if any(q.estado == 'EN MORA' for q in cuotas_credito):
+                    creditos_en_mora += 1
+                elif all(q.estado in ['PAGADA', 'LIQUIDADA'] for q in cuotas_credito):
+                    creditos_cancelados += 1
+                else:
+                    creditos_al_dia += 1
+
+            mora_acumulada_sede = round(sum(q.interes_mora or 0 for q in cuotas), 2)
+
+            if cuotas_ids:
+                pagos_mes_sede_lista = Pago.query.filter(
+                    Pago.cuota_id.in_(cuotas_ids),
+                    db.extract('year', Pago.fecha) == anio_seleccionado,
+                    db.extract('month', Pago.fecha) == mes_seleccionado
+                ).all()
+
+                recaudo_mes_sede = round(sum(p.valor or 0 for p in pagos_mes_sede_lista), 2)
+
+        kpis['cartera_activa'] += total_creditos
+        kpis['saldo_total'] += saldo_actual_sede
+        kpis['recaudo_mes'] += recaudo_mes_sede
+        kpis['creditos_en_mora'] += creditos_en_mora
+        kpis['creditos_cancelados'] += creditos_cancelados
+        kpis['creditos_al_dia'] += creditos_al_dia
+        kpis['mora_acumulada'] += mora_acumulada_sede
+
+        datos_sedes.append({
+            'sede': sede,
+            'total_creditos': total_creditos,
+            'saldo_actual': saldo_actual_sede,
+            'recaudo_mes': recaudo_mes_sede,
+            'en_mora': creditos_en_mora,
+            'al_dia': creditos_al_dia,
+            'cancelados': creditos_cancelados
+        })
+
+    for clave in kpis:
+        if isinstance(kpis[clave], float):
+            kpis[clave] = round(kpis[clave], 2)
+
+    labels_sedes = [d['sede'] for d in datos_sedes]
+    saldos_sedes = [d['saldo_actual'] for d in datos_sedes]
+    recaudo_mes_sedes = [d['recaudo_mes'] for d in datos_sedes]
+    mora_sedes = [d['en_mora'] for d in datos_sedes]
+    al_dia_sedes = [d['al_dia'] for d in datos_sedes]
+    cancelados_sedes = [d['cancelados'] for d in datos_sedes]
+
+    return render_template(
+        'dashboard_gerencial.html',
+        kpis=kpis,
+        datos_sedes=datos_sedes,
+        labels_sedes=labels_sedes,
+        saldos_sedes=saldos_sedes,
+        recaudo_mes_sedes=recaudo_mes_sedes,
+        mora_sedes=mora_sedes,
+        al_dia_sedes=al_dia_sedes,
+        cancelados_sedes=cancelados_sedes,
+        anio_actual=anio_actual,
+        mes_actual=mes_actual,
+        anio_seleccionado=anio_seleccionado,
+        mes_seleccionado=mes_seleccionado,
+        sede_seleccionada=sede_seleccionada,
+        anios_disponibles=list(range(2024, anio_actual + 2)),
+        meses_disponibles=meses_nombres,
+        sedes_disponibles=['TODAS'] + sedes
+    )
+
+@app.route('/extracto_credito/<int:credito_id>')
+def extracto_credito(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+    actualizar_mora_credito(credito)
+    db.session.commit()
+
+    cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero).all()
+    cuotas_ids = [c.id for c in cuotas]
+
+    pagos = []
+    if cuotas_ids:
+        pagos = Pago.query.filter(Pago.cuota_id.in_(cuotas_ids)).order_by(Pago.fecha.desc()).all()
+
+    total_pagado = round(sum(p.valor or 0 for p in pagos), 2)
+    total_interes_pagado = round(sum(p.valor_aplicado_interes or 0 for p in pagos), 2)
+    total_capital_pagado = round(sum(p.valor_aplicado_capital or 0 for p in pagos), 2)
+    total_mora_pagada = round(sum(p.valor_aplicado_mora or 0 for p in pagos), 2)
+    total_prepago_capital = round(sum(p.valor_aplicado_prepago_capital or 0 for p in pagos), 2)
+
+    deuda_total_hoy = round(sum((c.total_cobro or 0) for c in cuotas if c.estado in ['PENDIENTE', 'EN MORA', 'ABONO']), 2)
+
+    if all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas) and cuotas:
+        estado_credito = 'CANCELADO'
+    elif any(c.estado == 'EN MORA' for c in cuotas):
+        estado_credito = 'EN MORA'
+    else:
+        estado_credito = 'AL DÍA'
+
+    return render_template(
+        'extracto_credito.html',
+        credito=credito,
+        cuotas=cuotas,
+        pagos=pagos,
+        total_pagado=total_pagado,
+        total_interes_pagado=total_interes_pagado,
+        total_capital_pagado=total_capital_pagado,
+        total_mora_pagada=total_mora_pagada,
+        total_prepago_capital=total_prepago_capital,
+        deuda_total_hoy=deuda_total_hoy,
+        estado_credito=estado_credito
+    )
+
+@app.route('/extracto_credito_pdf/<int:credito_id>')
+def extracto_credito_pdf(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter, landscape
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.utils import ImageReader
+    from io import BytesIO
+    import os
+    from datetime import date
+
+    credito = Credito.query.get_or_404(credito_id)
+    actualizar_mora_credito(credito)
+    db.session.commit()
+
+    cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero).all()
+    cuotas_ids = [c.id for c in cuotas]
+
+    pagos = []
+    if cuotas_ids:
+        pagos = Pago.query.filter(Pago.cuota_id.in_(cuotas_ids)).order_by(Pago.fecha.desc()).all()
+
+    total_pagado = round(sum(p.valor or 0 for p in pagos), 2)
+    total_interes_pagado = round(sum(p.valor_aplicado_interes or 0 for p in pagos), 2)
+    total_capital_pagado = round(sum(p.valor_aplicado_capital or 0 for p in pagos), 2)
+    total_mora_pagada = round(sum(p.valor_aplicado_mora or 0 for p in pagos), 2)
+    total_prepago_capital = round(sum(p.valor_aplicado_prepago_capital or 0 for p in pagos), 2)
+
+    deuda_total_hoy = round(
+        sum((c.total_cobro or 0) for c in cuotas if c.estado in ['PENDIENTE', 'EN MORA', 'ABONO']),
+        2
+    )
+
+    if all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas) and cuotas:
+        estado_credito = 'CANCELADO'
+    elif any(c.estado == 'EN MORA' for c in cuotas):
+        estado_credito = 'EN MORA'
+    else:
+        estado_credito = 'AL DÍA'
+
+    # 🎨 Colores corporativos
+    azul = colors.HexColor('#102a43')
+    gris = colors.HexColor('#52606d')
+    gris_claro = colors.HexColor('#f7f9fc')
+    borde = colors.HexColor('#d9e2ec')
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+
+    styles = getSampleStyleSheet()
+
+    elementos = []
+
+    # ================= HEADER =================
+    logo_path = os.path.join(app.root_path, 'static', 'logo.png')
+    logo = ""
+    if os.path.exists(logo_path):
+        logo = Image(logo_path, width=90, height=50)
+
+    header_texto = Paragraph(f"""
+        <para align='center'>
+        <font size='22'><b>Extracto del crédito</b></font><br/><br/>
+        <font size='11'><b>{credito.cliente}</b></font><br/><br/>
+        Pagaré: {credito.numero_pagare}<br/>
+        Fecha: {date.today().strftime('%d/%m/%Y')}
+        </para>
+    """, styles['Normal'])
+
+    header = Table([[header_texto, logo]], colWidths=[600, 120])
+    header.setStyle(TableStyle([
+        ('BOX', (0,0), (-1,-1), 1, borde),
+        ('BACKGROUND', (0,0), (-1,-1), colors.white),
+        ('LEFTPADDING', (0,0), (-1,-1), 20),
+        ('RIGHTPADDING', (0,0), (-1,-1), 20),
+        ('TOPPADDING', (0,0), (-1,-1), 20),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 20),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
+    ]))
+
+    elementos.append(header)
+    elementos.append(Spacer(1, 25))
+
+    # ================= TARJETAS =================
+    def card(titulo, valor):
+        contenido = [
+            [Paragraph(f"<font size='8' color='#52606d'>{titulo.upper()}</font>", styles['Normal'])],
+            [Paragraph(f"<b>{valor}</b>", styles['Heading3'])]
+        ]
+
+        t = Table(contenido, colWidths=[170])
+
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), gris_claro),
+            ('BOX', (0,0), (-1,-1), 0.8, borde),
+            ('ROUNDEDCORNERS', [12,12,12,12]),
+
+            # 🔥 MÁS AIRE INTERNO
+            ('LEFTPADDING', (0,0), (-1,-1), 14),
+            ('RIGHTPADDING', (0,0), (-1,-1), 14),
+            ('TOPPADDING', (0,0), (-1,-1), 12),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 12),
+        ]))
+
+        return t
+
+    elementos.append(Paragraph("Resumen del crédito", styles['Heading2']))
+
+    fila1 = [
+        card("Cliente", credito.cliente),
+        card("Cédula", credito.cedula_cliente),
+        card("Sede", credito.sede),
+        card("Monto", formato_cop(credito.monto_financiado))
+    ]
+
+    fila2 = [
+        card("Saldo", formato_cop(credito.saldo_actual)),
+        card("Deuda hoy", formato_cop(deuda_total_hoy)),
+        card("Interés", f"{credito.interes}%"),
+        card("Estado", estado_credito)
+    ]
+
+    tabla_fila1 = Table([[
+        card("Cliente", credito.cliente), "",
+        card("Cédula", credito.cedula_cliente), "",
+        card("Sede", credito.sede), "",
+        card("Monto", formato_cop(credito.monto_financiado))
+    ]], colWidths=[165, 14, 165, 14, 165, 14, 165])
+
+    tabla_fila1.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING', (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+    ]))
+
+    tabla_fila2 = Table([[
+        card("Saldo", formato_cop(credito.saldo_actual)), "",
+        card("Deuda hoy", formato_cop(deuda_total_hoy)), "",
+        card("Interés", f"{credito.interes}%"), "",
+        card("Estado", estado_credito)
+    ]], colWidths=[165, 14, 165, 14, 165, 14, 165])
+
+    tabla_fila2.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING', (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+    ]))
+
+    elementos.append(tabla_fila1)
+    elementos.append(Spacer(1, 18))  # 🔥 separación vertical
+    elementos.append(tabla_fila2)
+    elementos.append(Spacer(1, 25))
+
+    # ================= RESUMEN PAGOS =================
+    elementos.append(Paragraph("Resumen de pagos", styles['Heading2']))
+
+    pagos_tabla = Table([[
+        card("Total pagado", formato_cop(total_pagado)), "",
+        card("Interés", formato_cop(total_interes_pagado)), "",
+        card("Capital", formato_cop(total_capital_pagado)), "",
+        card("Mora", formato_cop(total_mora_pagada)), "",
+        card("Prepago", formato_cop(total_prepago_capital))
+    ]], colWidths=[125, 12, 125, 12, 125, 12, 125, 12, 125])
+
+    pagos_tabla.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING', (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+    ]))
+
+    elementos.append(pagos_tabla)
+    elementos.append(Spacer(1, 30))
+
+    # ================= HISTORIAL =================
+    elementos.append(Paragraph("Historial de pagos", styles['Heading2']))
+
+    data = [["Fecha","Cuota","Valor","Interés","Capital","Mora","Prepago"]]
+
+    for p in pagos:
+        data.append([
+            p.fecha.strftime('%d/%m/%Y'),
+            p.cuota_id,
+            formato_cop(p.valor),
+            formato_cop(p.valor_aplicado_interes),
+            formato_cop(p.valor_aplicado_capital),
+            formato_cop(p.valor_aplicado_mora),
+            formato_cop(p.valor_aplicado_prepago_capital),
+        ])
+
+    tabla = Table(data, repeatRows=1)
+    tabla.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), azul),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('GRID', (0,0), (-1,-1), 0.5, borde),
+    ]))
+
+    elementos.append(tabla)
+    elementos.append(Spacer(1, 30))
+
+    # ================= CUOTAS =================
+    elementos.append(Paragraph("Tabla de cuotas", styles['Heading2']))
+
+    data_cuotas = [["#","Fecha","Valor","Capital","Interés","Saldo","Mora","Total","Estado"]]
+
+    for c in cuotas:
+        data_cuotas.append([
+            c.numero,
+            c.fecha_pago.strftime('%d/%m/%Y') if c.fecha_pago else "",
+            formato_cop(c.valor_cuota),
+            formato_cop(c.capital),
+            formato_cop(c.interes),
+            formato_cop(c.saldo_pendiente),
+            formato_cop(c.interes_mora),
+            formato_cop(c.total_cobro),
+            c.estado
+        ])
+
+    tabla2 = Table(data_cuotas, repeatRows=1)
+    tabla2.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), azul),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('GRID', (0,0), (-1,-1), 0.5, borde),
+    ]))
+
+    elementos.append(tabla2)
+
+    doc.build(elementos)
+
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"extracto_{credito.id}.pdf",
+        mimetype='application/pdf'
+    )
+
+@app.route('/recibo_pago/<int:pago_id>')
+def recibo_pago_pdf(pago_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    pago = Pago.query.get_or_404(pago_id)
+    cuota = Cuota.query.get_or_404(pago.cuota_id)
+    credito = Credito.query.get_or_404(cuota.credito_id)
+
+    buffer = BytesIO()
+    from reportlab.pdfgen import canvas
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+
+    width, height = letter  # 612 x 792
+    centro_x = width / 2    # 306
+
+    gris = colors.HexColor('#e6e6e6')
+
+    def caja(x, y, w, h, texto=None, fill_color=None, bold=False, center=False, font_size=10):
+        pdf.setStrokeColor(colors.black)
+        pdf.setLineWidth(0.8)
+
+        if fill_color:
+            pdf.setFillColor(fill_color)
+            pdf.rect(x, y, w, h, fill=1, stroke=1)
+        else:
+            pdf.setFillColor(colors.white)
+            pdf.rect(x, y, w, h, fill=1, stroke=1)
+
+        pdf.setFillColor(colors.black)
+
+        if texto is not None:
+            texto = str(texto).strip()
+            fuente = "Helvetica-Bold" if bold else "Helvetica"
+            tam = font_size
+
+            while tam > 6 and stringWidth(texto, fuente, tam) > (w - 8):
+                tam -= 0.5
+
+            pdf.setFont(fuente, tam)
+
+            if center:
+                pdf.drawCentredString(x + (w / 2), y + (h / 2) - (tam / 3), texto)
+            else:
+                pdf.drawString(x + 4, y + (h / 2) - (tam / 3), texto)
+
+    # =========================
+    # ENCABEZADO SUPERIOR
+    # =========================
+    logo_path = os.path.join(app.static_folder, 'logo.png')
+    if os.path.exists(logo_path):
+        pdf.drawImage(ImageReader(logo_path), 70, 650, width=105, height=70, mask='auto')
+
+    pdf.setFillColor(colors.black)
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawCentredString(centro_x, 705, "CONSTRUCCIONES Y URBANIZACIONES S.A.S")
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawCentredString(centro_x, 691, "NIT: 901.527.083-2")
+    pdf.drawCentredString(centro_x, 677, "AV. AMBALÁ N° 27-136 - PISO 3")
+    pdf.drawCentredString(centro_x, 663, "IBAGUÉ - TOLIMA")
+    pdf.drawCentredString(centro_x, 649, "TELÉFONO: 311 414 5843")
+
+    # =========================
+    # BLOQUES SUPERIORES
+    # =========================
+    # Todo el bloque útil se centra visualmente entre x=55 y x=557
+    # ancho total aprox = 502 pt
+
+    # Cliente
+    x1 = 55
+    y1 = 555
+    label_w = 95
+    value_w = 205
+    row_h = 26
+
+    datos_cliente = [
+        ("RECIBIDO DE", credito.cliente),
+        ("DOCUMENTO", credito.cedula_cliente or ""),
+        ("DIRECCIÓN", credito.direccion_cliente or ""),
+        ("TELÉFONO", credito.telefono_1 or credito.telefono_2 or ""),
+        ("CIUDAD", credito.sede or "IBAGUÉ"),
+    ]
+
+    y = y1
+    for etiqueta, valor in datos_cliente:
+        caja(x1, y, label_w, row_h, etiqueta, gris, bold=True, center=True, font_size=8)
+        caja(x1 + label_w, y, value_w, row_h, valor, None, bold=False, center=False, font_size=9)
+        y -= row_h
+
+    # Fecha y forma de pago
+    xr = 355
+    caja(xr, 555, 115, 26, "FECHA DE RECIBO", gris, bold=True, center=True, font_size=8)
+    caja(xr + 115, 555, 125, 26, fecha_recibo_es(pago.fecha), None, center=True, font_size=9)
+
+    caja(xr, 503, 115, 28, "FORMA DE PAGO", gris, bold=True, center=True, font_size=8)
+    caja(xr + 115, 503, 125, 28, pago.medio_pago.upper(), None, center=True, font_size=9)
+
+    entidad_pago = pago.medio_pago.upper()
+    if entidad_pago == "EFECTIVO":
+        entidad_pago = "CAJA"
+
+    caja(xr, 471, 115, 28, "ENTIDAD DE PAGO", gris, bold=True, center=True, font_size=8)
+    caja(xr + 115, 471, 125, 28, entidad_pago, None, center=True, font_size=9)
+
+    # =========================
+    # TABLA CENTRAL
+    # =========================
+    tabla_x = 55
+    tabla_y = 340
+
+    caja(tabla_x, tabla_y + 66, 32, 18, "CANT", gris, bold=True, center=True, font_size=8)
+    caja(tabla_x + 32, tabla_y + 66, 270, 18, "DESCRIPCIÓN", gris, bold=True, center=True, font_size=8)
+    caja(tabla_x + 302, tabla_y + 66, 140, 18, "PAGO", gris, bold=True, center=True, font_size=8)
+
+    descripcion = f"PAGO CUOTA N° {cuota.numero} DE {credito.cuotas} MES: {MESES_ES[cuota.fecha_pago.month]}"
+
+    caja(tabla_x, tabla_y + 33, 32, 33, "1", None, center=True, font_size=10)
+    caja(tabla_x + 32, tabla_y + 33, 220, 33, descripcion, None, bold=True, center=True, font_size=9)
+    caja(tabla_x + 252, tabla_y + 33, 50, 33, "VALOR", None, bold=True, center=True, font_size=8)
+    caja(tabla_x + 302, tabla_y + 33, 140, 33, formato_cop(cuota.valor_cuota), None, bold=True, center=True, font_size=10)
+
+    # =========================
+    # RESUMEN
+    # =========================
+    valor_mora = round(pago.valor_aplicado_mora or 0, 2)
+    valor_cuota = round(cuota.valor_cuota or 0, 2)
+    valor_exigible = round(valor_cuota + valor_mora, 2)
+    valor_pagado = round(pago.valor or 0, 2)
+    saldo_pendiente_cuota = round(max(valor_exigible - valor_pagado, 0), 2)
+
+    res_label_x = 335
+    res_box_x = 345
+    res_box_w = 97
+
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.setFillColor(colors.black)
+
+    pdf.drawRightString(res_label_x, tabla_y + 10, "INTERESES")
+    pdf.setFillColor(colors.red)
+    pdf.drawRightString(res_box_x + res_box_w - 8, tabla_y + 10, formato_cop(valor_mora))
+
+    pdf.setFillColor(colors.black)
+    pdf.drawRightString(res_label_x, tabla_y - 18, "VALOR EXIGIBLE")
+    caja(res_box_x, tabla_y - 30, res_box_w, 24, formato_cop(valor_exigible), None, bold=True, center=True, font_size=10)
+
+    pdf.drawRightString(res_label_x, tabla_y - 48, "TOTAL PAGADO")
+    caja(res_box_x, tabla_y - 60, res_box_w, 24, formato_cop(valor_pagado), None, bold=True, center=True, font_size=10)
+
+    if saldo_pendiente_cuota > 0:
+        pdf.drawRightString(res_label_x, tabla_y - 78, "SALDO PENDIENTE CUOTA")
+        caja(res_box_x, tabla_y - 90, res_box_w, 24, formato_cop(saldo_pendiente_cuota), None, bold=True, center=True, font_size=10)
+        base_y = 70
+    else:
+        base_y = 100
+
+    # =========================
+    # BLOQUE INFERIOR
+    # =========================
+    caja(55, base_y + 28, 120, 40, "VALOR RECIBIDO EN LETRA", gris, bold=True, center=True, font_size=8)
+    caja(175, base_y + 28, 310, 40, numero_a_letras(valor_pagado), None, center=True, font_size=10)
+
+    observacion = pago.observacion or f"PAGO REGISTRADO EL {fecha_recibo_es(pago.fecha)}"
+    caja(55, base_y - 12, 120, 40, "OBSERVACIÓN", gris, bold=True, center=True, font_size=8)
+    caja(175, base_y - 12, 310, 40, observacion, None, center=False, font_size=9)
+
+    pdf.showPage()
+    pdf.save()
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"recibo_pago_{pago.id}.pdf",
+        mimetype="application/pdf"
+    )
+
+@app.route('/detalle_pago/<int:pago_id>')
+def detalle_pago(pago_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    pago = Pago.query.get_or_404(pago_id)
+    cuota = Cuota.query.get_or_404(pago.cuota_id)
+    credito = Credito.query.get_or_404(cuota.credito_id)
+
+    return render_template(
+        'detalle_pago.html',
+        pago=pago,
+        cuota=cuota,
+        credito=credito
+    )
+
+@app.route('/detalle_pago_pdf/<int:pago_id>')
+def detalle_pago_pdf(pago_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    pago = Pago.query.get_or_404(pago_id)
+    cuota = Cuota.query.get_or_404(pago.cuota_id)
+    credito = Credito.query.get_or_404(cuota.credito_id)
+
+    buffer = BytesIO()
+    from reportlab.pdfgen import canvas
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+
+    pdf.setFillColor(colors.white)
+    pdf.rect(0, 0, width, height, fill=1, stroke=0)
+
+    # Logo
+    logo_path = os.path.join(app.static_folder, 'logo.png')
+    if os.path.exists(logo_path):
+        pdf.drawImage(ImageReader(logo_path), 40, 705, width=90, height=55, mask='auto')
+
+    # Encabezado empresa
+    pdf.setFillColor(colors.black)
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawCentredString(320, 745, "CONSTRUCCIONES Y URBANIZACIONES S.A.S")
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawCentredString(320, 730, "NIT: 901.527.083-2")
+    pdf.drawCentredString(320, 715, "AV. AMBALÁ N° 27-136 - PISO 3")
+    pdf.drawCentredString(320, 700, "IBAGUÉ - TOLIMA")
+    pdf.drawCentredString(320, 685, "TELÉFONO: 311 414 5843")
+
+    pdf.setFont("Helvetica-Bold", 18)
+    pdf.drawString(40, 645, "DETALLE DEL PAGO")
+
+    pdf.setFont("Helvetica", 11)
+    y = 615
+    salto = 20
+
+    datos = [
+        ("Cliente", credito.cliente),
+        ("Pagaré", credito.numero_pagare),
+        ("Cuota", cuota.numero),
+        ("Fecha del pago", pago.fecha.strftime('%d/%m/%Y') if pago.fecha else ''),
+        ("Medio de pago", pago.medio_pago or ''),
+        ("Tipo de pago", pago.tipo_pago or 'No definido'),
+        ("Valor pagado", formato_cop(pago.valor)),
+        ("Saldo pendiente antes del pago", formato_cop(pago.saldo_pendiente_antes_pago)),
+        ("Total exigible al pago", formato_cop(pago.total_exigible_al_pago)),
+        ("Días de mora al pago", pago.dias_mora_pagados if pago.dias_mora_pagados is not None else 0),
+        ("Mora generada al pago", formato_cop(pago.mora_generada_al_pago)),
+        ("Aplicado a interés", formato_cop(pago.valor_aplicado_interes)),
+        ("Aplicado a capital", formato_cop(pago.valor_aplicado_capital)),
+        ("Aplicado a mora", formato_cop(pago.valor_aplicado_mora)),
+        ("Prepago a capital", formato_cop(pago.valor_aplicado_prepago_capital)),
+    ]
+
+    for etiqueta, valor in datos:
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(40, y, f"{etiqueta}:")
+        pdf.setFont("Helvetica", 11)
+        pdf.drawString(220, y, str(valor))
+        y -= salto
+
+        if y < 100:
+            pdf.showPage()
+            y = 750
+
+    if pago.observacion:
+        y -= 10
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(40, y, "Observación:")
+        y -= 18
+        pdf.setFont("Helvetica", 11)
+        pdf.drawString(40, y, str(pago.observacion))
+
+    pdf.showPage()
+    pdf.save()
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"detalle_pago_{pago.id}.pdf",
+        mimetype="application/pdf"
+    )
+
+@app.route('/eliminar_credito/<int:credito_id>', methods=['POST'])
+def eliminar_credito(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    sede_actual = credito.sede
+
+    # Buscar cuotas del crédito
+    cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+
+    # Eliminar pagos asociados a cada cuota
+    for cuota in cuotas:
+        pagos = Pago.query.filter_by(cuota_id=cuota.id).all()
+        for pago in pagos:
+            db.session.delete(pago)
+
+    # Eliminar cuotas
+    for cuota in cuotas:
+        db.session.delete(cuota)
+
+    # Eliminar crédito
+    db.session.delete(credito)
+    db.session.commit()
+
+    return redirect(f'/ver_creditos/{sede_actual}')
+
+def credito_esta_cancelado(credito):
+    cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+    if not cuotas:
+        return False
+    return all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas)
+
+
+@app.route('/paz_y_salvo')
+def paz_y_salvo():
+    if 'user' not in session:
+        return redirect('/login')
+
+    q = request.args.get('q', '').strip()
+
+    creditos = Credito.query.order_by(Credito.fecha_creacion.desc()).all()
+
+    resultados = []
+    for credito in creditos:
+        if not credito_esta_cancelado(credito):
+            continue
+
+        texto_busqueda = " ".join([
+            str(credito.cliente or ''),
+            str(credito.cedula_cliente or ''),
+            str(credito.numero_pagare or ''),
+            str(credito.sede or '')
+        ]).lower()
+
+        if q and q.lower() not in texto_busqueda:
+            continue
+
+        resultados.append(credito)
+
+    return render_template(
+        'paz_y_salvo.html',
+        creditos=resultados,
+        q=q
+    )
+
+@app.route('/generar_paz_y_salvo/<int:credito_id>')
+def generar_paz_y_salvo(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    if not credito_esta_cancelado(credito):
+        return "Este crédito aún no está cancelado o liquidado."
+
+    fecha_hoy = date.today()
+    fecha_credito = credito.fecha_creacion.date() if credito.fecha_creacion else fecha_hoy
+
+    monto_texto = numero_a_letras(credito.monto_financiado)
+    monto_numero = formato_cop(credito.monto_financiado)
+
+    output = BytesIO()
+    ancho, alto = letter
+
+    from reportlab.pdfgen import canvas
+    c = canvas.Canvas(output, pagesize=letter)
+
+    # Fondo blanco
+    c.setFillColor(colors.white)
+    c.rect(0, 0, ancho, alto, fill=1, stroke=0)
+
+    # Colores corporativos
+    negro = colors.HexColor("#0a0a0a")
+    dorado = colors.HexColor("#d3a130")
+    dorado_claro = colors.HexColor("#ead9a2")
+    gris_texto = colors.HexColor("#3a3a3a")
+
+    # Franja superior negra
+    c.setFillColor(negro)
+    c.rect(0, alto - 110, ancho, 110, fill=1, stroke=0)
+
+    # Curva blanca grande superior
+    c.setFillColor(colors.white)
+    c.circle(ancho * 0.28, alto - 50, 240, fill=1, stroke=0)
+
+    # Línea dorada superior
+    c.setStrokeColor(dorado)
+    c.setLineWidth(8)
+    c.bezier(0, alto - 40, 160, alto - 20, 430, alto - 80, ancho, alto - 35)
+
+    # Aro decorativo derecho
+    c.setStrokeColor(dorado_claro)
+    c.setLineWidth(14)
+    c.circle(ancho - 40, alto - 230, 75, fill=0, stroke=1)
+
+    # Aro decorativo izquierdo inferior
+    c.setStrokeColor(dorado_claro)
+    c.setLineWidth(12)
+    c.circle(30, 90, 55, fill=0, stroke=1)
+
+    # Franja inferior negra
+    c.setFillColor(negro)
+    c.rect(0, 0, ancho, 70, fill=1, stroke=0)
+
+    # Curva blanca inferior
+    c.setFillColor(colors.white)
+    c.circle(ancho * 0.48, 70, 250, fill=1, stroke=0)
+
+    # Línea dorada inferior
+    c.setStrokeColor(dorado)
+    c.setLineWidth(6)
+    c.bezier(150, 65, 260, 20, 430, 40, ancho, 55)
+
+    # Logo
+    logo_path = os.path.join(app.root_path, 'static', 'logo.png')
+    if os.path.exists(logo_path):
+        c.drawImage(logo_path, ancho - 150, alto - 95, width=105, height=60, mask='auto')
+
+    # Título
+    c.setFont("Helvetica-Bold", 18)
+    c.setFillColor(colors.black)
+    c.drawCentredString(ancho / 2, alto - 160, "PAZ Y SALVO")
+
+    # Texto principal
+    x = 45
+    y = alto - 210
+    ancho_texto = 520
+
+    c.setFillColor(colors.black)
+
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(x, y, "Fecha:")
+    c.setFont("Helvetica", 11)
+    c.drawString(x + 42, y, fecha_larga_es(fecha_hoy) + ".")
+
+    y -= 45
+
+    text = c.beginText(x, y)
+    text.setFont("Helvetica", 11)
+    text.setFillColor(gris_texto)
+    text.setLeading(22)
+
+    nombre_cliente = credito.cliente or ""
+    cedula = credito.cedula_cliente or "No registrada"
+    numero_pagare = credito.numero_pagare or "Sin asignar"
+    fecha_credito_txt = fecha_documento_es(fecha_credito)
+
+    parrafo_1 = (
+        "CRV- CONSTRUCCIONES Y URBANIZACIONES S.A.S, por medio del presente "
+        "documento certifica que el(la) sr(a) "
+        f"{nombre_cliente} "
+        "identificado(a) con número de cédula de ciudadanía "
+        f"{cedula} "
+        "ha realizado la cancelación total de la obligación que se relaciona a continuación:"
+    )
+
+    parrafo_2 = (
+        f"Pagaré N° {numero_pagare} con fecha {fecha_credito_txt}."
+    )
+
+    parrafo_3 = (
+        "Dicha obligación esta relacionada con la compra de una bicicleta eléctrica a crédito "
+        f"por un valor de {monto_texto} M/CTE "
+        f"({monto_numero} moneda corriente legal colombiana ) "
+        f"el cual se firmo el día {fecha_credito_txt}. "
+        "De esta manera, el cliente se encuentra a PAZ Y SALVO con la obligación anteriormente mencionada."
+    )
+
+    def escribir_parrafo(text_obj, texto, negrita=False):
+        palabras = texto.split(" ")
+        linea = ""
+        for palabra in palabras:
+            prueba = linea + palabra + " "
+            if c.stringWidth(prueba, "Helvetica-Bold" if negrita else "Helvetica", 11) > ancho_texto:
+                text_obj.textLine(linea.rstrip())
+                linea = palabra + " "
+            else:
+                linea = prueba
+        if linea:
+            text_obj.textLine(linea.rstrip())
+
+    # Primer párrafo
+    text.setFont("Helvetica", 11)
+    escribir_parrafo(text, parrafo_1)
+    text.textLine("")
+
+    # Segundo párrafo en negrita
+    text.setFont("Helvetica-Bold", 11)
+    escribir_parrafo(text, parrafo_2, negrita=True)
+    text.textLine("")
+
+    # Tercer párrafo
+    text.setFont("Helvetica", 11)
+    escribir_parrafo(text, parrafo_3)
+
+    c.drawText(text)
+
+    # Cierre
+    y_final = 145
+
+    c.setFont("Helvetica-Oblique", 11)
+    c.setFillColor(gris_texto)
+    c.drawString(x, y_final, "Cordialmente,")
+
+    c.setFont("Helvetica-Bold", 12)
+    c.setFillColor(colors.black)
+    c.drawString(x, y_final - 45, "CRV CONSTRUCCIONES Y URBANIZACIONES")
+
+    c.setFont("Helvetica", 11)
+    c.drawString(x, y_final - 68, "NIT: 901.527.083-2")
+
+    # Pie derecho
+    c.setFont("Helvetica-Bold", 11)
+    c.drawRightString(ancho - 30, 90, "CONSTRUCCIONES Y URBANIZACIONES S.A.S")
+    c.drawRightString(ancho - 30, 74, "Nit: 901.527.083-2")
+    c.drawRightString(ancho - 30, 58, "AV. Ambala n° 27-126 Piso 3")
+    c.drawRightString(ancho - 30, 42, "Ibagué - Tolima")
+    c.drawRightString(ancho - 30, 26, "Teléfono: 311 414 5843")
+
+    c.showPage()
+    c.save()
+
+    output.seek(0)
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=f"paz_y_salvo_{credito.id}.pdf",
         mimetype='application/pdf'
     )
 

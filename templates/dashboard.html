@@ -153,17 +153,11 @@
         .total { color: #111827; }
 
         .modulo-reporte {
-            margin-top: 28px;
-            background: linear-gradient(135deg, #0f172a, #1e3a8a);
-            color: white;
-            border-radius: 22px;
-            padding: 28px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 20px;
-            flex-wrap: wrap;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+            margin-top: 0;
+            background: transparent;
+            padding: 0;
+            box-shadow: none;
+            max-width: 100%;
         }
 
         .modulo-reporte-texto {
@@ -233,6 +227,104 @@
                 font-size: 38px;
             }
         }
+
+        .modulo-gerencial {
+            margin-top: 28px;
+            background: linear-gradient(135deg, #0f172a, #1e3a8a);
+            color: white;
+            border-radius: 22px;
+            padding: 28px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+            width: 100%;
+        }
+
+        .modulo-etiqueta-general {
+            font-size: 26px;              /* 🔥 tamaño grande */
+            font-weight: 700;             /* negrita fuerte */
+            color: white;
+            margin-bottom: 25px;
+            text-align: left;
+
+            /* quitamos estilo de etiqueta */
+            background: none;
+            padding: 0;
+            border-radius: 0;
+
+            /* opcional: línea elegante debajo */
+            border-bottom: 2px solid rgba(255,255,255,0.2);
+            padding-bottom: 10px;
+        }
+
+        .modulos-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+            width: 100%;
+        }   
+
+        .modulos-grid {
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .modulo-card {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 14px;
+            padding: 16px;
+            backdrop-filter: blur(4px);
+            min-height: 160px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+            width: 100%;
+        }
+
+        .modulo-card-icono {
+            font-size: 28px;
+            margin-bottom: 6px;
+        }
+
+        .modulo-card h3 {
+            margin: 0 0 6px 0;
+            font-size: 18px;
+            color: white;
+        }
+
+        .modulo-card p {
+            margin: 0 0 10px 0;
+            color: #dbeafe;
+            font-size: 13px;
+            line-height: 1.3;
+        }
+
+        .btn-modulo-reporte {
+            padding: 8px 14px;
+            font-size: 13px;
+            border-radius: 10px;
+        }
+
+        .btn-modulo-reporte:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+        }
+
+        .modulo-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 25px rgba(0,0,0,0.2);
+        }
+
+        .modulo-etiqueta-general {
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .btn-paz-salvo { 
+            background: #f59e0b; 
+        }
     </style>
 </head>
 <body>
@@ -245,6 +337,7 @@
 
                 <div class="acciones">
                     <a href="/crear_credito" class="btn btn-crear">Crear crédito</a>
+                    <a href="/paz_y_salvo" class="btn btn-paz-salvo">Paz y salvo</a>
                     <a href="/configuracion_tasa" class="btn btn-tasa">Configurar tasa mora</a>
                     <a href="/logout" class="btn btn-salir">Cerrar sesión</a>
                 </div>
@@ -259,14 +352,14 @@
 
         <div class="grid-sedes">
             {% for s in resumen_sedes %}
-            <a href="/ver_creditos/{{ s.sede }}"
+            <a href="/creditos/{{ s.sede }}"
                class="card-sede {% if s.en_mora > 0 %}card-mora{% else %}card-normal{% endif %}">
                 
                 <h3>{{ s.sede }}</h3>
 
                 <div class="stats">
                     <div class="stat-box">
-                        <div class="stat-label">Total créditos</div>
+                        <div class="stat-label">Total</div>
                         <div class="stat-value total">{{ s.total }}</div>
                     </div>
 
@@ -288,23 +381,25 @@
             </a>
             {% endfor %}
         </div>
-        <div class="modulo-reporte">
-    <div class="modulo-reporte-texto">
-        <div class="modulo-etiqueta">Módulo gerencial</div>
-        <h3>Reporte financiero</h3>
-        <p>
-            Consulta consolidado general.
-        </p>
+        <div class="modulo-gerencial">
+            <h2 class="modulo-etiqueta-general">MÓDULO GERENCIAL</h2>
 
-        <a href="/reporte_financiero" class="btn-modulo-reporte">
-            Abrir reporte financiero
-        </a>
-    </div>
+            <div class="modulos-grid">
+                <div class="modulo-card">
+                    <div class="modulo-card-icono">📊</div>
+                    <h3>Reporte financiero</h3>
+                    <p>Consulta consolidado general, por sede y mensual.</p>
+                    <a href="/reporte_financiero" class="btn-modulo-reporte">Abrir módulo</a>
+                </div>
 
-    <div class="modulo-reporte-icono">
-        📊
-    </div>
-</div>
+                <div class="modulo-card">
+                    <div class="modulo-card-icono">📈</div>
+                    <h3>Dashboard gerencial</h3>
+                    <p>KPIs en vivo, recaudo, cartera y métricas por sede.</p>
+                    <a href="/dashboard_gerencial" class="btn-modulo-reporte">Abrir módulo</a>
+                </div>
+            </div>
+        </div>
 
     </div>
 </body>
