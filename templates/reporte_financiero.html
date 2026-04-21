@@ -417,6 +417,8 @@
             font-size: 34px;
         }
     }
+
+    .card-7 { background: linear-gradient(135deg, #334155, #0f172a); }
 </style>
 </head>
 <body>
@@ -569,7 +571,52 @@
             </div>
         </div>
     </div>
+
+    <div class="grafica-box">
+        <h3>Total prestado vs recaudado por sede</h3>
+        <div class="canvas-container">
+            <canvas id="graficaPrestadoRecaudadoSedes"></canvas>
+        </div>
+    </div>
+
+    <div class="grafica-box">
+        <h3>Diferencia de intereses corrientes por sede</h3>
+        <div class="canvas-container">
+            <canvas id="graficaDiferenciaInteresSedes"></canvas>
+        </div>
+    </div>
+
+    <div class="grafica-box">
+        <h3>Diferencia de mora por sede</h3>
+        <div class="canvas-container">
+            <canvas id="graficaDiferenciaMoraSedes"></canvas>
+        </div>
+    </div>
+
+    <div class="grafica-box">
+        <h3>Diferencia mensual: causado vs recaudado</h3>
+        <div class="canvas-container">
+            <canvas id="graficaDiferenciaMensual"></canvas>
+        </div>
+    </div>
+
 </div>
+
+        <div class="card card-3">
+            <div class="label">Diferencia interés corriente</div>
+            <div class="valor">{{ resumen_general.diferencia_interes_corriente | cop }}</div>
+        </div>
+
+        <div class="card card-6">
+            <div class="label">Diferencia mora</div>
+            <div class="valor">{{ resumen_general.diferencia_mora | cop }}</div>
+        </div>
+
+        <div class="card card-7">
+            <div class="label">Diferencia total</div>
+            <div class="valor">{{ resumen_general.diferencia_total | cop }}</div>
+        </div>
+
         <div class="seccion">
     <h2>Resumen por sede</h2>
     <div class="subtitulo-tabla">Vista consolidada de cartera, recaudo e intereses por cada sede.</div>
@@ -635,6 +682,331 @@
             </tbody>
         </table>
     </div>
+
+    <div class="seccion">
+        <h2>Intereses corrientes causados en el {{ anio_seleccionado }}</h2>
+        <div class="tabla-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>MES</th>
+                        <th>IBAGUE</th>
+                        <th>GIRARDOT</th>
+                        <th>ESPINAL</th>
+                        <th>CRV</th>
+                        <th>TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_intereses_causados %}
+                    <tr>
+                        <td><strong>{{ fila.mes }}</strong></td>
+                        <td>{{ fila.IBAGUE | cop }}</td>
+                        <td>{{ fila.GIRARDOT | cop }}</td>
+                        <td>{{ fila.ESPINAL | cop }}</td>
+                        <td>{{ fila.CRV | cop }}</td>
+                        <td><strong>{{ fila.TOTAL | cop }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                    <tr>
+                        <td><strong>TOTALES</strong></td>
+                        <td><strong>{{ totales_intereses_causados.IBAGUE | cop }}</strong></td>
+                        <td><strong>{{ totales_intereses_causados.GIRARDOT | cop }}</strong></td>
+                        <td><strong>{{ totales_intereses_causados.ESPINAL | cop }}</strong></td>
+                        <td><strong>{{ totales_intereses_causados.CRV | cop }}</strong></td>
+                        <td><strong>{{ totales_intereses_causados.TOTAL | cop }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="seccion">
+        <h2>Intereses corrientes recaudados en el {{ anio_seleccionado }}</h2>
+        <div class="tabla-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>MES</th>
+                        <th>IBAGUE</th>
+                        <th>GIRARDOT</th>
+                        <th>ESPINAL</th>
+                        <th>CRV</th>
+                        <th>TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_intereses_recaudados %}
+                    <tr>
+                        <td><strong>{{ fila.mes }}</strong></td>
+                        <td>{{ fila.IBAGUE | cop }}</td>
+                        <td>{{ fila.GIRARDOT | cop }}</td>
+                        <td>{{ fila.ESPINAL | cop }}</td>
+                        <td>{{ fila.CRV | cop }}</td>
+                        <td><strong>{{ fila.TOTAL | cop }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                    <tr>
+                        <td><strong>TOTALES</strong></td>
+                        <td><strong>{{ totales_intereses_recaudados.IBAGUE | cop }}</strong></td>
+                        <td><strong>{{ totales_intereses_recaudados.GIRARDOT | cop }}</strong></td>
+                        <td><strong>{{ totales_intereses_recaudados.ESPINAL | cop }}</strong></td>
+                        <td><strong>{{ totales_intereses_recaudados.CRV | cop }}</strong></td>
+                        <td><strong>{{ totales_intereses_recaudados.TOTAL | cop }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="seccion">
+        <h2>Diferencia de intereses corrientes</h2>
+        <div class="tabla-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>MES</th>
+                        <th>IBAGUE</th>
+                        <th>GIRARDOT</th>
+                        <th>ESPINAL</th>
+                        <th>CRV</th>
+                        <th>TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_diferencia_intereses %}
+                    <tr>
+                        <td><strong>{{ fila.mes }}</strong></td>
+                        <td>{{ fila.IBAGUE | cop }}</td>
+                        <td>{{ fila.GIRARDOT | cop }}</td>
+                        <td>{{ fila.ESPINAL | cop }}</td>
+                        <td>{{ fila.CRV | cop }}</td>
+                        <td><strong>{{ fila.TOTAL | cop }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                    <tr>
+                        <td><strong>TOTALES</strong></td>
+                        <td><strong>{{ totales_diferencia_intereses.IBAGUE | cop }}</strong></td>
+                        <td><strong>{{ totales_diferencia_intereses.GIRARDOT | cop }}</strong></td>
+                        <td><strong>{{ totales_diferencia_intereses.ESPINAL | cop }}</strong></td>
+                        <td><strong>{{ totales_diferencia_intereses.CRV | cop }}</strong></td>
+                        <td><strong>{{ totales_diferencia_intereses.TOTAL | cop }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="seccion">
+        <h2>Mora causada en el {{ anio_seleccionado }}</h2>
+        <div class="tabla-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>MES</th>
+                        <th>IBAGUE</th>
+                        <th>GIRARDOT</th>
+                        <th>ESPINAL</th>
+                        <th>CRV</th>
+                        <th>TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_mora_causada %}
+                    <tr>
+                        <td><strong>{{ fila.mes }}</strong></td>
+                        <td>{{ fila.IBAGUE | cop }}</td>
+                        <td>{{ fila.GIRARDOT | cop }}</td>
+                        <td>{{ fila.ESPINAL | cop }}</td>
+                        <td>{{ fila.CRV | cop }}</td>
+                        <td><strong>{{ fila.TOTAL | cop }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                    <tr>
+                        <td><strong>TOTALES</strong></td>
+                        <td><strong>{{ totales_mora_causada.IBAGUE | cop }}</strong></td>
+                        <td><strong>{{ totales_mora_causada.GIRARDOT | cop }}</strong></td>
+                        <td><strong>{{ totales_mora_causada.ESPINAL | cop }}</strong></td>
+                        <td><strong>{{ totales_mora_causada.CRV | cop }}</strong></td>
+                        <td><strong>{{ totales_mora_causada.TOTAL | cop }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="seccion">
+        <h2>Mora recaudada en el {{ anio_seleccionado }}</h2>
+        <div class="tabla-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>MES</th>
+                        <th>IBAGUE</th>
+                        <th>GIRARDOT</th>
+                        <th>ESPINAL</th>
+                        <th>CRV</th>
+                        <th>TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_mora_recaudada %}
+                    <tr>
+                        <td><strong>{{ fila.mes }}</strong></td>
+                        <td>{{ fila.IBAGUE | cop }}</td>
+                        <td>{{ fila.GIRARDOT | cop }}</td>
+                        <td>{{ fila.ESPINAL | cop }}</td>
+                        <td>{{ fila.CRV | cop }}</td>
+                        <td><strong>{{ fila.TOTAL | cop }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                    <tr>
+                        <td><strong>TOTALES</strong></td>
+                        <td><strong>{{ totales_mora_recaudada.IBAGUE | cop }}</strong></td>
+                        <td><strong>{{ totales_mora_recaudada.GIRARDOT | cop }}</strong></td>
+                        <td><strong>{{ totales_mora_recaudada.ESPINAL | cop }}</strong></td>
+                        <td><strong>{{ totales_mora_recaudada.CRV | cop }}</strong></td>
+                        <td><strong>{{ totales_mora_recaudada.TOTAL | cop }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="seccion">
+        <h2>Diferencia de mora</h2>
+        <div class="tabla-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>MES</th>
+                        <th>IBAGUE</th>
+                        <th>GIRARDOT</th>
+                        <th>ESPINAL</th>
+                        <th>CRV</th>
+                        <th>TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_diferencia_mora %}
+                    <tr>
+                        <td><strong>{{ fila.mes }}</strong></td>
+                        <td>{{ fila.IBAGUE | cop }}</td>
+                        <td>{{ fila.GIRARDOT | cop }}</td>
+                        <td>{{ fila.ESPINAL | cop }}</td>
+                        <td>{{ fila.CRV | cop }}</td>
+                        <td><strong>{{ fila.TOTAL | cop }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                    <tr>
+                        <td><strong>TOTALES</strong></td>
+                        <td><strong>{{ totales_diferencia_mora.IBAGUE | cop }}</strong></td>
+                        <td><strong>{{ totales_diferencia_mora.GIRARDOT | cop }}</strong></td>
+                        <td><strong>{{ totales_diferencia_mora.ESPINAL | cop }}</strong></td>
+                        <td><strong>{{ totales_diferencia_mora.CRV | cop }}</strong></td>
+                        <td><strong>{{ totales_diferencia_mora.TOTAL | cop }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="seccion">
+        <h2>Saldos de la financiera</h2>
+        <div class="tabla-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>RAZÓN SOCIAL</th>
+                        <th>TOTAL PRÉSTAMO</th>
+                        <th>LO PAGADO</th>
+                        <th>LO QUE DEBEN</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in resumen_por_sede %}
+                    <tr>
+                        <td><strong>{{ fila.sede }}</strong></td>
+                        <td>{{ fila.total_prestado | cop }}</td>
+                        <td>{{ fila.total_recaudado | cop }}</td>
+                        <td>{{ fila.saldo_actual | cop }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr>
+                        <td><strong>TOTALES</strong></td>
+                        <td><strong>{{ resumen_general.total_prestado | cop }}</strong></td>
+                        <td><strong>{{ resumen_general.total_recaudado | cop }}</strong></td>
+                        <td><strong>{{ resumen_general.saldo_actual_total | cop }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="seccion">
+        <h2>Comparativo intereses</h2>
+        <div class="tabla-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>RAZÓN SOCIAL</th>
+                        <th>CAUSADOS</th>
+                        <th>RECAUDADO</th>
+                        <th>TOTAL DIFERENCIA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in resumen_por_sede %}
+                    <tr>
+                        <td><strong>{{ fila.sede }}</strong></td>
+                        <td>{{ fila.interes_corriente_causado | cop }}</td>
+                        <td>{{ fila.interes_corriente_recaudado | cop }}</td>
+                        <td>{{ fila.diferencia_interes_corriente | cop }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr>
+                        <td><strong>TOTALES</strong></td>
+                        <td><strong>{{ resumen_general.interes_corriente_causado | cop }}</strong></td>
+                        <td><strong>{{ resumen_general.interes_corriente_recaudado | cop }}</strong></td>
+                        <td><strong>{{ resumen_general.diferencia_interes_corriente | cop }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="seccion">
+        <h2>Comparativo mora</h2>
+        <div class="tabla-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>RAZÓN SOCIAL</th>
+                        <th>CAUSADA</th>
+                        <th>RECAUDADA</th>
+                        <th>TOTAL DIFERENCIA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in resumen_por_sede %}
+                    <tr>
+                        <td><strong>{{ fila.sede }}</strong></td>
+                        <td>{{ fila.mora_causada | cop }}</td>
+                        <td>{{ fila.mora_recaudada | cop }}</td>
+                        <td>{{ fila.diferencia_mora | cop }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr>
+                        <td><strong>TOTALES</strong></td>
+                        <td><strong>{{ resumen_general.mora_causada | cop }}</strong></td>
+                        <td><strong>{{ resumen_general.mora_recaudada | cop }}</strong></td>
+                        <td><strong>{{ resumen_general.diferencia_mora | cop }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
 </div>
 
     </div>
@@ -811,6 +1183,95 @@ document.querySelectorAll('.btn-exportar').forEach(btn => {
             overlay.classList.remove('activo');
         }, 6000);
     });
+});
+</script>
+<script>
+new Chart(document.getElementById('graficaPrestadoRecaudadoSedes'), {
+    type: 'bar',
+    data: {
+        labels: {{ labels_sedes | tojson }},
+        datasets: [
+            {
+                label: 'Total prestado',
+                data: {{ total_prestado_sedes | tojson }},
+                backgroundColor: '#2563eb'
+            },
+            {
+                label: 'Total recaudado',
+                data: {{ total_recaudado_sedes | tojson }},
+                backgroundColor: '#16a34a'
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false
+    }
+});
+
+new Chart(document.getElementById('graficaDiferenciaInteresSedes'), {
+    type: 'bar',
+    data: {
+        labels: {{ labels_sedes | tojson }},
+        datasets: [{
+            label: 'Diferencia interés corriente',
+            data: {{ diferencia_interes_sedes | tojson }},
+            backgroundColor: '#dc2626'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false
+    }
+});
+
+new Chart(document.getElementById('graficaDiferenciaMoraSedes'), {
+    type: 'bar',
+    data: {
+        labels: {{ labels_sedes | tojson }},
+        datasets: [{
+            label: 'Diferencia mora',
+            data: {{ diferencia_mora_sedes | tojson }},
+            backgroundColor: '#7c3aed'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false
+    }
+});
+
+new Chart(document.getElementById('graficaDiferenciaMensual'), {
+    type: 'bar',
+    data: {
+        labels: {{ labels_meses | tojson }},
+        datasets: [
+            {
+                label: 'Interés causado',
+                data: {{ interes_causado_meses | tojson }},
+                backgroundColor: '#8b5cf6'
+            },
+            {
+                label: 'Interés recaudado',
+                data: {{ interes_recaudado_meses | tojson }},
+                backgroundColor: '#0ea5e9'
+            },
+            {
+                label: 'Mora causada',
+                data: {{ mora_causada_meses | tojson }},
+                backgroundColor: '#ef4444'
+            },
+            {
+                label: 'Mora recaudada',
+                data: {{ mora_recaudada_meses | tojson }},
+                backgroundColor: '#14b8a6'
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false
+    }
 });
 </script>
 <div id="overlay-cargando" class="overlay-cargando">

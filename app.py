@@ -383,6 +383,7 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
     restante = round(valor_pago, 2)
     hubo_abono_extra_capital = False
     ultima_cuota_tocada = None
+    pagos_creados_ids = []
 
     for cuota in cuotas_exigibles:
         if restante <= 0:
@@ -440,6 +441,8 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
         pago.valor_aplicado_mora = round(valor_aplicado_mora, 2)
         if pago.valor > 0:
             db.session.add(pago)
+            db.session.flush()
+            pagos_creados_ids.append(pago.id)
 
         cuota.saldo_pendiente = round(max(cuota.saldo_pendiente, 0), 2)
         cuota.interes_mora = round(max(cuota.interes_mora, 0), 2)
@@ -475,7 +478,8 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
             fecha_base=ultima_cuota_tocada.fecha_pago
         )
 
-    db.session.commit()
+        db.session.commit()
+        return pagos_creados_ids
 
 
 
@@ -1078,7 +1082,7 @@ def pagar_cuota(cuota_id):
         db.session.add(pago)
 
         db.session.commit()
-        return redirect(url_for('recibo_pago_pdf', pago_id=pago.id))
+        return redirect(url_for('ver_recibo_pago', pago_id=pago.id))
 
     actualizar_mora_credito(credito, datetime.utcnow().date())
     db.session.commit()
@@ -1108,14 +1112,18 @@ def pagar_deuda_fecha(credito_id):
         if valor_pago <= 0:
             return "El pago debe ser mayor que cero"
 
-        aplicar_pago_deuda_fecha(
+        pagos_ids = aplicar_pago_deuda_fecha(
             credito=credito,
             fecha_pago=fecha_pago,
             valor_pago=valor_pago,
             medio_pago=medio_pago
         )
 
-        return redirect(f'/ver_cuotas/{credito.id}')
+        if not pagos_ids:
+            return redirect(f'/ver_cuotas/{credito.id}')
+
+        ids_texto = ",".join(str(x) for x in pagos_ids)
+        return redirect(url_for('ver_recibo_deuda_fecha', credito_id=credito.id, pagos=ids_texto))
 
     actualizar_mora_credito(credito, datetime.utcnow().date())
     db.session.commit()
@@ -1218,8 +1226,8 @@ def abono_capital(credito_id):
             )
             db.session.add(pago)
 
-        db.session.commit()
-        return redirect(f'/ver_cuotas/{credito.id}')
+            db.session.commit()
+            return redirect(url_for('ver_recibo_pago', pago_id=pago.id))
 
     return render_template(
         'abono_capital.html',
@@ -1276,7 +1284,7 @@ def configuracion_tasa():
         flash(f'Tasa guardada correctamente para {mes}/{anio}', 'success')
         return redirect(url_for('configuracion_tasa'))
 
-    tasas = TasaPeriodo.query.order_by(TasaPeriodo.anio.asc(), TasaPeriodo.mes.asc()).all()
+    tasas = TasaPeriodo.query.order_by(TasaPeriodo.anio.desc(), TasaPeriodo.mes.asc()).all()
 
     return render_template(
         'configuracion_tasa.html',
@@ -1375,7 +1383,7 @@ def liquidar_credito(credito_id):
             credito.valor_liquidado = valor_pago
 
         db.session.commit()
-        return redirect(f'/ver_cuotas/{credito.id}')
+        return redirect(url_for('ver_recibo_pago', pago_id=pago.id))
 
     actualizar_mora_credito(credito, datetime.utcnow().date())
     db.session.commit()
@@ -1407,149 +1415,429 @@ def liquidar_credito(credito_id):
     )
 
 def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
-    sedes = ['IBAGUE', 'ESPINAL', 'GIRARDOT', 'CRV']
+    hoy = date.today()
 
-    meses_nombres = {
-        1: 'ENERO',
-        2: 'FEBRERO',
-        3: 'MARZO',
-        4: 'ABRIL',
-        5: 'MAYO',
-        6: 'JUNIO',
-        7: 'JULIO',
-        8: 'AGOSTO',
-        9: 'SEPTIEMBRE',
-        10: 'OCTUBRE',
-        11: 'NOVIEMBRE',
-        12: 'DICIEMBRE'
-    }
+    sedes_base = ['IBAGUE', 'GIRARDOT', 'ESPINAL', 'CRV']
 
-    if sede_seleccionada == 'TODAS':
-        sedes_filtradas = sedes
-    else:
-        sedes_filtradas = [sede_seleccionada]
+    def sede_normalizada(sede):
+        if not sede:
+            return 'CRV'
+        sede = str(sede).strip().upper()
+        if sede == 'SAS':
+            return 'CRV'
+        return sede
 
+    def credito_aplica(credito):
+        sede_credito = sede_normalizada(credito.sede)
+        if sede_seleccionada == 'TODAS':
+            return sede_credito in sedes_base
+        return sede_credito == sede_seleccionada
+
+    def cuota_aplica(cuota):
+        credito = Credito.query.get(cuota.credito_id)
+        if not credito:
+            return False
+        return credito_aplica(credito)
+
+    def pago_aplica(pago):
+        cuota = Cuota.query.get(pago.cuota_id)
+        if not cuota:
+            return False
+        credito = Credito.query.get(cuota.credito_id)
+        if not credito:
+            return False
+        return credito_aplica(credito)
+
+    def mes_nombre(numero):
+        meses = {
+            1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL",
+            5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO",
+            9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
+        }
+        return meses.get(numero, str(numero))
+
+    def init_sedes_dict():
+        return {
+            'IBAGUE': 0.0,
+            'GIRARDOT': 0.0,
+            'ESPINAL': 0.0,
+            'CRV': 0.0
+        }
+
+    def valor_mes_dict():
+        return {
+            1: init_sedes_dict(),
+            2: init_sedes_dict(),
+            3: init_sedes_dict(),
+            4: init_sedes_dict(),
+            5: init_sedes_dict(),
+            6: init_sedes_dict(),
+            7: init_sedes_dict(),
+            8: init_sedes_dict(),
+            9: init_sedes_dict(),
+            10: init_sedes_dict(),
+            11: init_sedes_dict(),
+            12: init_sedes_dict(),
+        }
+
+    # ===============================
+    # BASES
+    # ===============================
+    creditos = Credito.query.all()
+    cuotas = Cuota.query.all()
+    pagos = Pago.query.all()
+
+    creditos_filtrados = [c for c in creditos if credito_aplica(c)]
+    cuotas_filtradas = [c for c in cuotas if cuota_aplica(c)]
+    pagos_filtrados = [p for p in pagos if pago_aplica(p)]
+
+    # ===============================
+    # RESUMEN GENERAL
+    # ===============================
     resumen_general = {
-        'total_prestado': 0,
-        'total_recaudado': 0,
-        'saldo_actual_total': 0,
-        'interes_corriente_causado': 0,
-        'interes_corriente_recaudado': 0,
-        'mora_causada': 0,
-        'mora_recaudada': 0
+        'total_prestado': 0.0,
+        'total_recaudado': 0.0,
+        'saldo_actual_total': 0.0,
+        'interes_corriente_causado': 0.0,
+        'interes_corriente_recaudado': 0.0,
+        'mora_causada': 0.0,
+        'mora_recaudada': 0.0,
+        'diferencia_interes_corriente': 0.0,
+        'diferencia_mora': 0.0,
+        'diferencia_total': 0.0
     }
+
+    for credito in creditos_filtrados:
+        resumen_general['total_prestado'] += round(credito.monto_financiado or 0, 2)
+        resumen_general['saldo_actual_total'] += round(credito.saldo_actual or 0, 2)
+
+    for pago in pagos_filtrados:
+        if pago.fecha and pago.fecha.year == anio_seleccionado:
+            resumen_general['total_recaudado'] += round(pago.valor or 0, 2)
+            resumen_general['interes_corriente_recaudado'] += round(pago.valor_aplicado_interes or 0, 2)
+            resumen_general['mora_recaudada'] += round(pago.valor_aplicado_mora or 0, 2)
+
+    for cuota in cuotas_filtradas:
+        fecha_cuota = cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago
+        if not fecha_cuota:
+            continue
+
+        # Interés corriente causado: solo meses ya alcanzados
+        if fecha_cuota.year == anio_seleccionado and fecha_cuota <= hoy:
+            resumen_general['interes_corriente_causado'] += round(cuota.interes or 0, 2)
+
+        # Mora causada: solo lo generado sobre cuotas del año, acumulado hasta hoy
+        if fecha_cuota.year == anio_seleccionado and fecha_cuota <= hoy:
+            resumen_general['mora_causada'] += round(cuota.interes_mora or 0, 2)
+
+    resumen_general['diferencia_interes_corriente'] = round(
+        resumen_general['interes_corriente_causado'] - resumen_general['interes_corriente_recaudado'], 2
+    )
+    resumen_general['diferencia_mora'] = round(
+        resumen_general['mora_causada'] - resumen_general['mora_recaudada'], 2
+    )
+    resumen_general['diferencia_total'] = round(
+        resumen_general['diferencia_interes_corriente'] + resumen_general['diferencia_mora'], 2
+    )
+
+    # ===============================
+    # RESUMEN POR SEDE
+    # ===============================
+    mapa_sede = {
+        'IBAGUE': {
+            'sede': 'IBAGUE',
+            'total_prestado': 0.0,
+            'total_recaudado': 0.0,
+            'saldo_actual': 0.0,
+            'interes_corriente_causado': 0.0,
+            'interes_corriente_recaudado': 0.0,
+            'mora_causada': 0.0,
+            'mora_recaudada': 0.0,
+            'diferencia_interes_corriente': 0.0,
+            'diferencia_mora': 0.0,
+            'diferencia_total': 0.0,
+        },
+        'GIRARDOT': {
+            'sede': 'GIRARDOT',
+            'total_prestado': 0.0,
+            'total_recaudado': 0.0,
+            'saldo_actual': 0.0,
+            'interes_corriente_causado': 0.0,
+            'interes_corriente_recaudado': 0.0,
+            'mora_causada': 0.0,
+            'mora_recaudada': 0.0,
+            'diferencia_interes_corriente': 0.0,
+            'diferencia_mora': 0.0,
+            'diferencia_total': 0.0,
+        },
+        'ESPINAL': {
+            'sede': 'ESPINAL',
+            'total_prestado': 0.0,
+            'total_recaudado': 0.0,
+            'saldo_actual': 0.0,
+            'interes_corriente_causado': 0.0,
+            'interes_corriente_recaudado': 0.0,
+            'mora_causada': 0.0,
+            'mora_recaudada': 0.0,
+            'diferencia_interes_corriente': 0.0,
+            'diferencia_mora': 0.0,
+            'diferencia_total': 0.0,
+        },
+        'CRV': {
+            'sede': 'CRV',
+            'total_prestado': 0.0,
+            'total_recaudado': 0.0,
+            'saldo_actual': 0.0,
+            'interes_corriente_causado': 0.0,
+            'interes_corriente_recaudado': 0.0,
+            'mora_causada': 0.0,
+            'mora_recaudada': 0.0,
+            'diferencia_interes_corriente': 0.0,
+            'diferencia_mora': 0.0,
+            'diferencia_total': 0.0,
+        }
+    }
+
+    for credito in creditos_filtrados:
+        sede = sede_normalizada(credito.sede)
+        if sede not in mapa_sede:
+            continue
+        mapa_sede[sede]['total_prestado'] += round(credito.monto_financiado or 0, 2)
+        mapa_sede[sede]['saldo_actual'] += round(credito.saldo_actual or 0, 2)
+
+    for cuota in cuotas_filtradas:
+        credito = Credito.query.get(cuota.credito_id)
+        if not credito:
+            continue
+        sede = sede_normalizada(credito.sede)
+        fecha_cuota = cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago
+        if not fecha_cuota or sede not in mapa_sede:
+            continue
+
+        if fecha_cuota.year == anio_seleccionado and fecha_cuota <= hoy:
+            mapa_sede[sede]['interes_corriente_causado'] += round(cuota.interes or 0, 2)
+            mapa_sede[sede]['mora_causada'] += round(cuota.interes_mora or 0, 2)
+
+    for pago in pagos_filtrados:
+        cuota = Cuota.query.get(pago.cuota_id)
+        if not cuota:
+            continue
+        credito = Credito.query.get(cuota.credito_id)
+        if not credito:
+            continue
+        sede = sede_normalizada(credito.sede)
+        if sede not in mapa_sede:
+            continue
+
+        if pago.fecha and pago.fecha.year == anio_seleccionado:
+            mapa_sede[sede]['total_recaudado'] += round(pago.valor or 0, 2)
+            mapa_sede[sede]['interes_corriente_recaudado'] += round(pago.valor_aplicado_interes or 0, 2)
+            mapa_sede[sede]['mora_recaudada'] += round(pago.valor_aplicado_mora or 0, 2)
 
     resumen_por_sede = []
+    for sede in sedes_base:
+        fila = mapa_sede[sede]
+        fila['diferencia_interes_corriente'] = round(
+            fila['interes_corriente_causado'] - fila['interes_corriente_recaudado'], 2
+        )
+        fila['diferencia_mora'] = round(
+            fila['mora_causada'] - fila['mora_recaudada'], 2
+        )
+        fila['diferencia_total'] = round(
+            fila['diferencia_interes_corriente'] + fila['diferencia_mora'], 2
+        )
+        resumen_por_sede.append(fila)
 
-    for sede in sedes_filtradas:
-        creditos = Credito.query.filter(
-            Credito.sede == sede,
-            db.extract('year', Credito.fecha_creacion) == anio_seleccionado
-        ).all()
+    if sede_seleccionada != 'TODAS':
+        resumen_por_sede = [f for f in resumen_por_sede if f['sede'] == sede_seleccionada]
 
-        creditos_ids = [c.id for c in creditos]
-
-        total_prestado = round(sum(c.monto_financiado or 0 for c in creditos), 2)
-        saldo_actual = round(sum(c.saldo_actual or 0 for c in creditos), 2)
-
-        interes_corriente_causado = 0
-        mora_causada = 0
-        interes_corriente_recaudado = 0
-        mora_recaudada = 0
-        total_recaudado = 0
-
-        if creditos_ids:
-            cuotas = Cuota.query.filter(Cuota.credito_id.in_(creditos_ids)).all()
-            cuotas_ids = [cuota.id for cuota in cuotas]
-
-            interes_corriente_causado = round(sum(cuota.interes or 0 for cuota in cuotas), 2)
-            mora_causada = round(sum((cuota.interes_mora_historico or 0) + (cuota.interes_mora or 0) for cuota in cuotas), 2)
-
-            if cuotas_ids:
-                pagos = Pago.query.filter(Pago.cuota_id.in_(cuotas_ids)).all()
-                total_recaudado = round(sum(pago.valor or 0 for pago in pagos), 2)
-                interes_corriente_recaudado = round(sum(pago.valor_aplicado_interes or 0 for pago in pagos), 2)
-                mora_recaudada = round(sum(pago.valor_aplicado_mora or 0 for pago in pagos), 2)
-
-        resumen_general['total_prestado'] += total_prestado
-        resumen_general['total_recaudado'] += total_recaudado
-        resumen_general['saldo_actual_total'] += saldo_actual
-        resumen_general['interes_corriente_causado'] += interes_corriente_causado
-        resumen_general['interes_corriente_recaudado'] += interes_corriente_recaudado
-        resumen_general['mora_causada'] += mora_causada
-        resumen_general['mora_recaudada'] += mora_recaudada
-
-        resumen_por_sede.append({
-            'sede': sede,
-            'total_prestado': round(total_prestado, 2),
-            'total_recaudado': round(total_recaudado, 2),
-            'saldo_actual': round(saldo_actual, 2),
-            'interes_corriente_causado': round(interes_corriente_causado, 2),
-            'interes_corriente_recaudado': round(interes_corriente_recaudado, 2),
-            'mora_causada': round(mora_causada, 2),
-            'mora_recaudada': round(mora_recaudada, 2)
-        })
-
+    # ===============================
+    # RESUMEN MENSUAL
+    # ===============================
     resumen_mensual = []
 
     for mes in range(1, 13):
-        pagos_mes = Pago.query.filter(
-            db.extract('year', Pago.fecha) == anio_seleccionado,
-            db.extract('month', Pago.fecha) == mes
-        ).all()
+        fecha_mes = date(anio_seleccionado, mes, 1)
 
-        total_ingresos_mes = round(sum(pago.valor or 0 for pago in pagos_mes), 2)
-        interes_corriente_recaudado_mes = round(sum(pago.valor_aplicado_interes or 0 for pago in pagos_mes), 2)
-        mora_recaudada_mes = round(sum(pago.valor_aplicado_mora or 0 for pago in pagos_mes), 2)
+        interes_causado = 0.0
+        interes_recaudado = 0.0
+        mora_causada = 0.0
+        mora_recaudada = 0.0
+        total_ingresos = 0.0
 
-        cuotas_mes = Cuota.query.filter(
-            db.extract('year', Cuota.fecha_pago) == anio_seleccionado,
-            db.extract('month', Cuota.fecha_pago) == mes
-        ).all()
+        # Causado solo hasta el mes actual
+        if fecha_mes <= date(hoy.year, hoy.month, 1):
+            for cuota in cuotas_filtradas:
+                fecha_cuota = cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago
+                if fecha_cuota and fecha_cuota.year == anio_seleccionado and fecha_cuota.month == mes and fecha_cuota <= hoy:
+                    interes_causado += round(cuota.interes or 0, 2)
+                    mora_causada += round(cuota.interes_mora or 0, 2)
 
-        interes_corriente_causado_mes = round(sum(cuota.interes or 0 for cuota in cuotas_mes), 2)
-        mora_causada_mes = round(sum((cuota.interes_mora_historico or 0) + (cuota.interes_mora or 0) for cuota in cuotas_mes), 2)
+        for pago in pagos_filtrados:
+            if pago.fecha and pago.fecha.year == anio_seleccionado and pago.fecha.month == mes:
+                interes_recaudado += round(pago.valor_aplicado_interes or 0, 2)
+                mora_recaudada += round(pago.valor_aplicado_mora or 0, 2)
+                total_ingresos += round(pago.valor or 0, 2)
 
         resumen_mensual.append({
-            'mes': meses_nombres[mes],
-            'interes_corriente_causado': interes_corriente_causado_mes,
-            'interes_corriente_recaudado': interes_corriente_recaudado_mes,
-            'mora_causada': mora_causada_mes,
-            'mora_recaudada': mora_recaudada_mes,
-            'total_ingresos': total_ingresos_mes
+            'mes_numero': mes,
+            'mes': mes_nombre(mes),
+            'interes_corriente_causado': round(interes_causado, 2),
+            'interes_corriente_recaudado': round(interes_recaudado, 2),
+            'mora_causada': round(mora_causada, 2),
+            'mora_recaudada': round(mora_recaudada, 2),
+            'diferencia_interes_corriente': round(interes_causado - interes_recaudado, 2),
+            'diferencia_mora': round(mora_causada - mora_recaudada, 2),
+            'total_ingresos': round(total_ingresos, 2)
         })
 
-    for clave in resumen_general:
-        resumen_general[clave] = round(resumen_general[clave], 2)
+    # ===============================
+    # TABLAS DETALLADAS TIPO EXCEL
+    # ===============================
+    intereses_causados_detalle = valor_mes_dict()
+    intereses_recaudados_detalle = valor_mes_dict()
+    mora_causada_detalle = valor_mes_dict()
+    mora_recaudada_detalle = valor_mes_dict()
 
+    for cuota in cuotas_filtradas:
+        credito = Credito.query.get(cuota.credito_id)
+        if not credito:
+            continue
+        sede = sede_normalizada(credito.sede)
+        fecha_cuota = cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago
+        if not fecha_cuota:
+            continue
+
+        if fecha_cuota.year == anio_seleccionado and fecha_cuota <= hoy and sede in sedes_base:
+            intereses_causados_detalle[fecha_cuota.month][sede] += round(cuota.interes or 0, 2)
+            mora_causada_detalle[fecha_cuota.month][sede] += round(cuota.interes_mora or 0, 2)
+
+    for pago in pagos_filtrados:
+        cuota = Cuota.query.get(pago.cuota_id)
+        if not cuota:
+            continue
+        credito = Credito.query.get(cuota.credito_id)
+        if not credito:
+            continue
+        sede = sede_normalizada(credito.sede)
+        if pago.fecha and pago.fecha.year == anio_seleccionado and sede in sedes_base:
+            intereses_recaudados_detalle[pago.fecha.month][sede] += round(pago.valor_aplicado_interes or 0, 2)
+            mora_recaudada_detalle[pago.fecha.month][sede] += round(pago.valor_aplicado_mora or 0, 2)
+
+    def construir_filas_tabla(origen):
+        filas = []
+        for mes in range(1, 13):
+            fila = {
+                'mes': mes_nombre(mes),
+                'IBAGUE': round(origen[mes]['IBAGUE'], 2),
+                'GIRARDOT': round(origen[mes]['GIRARDOT'], 2),
+                'ESPINAL': round(origen[mes]['ESPINAL'], 2),
+                'CRV': round(origen[mes]['CRV'], 2),
+            }
+            fila['TOTAL'] = round(
+                fila['IBAGUE'] + fila['GIRARDOT'] + fila['ESPINAL'] + fila['CRV'], 2
+            )
+            filas.append(fila)
+        return filas
+
+    tabla_intereses_causados = construir_filas_tabla(intereses_causados_detalle)
+    tabla_intereses_recaudados = construir_filas_tabla(intereses_recaudados_detalle)
+    tabla_mora_causada = construir_filas_tabla(mora_causada_detalle)
+    tabla_mora_recaudada = construir_filas_tabla(mora_recaudada_detalle)
+
+    tabla_diferencia_intereses = []
+    tabla_diferencia_mora = []
+
+    for i in range(12):
+        ic = tabla_intereses_causados[i]
+        ir = tabla_intereses_recaudados[i]
+        mc = tabla_mora_causada[i]
+        mr = tabla_mora_recaudada[i]
+
+        fila_i = {'mes': ic['mes']}
+        fila_m = {'mes': mc['mes']}
+
+        for sede in sedes_base:
+            fila_i[sede] = round(ic[sede] - ir[sede], 2)
+            fila_m[sede] = round(mc[sede] - mr[sede], 2)
+
+        fila_i['TOTAL'] = round(ic['TOTAL'] - ir['TOTAL'], 2)
+        fila_m['TOTAL'] = round(mc['TOTAL'] - mr['TOTAL'], 2)
+
+        tabla_diferencia_intereses.append(fila_i)
+        tabla_diferencia_mora.append(fila_m)
+
+    # Totales por tabla
+    def totales_tabla(filas):
+        return {
+            'IBAGUE': round(sum(f['IBAGUE'] for f in filas), 2),
+            'GIRARDOT': round(sum(f['GIRARDOT'] for f in filas), 2),
+            'ESPINAL': round(sum(f['ESPINAL'] for f in filas), 2),
+            'CRV': round(sum(f['CRV'] for f in filas), 2),
+            'TOTAL': round(sum(f['TOTAL'] for f in filas), 2),
+        }
+
+    # ===============================
+    # ARRAYS GRÁFICAS
+    # ===============================
     labels_sedes = [fila['sede'] for fila in resumen_por_sede]
     saldo_actual_sedes = [fila['saldo_actual'] for fila in resumen_por_sede]
+    total_prestado_sedes = [fila['total_prestado'] for fila in resumen_por_sede]
+    total_recaudado_sedes = [fila['total_recaudado'] for fila in resumen_por_sede]
     interes_causado_sedes = [fila['interes_corriente_causado'] for fila in resumen_por_sede]
     interes_recaudado_sedes = [fila['interes_corriente_recaudado'] for fila in resumen_por_sede]
     mora_causada_sedes = [fila['mora_causada'] for fila in resumen_por_sede]
     mora_recaudada_sedes = [fila['mora_recaudada'] for fila in resumen_por_sede]
+    diferencia_interes_sedes = [fila['diferencia_interes_corriente'] for fila in resumen_por_sede]
+    diferencia_mora_sedes = [fila['diferencia_mora'] for fila in resumen_por_sede]
 
     labels_meses = [fila['mes'] for fila in resumen_mensual]
     interes_causado_meses = [fila['interes_corriente_causado'] for fila in resumen_mensual]
     interes_recaudado_meses = [fila['interes_corriente_recaudado'] for fila in resumen_mensual]
     mora_causada_meses = [fila['mora_causada'] for fila in resumen_mensual]
     mora_recaudada_meses = [fila['mora_recaudada'] for fila in resumen_mensual]
+    diferencia_interes_meses = [fila['diferencia_interes_corriente'] for fila in resumen_mensual]
+    diferencia_mora_meses = [fila['diferencia_mora'] for fila in resumen_mensual]
+    total_ingresos_meses = [fila['total_ingresos'] for fila in resumen_mensual]
 
     return {
         'resumen_general': resumen_general,
         'resumen_por_sede': resumen_por_sede,
         'resumen_mensual': resumen_mensual,
+
+        'tabla_intereses_causados': tabla_intereses_causados,
+        'tabla_intereses_recaudados': tabla_intereses_recaudados,
+        'tabla_mora_causada': tabla_mora_causada,
+        'tabla_mora_recaudada': tabla_mora_recaudada,
+        'tabla_diferencia_intereses': tabla_diferencia_intereses,
+        'tabla_diferencia_mora': tabla_diferencia_mora,
+
+        'totales_intereses_causados': totales_tabla(tabla_intereses_causados),
+        'totales_intereses_recaudados': totales_tabla(tabla_intereses_recaudados),
+        'totales_mora_causada': totales_tabla(tabla_mora_causada),
+        'totales_mora_recaudada': totales_tabla(tabla_mora_recaudada),
+        'totales_diferencia_intereses': totales_tabla(tabla_diferencia_intereses),
+        'totales_diferencia_mora': totales_tabla(tabla_diferencia_mora),
+
         'labels_sedes': labels_sedes,
         'saldo_actual_sedes': saldo_actual_sedes,
+        'total_prestado_sedes': total_prestado_sedes,
+        'total_recaudado_sedes': total_recaudado_sedes,
         'interes_causado_sedes': interes_causado_sedes,
         'interes_recaudado_sedes': interes_recaudado_sedes,
         'mora_causada_sedes': mora_causada_sedes,
         'mora_recaudada_sedes': mora_recaudada_sedes,
+        'diferencia_interes_sedes': diferencia_interes_sedes,
+        'diferencia_mora_sedes': diferencia_mora_sedes,
+
         'labels_meses': labels_meses,
         'interes_causado_meses': interes_causado_meses,
         'interes_recaudado_meses': interes_recaudado_meses,
         'mora_causada_meses': mora_causada_meses,
-        'mora_recaudada_meses': mora_recaudada_meses
+        'mora_recaudada_meses': mora_recaudada_meses,
+        'diferencia_interes_meses': diferencia_interes_meses,
+        'diferencia_mora_meses': diferencia_mora_meses,
+        'total_ingresos_meses': total_ingresos_meses
     }
 
 @app.route('/reporte_financiero')
@@ -1992,6 +2280,69 @@ def extracto_credito(credito_id):
         total_prepago_capital=total_prepago_capital,
         deuda_total_hoy=deuda_total_hoy,
         estado_credito=estado_credito
+    )
+
+@app.route('/ver_recibo_pago/<int:pago_id>')
+def ver_recibo_pago(pago_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    pago = Pago.query.get_or_404(pago_id)
+    cuota = Cuota.query.get_or_404(pago.cuota_id)
+    credito = Credito.query.get_or_404(cuota.credito_id)
+
+    saldo_pendiente_cuota = round(max((cuota.total_cobro or 0) - (pago.valor or 0), 0), 2)
+
+    return render_template(
+        'recibo_pago.html',
+        pago=pago,
+        cuota=cuota,
+        credito=credito,
+        saldo_pendiente_cuota=saldo_pendiente_cuota
+    )
+
+@app.route('/ver_recibo_deuda_fecha/<int:credito_id>')
+def ver_recibo_deuda_fecha(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    pagos_param = request.args.get('pagos', '').strip()
+    if not pagos_param:
+        return redirect(f'/ver_cuotas/{credito.id}')
+
+    ids = []
+    for item in pagos_param.split(','):
+        item = item.strip()
+        if item.isdigit():
+            ids.append(int(item))
+
+    pagos = Pago.query.filter(Pago.id.in_(ids)).order_by(Pago.fecha.asc()).all()
+
+    filas = []
+    total_pagado = 0
+
+    for pago in pagos:
+        cuota = Cuota.query.get(pago.cuota_id)
+        if not cuota:
+            continue
+
+        filas.append({
+            'cuota_numero': cuota.numero,
+            'valor_cuota': cuota.valor_cuota,
+            'valor_pagado': pago.valor,
+            'medio_pago': pago.medio_pago,
+            'mora_aplicada': pago.valor_aplicado_mora or 0
+        })
+        total_pagado += round(pago.valor or 0, 2)
+
+    return render_template(
+        'recibo_deuda_fecha.html',
+        credito=credito,
+        pagos=pagos,
+        filas=filas,
+        total_pagado=round(total_pagado, 2)
     )
 
 @app.route('/extracto_credito_pdf/<int:credito_id>')

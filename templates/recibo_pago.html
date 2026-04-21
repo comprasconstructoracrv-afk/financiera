@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Detalle del pago</title>
+    <title>Recibo de caja</title>
     <style>
         * {
             box-sizing: border-box;
@@ -21,7 +21,7 @@
             margin: auto;
         }
 
-        .detalle-doc {
+        .recibo {
             background: white;
             border-radius: 22px;
             padding: 20px 20px 24px 20px;
@@ -30,7 +30,7 @@
             overflow: hidden;
         }
 
-        .detalle-doc::before {
+        .recibo::before {
             content: "";
             position: absolute;
             top: -60px;
@@ -41,7 +41,7 @@
             border-radius: 50%;
         }
 
-        .detalle-doc::after {
+        .recibo::after {
             content: "";
             position: absolute;
             bottom: -55px;
@@ -65,6 +65,13 @@
             max-width: 90px;
             height: auto;
             display: block;
+        }
+
+        .logo-box .marca {
+            margin-top: 8px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #374151;
         }
 
         .titulo-box {
@@ -219,55 +226,12 @@
             color: #111827;
         }
 
-        .valor-dorado {
+        .total-card .valor-dorado {
             color: #a97800;
         }
 
-        .valor-verde {
+        .total-card .valor-verde {
             color: #166534;
-        }
-
-        .grid-distribucion {
-            margin-top: 12px;
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            position: relative;
-            z-index: 2;
-        }
-
-        .mini-card {
-            background: #fbfbfc;
-            border: 1px solid #e5e7eb;
-            border-radius: 14px;
-            padding: 12px 14px;
-        }
-
-        .mini-card .label {
-            font-size: 11px;
-            color: #6b7280;
-            text-transform: uppercase;
-            margin-bottom: 6px;
-            line-height: 1.2;
-        }
-
-        .mini-card .valor {
-            font-size: 18px;
-            font-weight: bold;
-            color: #111827;
-        }
-
-        .observacion-box {
-            margin-top: 12px;
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 14px;
-            font-size: 13px;
-            color: #374151;
-            line-height: 1.4;
-            position: relative;
-            z-index: 2;
         }
 
         .mensaje {
@@ -290,7 +254,7 @@
         }
 
         .acciones {
-            margin-top: 20px;
+            margin-top: 24px;
             display: flex;
             justify-content: center;
             gap: 14px;
@@ -320,12 +284,6 @@
             color: #374151;
         }
 
-        .btn-recibo {
-            background: linear-gradient(135deg, #198754, #157347);
-            color: white;
-            box-shadow: 0 6px 16px rgba(25, 135, 84, 0.25);
-        }
-
         @media print {
             @page {
                 size: A4 portrait;
@@ -343,7 +301,7 @@
                 margin: 0;
             }
 
-            .detalle-doc {
+            .recibo {
                 box-shadow: none;
                 border-radius: 0;
                 padding: 10px 12px 12px 12px;
@@ -391,14 +349,11 @@
                 margin: 10px 0 10px 0;
             }
 
-            .grid-info,
-            .totales,
-            .grid-distribucion {
+            .grid-info {
                 gap: 8px;
             }
 
-            .card,
-            .mini-card {
+            .card {
                 padding: 10px 12px;
                 border-radius: 12px;
             }
@@ -428,22 +383,18 @@
                 font-size: 11px;
             }
 
+            .totales {
+                margin-top: 10px;
+                gap: 8px;
+            }
+
             .total-card {
                 padding: 10px 12px;
                 font-size: 13px;
             }
 
-            .mini-card .label {
-                font-size: 10px;
-            }
-
-            .mini-card .valor {
-                font-size: 14px;
-            }
-
-            .observacion-box {
-                font-size: 11px;
-                padding: 10px 12px;
+            .mensaje {
+                margin-top: 10px;
             }
 
             .mensaje strong {
@@ -471,16 +422,20 @@
             }
 
             .grid-info,
-            .totales,
-            .grid-distribucion {
+            .totales {
                 grid-template-columns: 1fr;
+            }
+
+            thead th,
+            tbody td {
+                font-size: 13px;
             }
         }
     </style>
 </head>
 <body>
     <div class="wrapper">
-        <div class="detalle-doc">
+        <div class="recibo">
 
             <div class="header">
                 <div class="logo-box">
@@ -488,7 +443,7 @@
                 </div>
 
                 <div class="titulo-box">
-                    <h1>Detalle del Pago</h1>
+                    <h1>Recibo de Caja</h1>
                     <div class="empresa">CONSTRUCCIONES Y URBANIZACIONES S.A.S</div>
                     <div class="detalle">
                         NIT: 901.527.083-2<br>
@@ -502,7 +457,17 @@
                     <div class="fecha">
                         Fecha: {{ pago.fecha.strftime('%Y-%m-%d') if pago.fecha else '' }}
                     </div>
-                    <div class="badge">DETALLE DEL PAGO</div>
+                    <div class="badge">
+                        {% if pago.tipo_pago == 'LIQUIDACION_TOTAL' %}
+                            LIQUIDACIÓN TOTAL
+                        {% elif pago.observacion == 'ABONO A CAPITAL' %}
+                            ABONO A CAPITAL
+                        {% elif pago.tipo_pago == 'PAGO_DEUDA_FECHA' %}
+                            PAGO DEUDA A LA FECHA
+                        {% else %}
+                            RECIBO DE CAJA
+                        {% endif %}
+                    </div>
                 </div>
             </div>
 
@@ -510,19 +475,32 @@
 
             <div class="grid-info">
                 <div class="card">
-                    <h3>Datos del cliente</h3>
-                    <div class="dato"><strong>Nombre:</strong> {{ credito.cliente }}</div>
-                    <div class="dato"><strong>Cédula:</strong> {{ credito.cedula_cliente or 'No registrada' }}</div>
-                    <div class="dato"><strong>Dirección:</strong> {{ credito.direccion_cliente or 'No registrada' }}</div>
-                    <div class="dato"><strong>Celular:</strong> {{ credito.telefono_1 or credito.telefono_2 or 'No registrado' }}</div>
+                    <h3>Datos del pago</h3>
+                    <div class="dato"><strong>Sede:</strong> {{ credito.sede }}</div>
+
+                    <div class="dato">
+                        <strong>Tipo:</strong>
+                        {% if pago.tipo_pago == 'LIQUIDACION_TOTAL' %}
+                            LIQUIDACIÓN TOTAL
+                        {% elif pago.observacion == 'ABONO A CAPITAL' %}
+                            ABONO A CAPITAL
+                        {% elif pago.tipo_pago == 'PAGO_DEUDA_FECHA' %}
+                            PAGO DEUDA A LA FECHA
+                        {% else %}
+                            CRÉDITO
+                        {% endif %}
+                    </div>
+
+                    <div class="dato"><strong>Cuenta / Medio:</strong> {{ pago.medio_pago }}</div>
+                    <div class="dato"><strong>Observación:</strong> {{ pago.observacion or 'Pago registrado en el sistema financiero' }}</div>
                 </div>
 
                 <div class="card">
-                    <h3>Datos del pago</h3>
+                    <h3>Datos del crédito</h3>
                     <div class="dato"><strong>Sede:</strong> {{ credito.sede }}</div>
-                    <div class="dato"><strong>Medio de pago:</strong> {{ pago.medio_pago }}</div>
-                    <div class="dato"><strong>Tipo de pago:</strong> {{ pago.tipo_pago if pago.tipo_pago else 'No definido' }}</div>
-                    <div class="dato"><strong>Días de mora al pago:</strong> {{ pago.dias_mora_pagados }}</div>
+                    <div class="dato"><strong>Tipo:</strong> CRÉDITO</div>
+                    <div class="dato"><strong>Cuenta / Medio:</strong> {{ pago.medio_pago }}</div>
+                    <div class="dato"><strong>Observación:</strong> {{ pago.observacion or 'Pago registrado en el sistema financiero' }}</div>
                 </div>
             </div>
 
@@ -534,16 +512,41 @@
                             <th>N° Cuota</th>
                             <th>Valor Cuota</th>
                             <th>Valor pagado</th>
-                            <th>Mora generada</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>CRÉDITO</td>
-                            <td>{{ cuota.numero }}</td>
-                            <td class="valor">{{ cuota.valor_cuota | cop }}</td>
+                            <td>
+                                {% if pago.tipo_pago == 'LIQUIDACION_TOTAL' %}
+                                    LIQUIDACIÓN
+                                {% elif pago.observacion == 'ABONO A CAPITAL' %}
+                                    ABONO CAPITAL
+                                {% elif pago.tipo_pago == 'PAGO_DEUDA_FECHA' %}
+                                    PAGO A LA FECHA
+                                {% else %}
+                                    CRÉDITO
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if pago.observacion == 'ABONO A CAPITAL' %}
+                                    —
+                                {% else %}
+                                    {{ cuota.numero }}
+                                {% endif %}
+                            </td>
+
+                            <td class="valor">
+                                {% if pago.tipo_pago == 'LIQUIDACION_TOTAL' %}
+                                    {{ pago.total_exigible_al_pago | cop }}
+                                {% elif pago.observacion == 'ABONO A CAPITAL' %}
+                                    {{ pago.valor | cop }}
+                                {% else %}
+                                    {{ cuota.valor_cuota | cop }}
+                                {% endif %}
+                            </td>
+
                             <td class="valor">{{ pago.valor | cop }}</td>
-                            <td class="valor">{{ pago.mora_generada_al_pago | cop }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -551,60 +554,32 @@
 
             <div class="totales">
                 <div class="total-card">
-                    Saldo pendiente antes del pago:
-                    <span class="valor-dorado">{{ pago.saldo_pendiente_antes_pago | cop }}</span>
+                    {% if pago.tipo_pago == 'LIQUIDACION_TOTAL' %}
+                        Saldo liquidado:
+                        <span class="valor-dorado">{{ pago.total_exigible_al_pago | cop }}</span>
+                    {% elif pago.observacion == 'ABONO A CAPITAL' %}
+                        Abono aplicado a capital:
+                        <span class="valor-dorado">{{ pago.valor | cop }}</span>
+                    {% else %}
+                        Saldo pendiente:
+                        <span class="valor-dorado">{{ saldo_pendiente_cuota | cop }}</span>
+                    {% endif %}
                 </div>
 
                 <div class="total-card">
-                    Total exigible al pago:
-                    <span class="valor-verde">{{ pago.total_exigible_al_pago | cop }}</span>
+                    Total recibido hoy:
+                    <span class="valor-verde">{{ pago.valor | cop }}</span>
                 </div>
-            </div>
-
-            <div class="grid-distribucion">
-                <div class="mini-card">
-                    <div class="label">Aplicado a interés</div>
-                    <div class="valor">{{ pago.valor_aplicado_interes | cop }}</div>
-                </div>
-
-                <div class="mini-card">
-                    <div class="label">Aplicado a capital</div>
-                    <div class="valor">{{ pago.valor_aplicado_capital | cop }}</div>
-                </div>
-
-                <div class="mini-card">
-                    <div class="label">Aplicado a mora</div>
-                    <div class="valor">{{ pago.valor_aplicado_mora | cop }}</div>
-                </div>
-
-                <div class="mini-card">
-                    <div class="label">Prepago a capital</div>
-                    <div class="valor">{{ pago.valor_aplicado_prepago_capital | cop }}</div>
-                </div>
-            </div>
-
-            <div class="observacion-box">
-                <strong>Observación:</strong>
-                {{ pago.observacion if pago.observacion else 'Sin observación registrada.' }}
             </div>
 
             <div class="mensaje">
-                <strong>Detalle del pago registrado correctamente.</strong>
-                <span>Este documento sirve como soporte visual del desglose y aplicación del pago.</span>
+                <strong>Gracias por su pago.</strong>
+                <span>Conserve este documento para control interno, soporte de pago y seguimiento comercial.</span>
             </div>
 
             <div class="acciones">
-                <a href="/ver_recibo_pago/{{ pago.id }}" class="btn btn-recibo">
-                    Ver recibo
-                </a>
-
-                <button class="btn btn-imprimir" onclick="window.print()">
-                    Imprimir detalle
-                </button>
-
-                <a href="/ver_cuotas/{{ credito.id }}" class="btn btn-volver">
-                    Volver
-                </a>
+                <button class="btn btn-imprimir" onclick="window.print()">Imprimir recibo</button>
+                <a href="/ver_cuotas/{{ credito.id }}" class="btn btn-volver">Volver</a>
             </div>
 
         </div>

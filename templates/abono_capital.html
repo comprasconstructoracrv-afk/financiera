@@ -63,6 +63,78 @@
             color: white;
             margin-left: 10px;
         }
+
+        .grid-resumen {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .card-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .card-info span {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .card-info strong {
+            display: block;
+            font-size: 18px;
+            margin-top: 5px;
+        }
+
+        .alerta {
+            border: 1px solid #dc3545;
+            color: #dc3545;
+        }
+
+        .ok {
+            border: 1px solid #198754;
+            color: #198754;
+        }
+
+        .mensaje-error {
+            background: #ffe5e5;
+            border: 1px solid #ffb3b3;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #b30000;
+            font-weight: bold;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .acciones {
+            margin-top: 20px;
+        }
+
+        .btn-verde {
+            background: #198754;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: none;
+        }
+
+        .btn-gris {
+            background: #6c757d;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            text-decoration: none;
+            margin-left: 10px;
+        }
     </style>
 
     <script>
@@ -86,45 +158,77 @@
     </script>
 </head>
 <body>
-    <div class="contenedor">
-        <h1>Abono a capital</h1>
+<div class="contenedor">
 
-        <div class="dato"><strong>Cliente:</strong> {{ credito.cliente }}</div>
-        <div class="dato"><strong>Saldo actual del crédito:</strong> {{ credito.saldo_actual | cop }}</div>
+    <h1>Abono a capital</h1>
+    <p>Registra un abono directo al capital del crédito.</p>
+
+    <div class="grid-resumen">
+
+        <div class="card-info">
+            <span>CLIENTE</span>
+            <strong>{{ credito.cliente }}</strong>
+        </div>
+
+        <div class="card-info">
+            <span>SALDO ACTUAL</span>
+            <strong>{{ credito.saldo_actual | cop }}</strong>
+        </div>
 
         {% if deuda_total_fecha > 0 %}
-            <div class="alerta">
-                No puedes hacer abono a capital porque el crédito tiene deuda exigible a la fecha por {{ deuda_total_fecha | cop }}.
-            </div>
+        <div class="card-info alerta">
+            <span>ESTADO</span>
+            <strong>TIENE DEUDA PENDIENTE</strong>
+        </div>
         {% else %}
-            <div class="alerta" style="background:#e8f7e8; border:1px solid #b7e4c7;">
-                El crédito está al día. Puedes registrar un abono directo a capital.
-            </div>
+        <div class="card-info ok">
+            <span>ESTADO</span>
+            <strong>CRÉDITO AL DÍA</strong>
+        </div>
         {% endif %}
 
-        <form method="POST">
-            <label>Fecha de pago:</label>
-            <input type="date" name="fecha_pago" required>
+    </div>
 
-            <label>Valor a abonar:</label>
-            <input type="text" name="valor" oninput="formatearMoneda(this)" required>
+    {% if deuda_total_fecha > 0 %}
+        <div class="mensaje-error">
+            No puedes hacer abono a capital porque el crédito tiene deuda exigible por {{ deuda_total_fecha | cop }}.
+        </div>
+    {% endif %}
 
-            <label>Medio de pago:</label>
-            <select name="medio_pago" id="medio_pago" onchange="mostrarOtroMedio()" required>
-                <option value="">Seleccione</option>
-                <option value="Bancolombia">Bancolombia</option>
-                <option value="Efectivo">Efectivo</option>
-                <option value="OTRO">Otro</option>
-            </select>
+    <form method="POST">
 
-            <div id="otro_medio_box" style="display:none;">
-                <label>Escriba el otro medio de pago:</label>
-                <input type="text" name="medio_pago_otro">
+        <div class="form-grid">
+
+            <div>
+                <label>Fecha de pago</label>
+                <input type="date" name="fecha_pago" required>
             </div>
 
-            <button type="submit" {% if deuda_total_fecha > 0 %}disabled{% endif %}>Registrar abono</button>
-            <a href="/ver_cuotas/{{ credito.id }}">Volver</a>
-        </form>
-    </div>
+            <div>
+                <label>Medio de pago</label>
+                <select name="medio_pago" required>
+                    <option value="">Seleccione</option>
+                    <option value="Bancolombia">Bancolombia</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="OTRO">Otro</option>
+                </select>
+            </div>
+
+        </div>
+
+        <label>Valor a abonar</label>
+        <input type="text" name="valor" class="input-moneda" required>
+
+        <div class="acciones">
+            <button type="submit" class="btn-verde" {% if deuda_total_fecha > 0 %}disabled{% endif %}>
+                Registrar abono
+            </button>
+
+            <a href="/ver_cuotas/{{ credito.id }}" class="btn-gris">Volver</a>
+        </div>
+
+    </form>
+
+</div>
 </body>
 </html>

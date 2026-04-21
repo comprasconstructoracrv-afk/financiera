@@ -125,6 +125,69 @@
             color: white;
             margin-left: 10px;
         }
+        
+        .grid-resumen {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .card-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .card-info span {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .card-info strong {
+            display: block;
+            font-size: 18px;
+            margin-top: 5px;
+        }
+
+        .alerta {
+            border: 1px solid #dc3545;
+            color: #dc3545;
+        }
+
+        .total {
+            background: #e7f1ff;
+            border: 1px solid #0d6efd;
+            color: #0d6efd;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .acciones {
+            margin-top: 20px;
+        }
+
+        .btn-rojo {
+            background: #dc3545;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: none;
+        }
+
+        .btn-gris {
+            background: #6c757d;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            text-decoration: none;
+            margin-left: 10px;
+        }
     </style>
     <script>
         function mostrarOtroMedio() {
@@ -146,40 +209,77 @@
         };
     </script>
 </head>
-<body>
-    <div class="contenedor">
-        <h1>Liquidar crédito</h1>
+<body>  
+<div class="contenedor">
 
-        <div class="dato"><strong>Cliente:</strong> {{ credito.cliente }}</div>
-        <div class="dato"><strong>Cuota activa de referencia:</strong> {{ cuota_actual.numero }}</div>
-        <div class="dato"><strong>Capital insoluto:</strong> {{ capital_insoluto | cop }}</div>
-        <div class="dato"><strong>Interés corriente:</strong> {{ interes_corriente | cop }}</div>
-        <div class="dato"><strong>Mora acumulada:</strong> {{ total_mora | cop }}</div>
-        <div class="dato total"><strong>Total liquidación:</strong> {{ total_liquidacion | cop }}</div>
+    <h1>Liquidar crédito</h1>
+    <p>Liquida completamente el crédito y genera el recibo.</p>
 
-        <form method="POST">
-            <label>Fecha de pago:</label>
-            <input type="date" name="fecha_pago" required>
+    <div class="grid-resumen">
 
-            <label>Valor a pagar:</label>
-            <input type="text" id="valor" name="valor" class="input-moneda" inputmode="numeric" required>
+        <div class="card-info">
+            <span>CLIENTE</span>
+            <strong>{{ credito.cliente }}</strong>
+        </div>
 
-            <label>Medio de pago:</label>
-            <select name="medio_pago" id="medio_pago" onchange="mostrarOtroMedio()" required>
-                <option value="">Seleccione</option>
-                <option value="Bancolombia">Bancolombia</option>
-                <option value="Efectivo">Efectivo</option>
-                <option value="OTRO">Otro</option>
-            </select>
+        <div class="card-info">
+            <span>CUOTA REFERENCIA</span>
+            <strong>{{ cuota_actual.numero }}</strong>
+        </div>
 
-            <div id="otro_medio_box" style="display:none;">
-                <label>Escriba el otro medio de pago:</label>
-                <input type="text" name="medio_pago_otro">
+        <div class="card-info">
+            <span>CAPITAL INSOLUTO</span>
+            <strong>{{ capital_insoluto | cop }}</strong>
+        </div>
+
+        <div class="card-info">
+            <span>INTERÉS</span>
+            <strong>{{ interes_corriente | cop }}</strong>
+        </div>
+
+        <div class="card-info alerta">
+            <span>MORA</span>
+            <strong>{{ total_mora | cop }}</strong>
+        </div>
+
+        <div class="card-info total">
+            <span>TOTAL A PAGAR</span>
+            <strong>{{ total_liquidacion | cop }}</strong>
+        </div>
+
+    </div>
+
+    <form method="POST">
+
+        <div class="form-grid">
+
+            <div>
+                <label>Fecha de pago</label>
+                <input type="date" name="fecha_pago" required>
             </div>
 
-            <button type="submit">Liquidar crédito</button>
-            <a href="/ver_cuotas/{{ credito.id }}">Volver</a>
-        </form>
-    </div>
+            <div>
+                <label>Medio de pago</label>
+                <select name="medio_pago" required>
+                    <option value="">Seleccione</option>
+                    <option value="Bancolombia">Bancolombia</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="OTRO">Otro</option>
+                </select>
+            </div>
+
+        </div>
+
+        <label>Valor a pagar</label>
+        <input type="text" name="valor" class="input-moneda" required>
+
+        <div class="acciones">
+            <button type="submit" class="btn-rojo">Liquidar crédito</button>
+            <a href="/ver_cuotas/{{ credito.id }}" class="btn-gris">Volver</a>
+        </div>
+
+    </form>
+
+</div>
 </body>
 </html>

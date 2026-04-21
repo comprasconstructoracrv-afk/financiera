@@ -9,6 +9,7 @@
             background: #f4f6f9;
             padding: 30px;
         }
+        
         .contenedor {
             max-width: 900px;
             margin: auto;
@@ -17,6 +18,7 @@
             border-radius: 12px;
             box-shadow: 0 0 10px rgba(0,0,0,0.08);
         }
+
         .dato {
             background: #f8f9fa;
             padding: 12px;
@@ -24,17 +26,20 @@
             margin-bottom: 10px;
             font-size: 16px;
         }
+
         .total {
             background: #fff3cd;
             border: 1px solid #ffe69c;
             font-weight: bold;
         }
+
         label {
             display: block;
             margin-top: 15px;
             margin-bottom: 8px;
             font-weight: bold;
         }
+
         input, select {
             width: 100%;
             padding: 10px;
@@ -42,6 +47,7 @@
             border-radius: 8px;
             box-sizing: border-box;
         }
+
         button, a {
             display: inline-block;
             margin-top: 20px;
@@ -51,27 +57,95 @@
             border: none;
             cursor: pointer;
         }
+
         button {
             background: #0d6efd;
             color: white;
         }
+
         a {
             background: #6c757d;
             color: white;
             margin-left: 10px;
         }
+
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
         }
+
         th, td {
             padding: 10px;
             border-bottom: 1px solid #ddd;
             text-align: center;
         }
+
         th {
             background: #f1f3f5;
+        }
+
+        .grid-resumen {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .card-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .card-info span {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .card-info strong {
+            display: block;
+            font-size: 18px;
+            margin-top: 5px;
+        }
+
+        .alerta {
+            border: 1px solid #dc3545;
+            color: #dc3545;
+        }
+
+        .total {
+            background: #e7f1ff;
+            border: 1px solid #0d6efd;
+            color: #0d6efd;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .acciones {
+            margin-top: 20px;
+        }
+
+        .btn-azul {
+            background: #0d6efd;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: none;
+        }
+
+        .btn-gris {
+            background: #6c757d;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            text-decoration: none;
+            margin-left: 10px;
         }
     </style>
     <script>
@@ -97,61 +171,101 @@
 </script>
 </head>
 <body>
-    <div class="contenedor">
-        <h1>Pagar deuda a la fecha</h1>
+<div class="contenedor">
 
-        <div class="dato"><strong>Cliente:</strong> {{ credito.cliente }}</div>
-        <div class="dato"><strong>Cuotas exigibles a hoy:</strong> {{ cuotas_exigibles_hoy|length }}</div>
-        <div class="dato"><strong>Cuotas vencidas:</strong> {{ cuota_pendiente_total | cop }}</div>
-        <div class="dato"><strong>Mora acumulada:</strong> {{ mora_total | cop }}</div>
-        <div class="dato total"><strong>Deuda total a la fecha:</strong> {{ deuda_total_fecha | cop }}</div>
+    <h1>Pagar deuda a la fecha</h1>
+    <p>Registra el pago de las cuotas exigibles a la fecha del crédito.</p>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Fecha</th>
-                    <th>Saldo pendiente</th>
-                    <th>Mora</th>
-                    <th>Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for cuota in cuotas_exigibles_hoy %}
-                <tr>
-                    <td>{{ cuota.numero }}</td>
-                    <td>{{ cuota.fecha_pago.strftime('%d/%m/%Y') }}</td>
-                    <td>{{ cuota.saldo_pendiente | cop }}</td>
-                    <td>{{ cuota.interes_mora | cop }}</td>
-                    <td>{{ cuota.total_cobro | cop }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="grid-resumen">
 
-        <form method="POST">
-            <label>Fecha de pago:</label>
-            <input type="date" name="fecha_pago" required>
+        <div class="card-info">
+            <span>CLIENTE</span>
+            <strong>{{ credito.cliente }}</strong>
+        </div>
 
-            <label>Valor a pagar:</label>
-            <input type="text" name="valor" id="valor" required oninput="formatearMoneda(this)">
+        <div class="card-info">
+            <span>CUOTAS EXIGIBLES</span>
+            <strong>{{ cuotas_exigibles_hoy|length }}</strong>
+        </div>
 
-            <label>Medio de pago:</label>
-            <select name="medio_pago" id="medio_pago" onchange="mostrarOtroMedio()" required>
-                <option value="">Seleccione</option>
-                <option value="Bancolombia">Bancolombia</option>
-                <option value="Efectivo">Efectivo</option>
-                <option value="OTRO">Otro</option>
-            </select>
+        <div class="card-info">
+            <span>CUOTA PENDIENTE TOTAL</span>
+            <strong>{{ cuota_pendiente_total | cop }}</strong>
+        </div>
 
-            <div id="otro_medio_box" style="display:none;">
-                <label>Escriba el otro medio de pago:</label>
-                <input type="text" name="medio_pago_otro">
+        <div class="card-info alerta">
+            <span>MORA ACUMULADA</span>
+            <strong>{{ mora_total | cop }}</strong>
+        </div>
+
+        <div class="card-info total">
+            <span>DEUDA TOTAL A LA FECHA</span>
+            <strong>{{ deuda_total_fecha | cop }}</strong>
+        </div>
+
+    </div>
+
+    {% if cuotas_exigibles_hoy %}
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Fecha</th>
+                <th>Saldo pendiente</th>
+                <th>Mora</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cuota in cuotas_exigibles_hoy %}
+            <tr>
+                <td>{{ cuota.numero }}</td>
+                <td>{{ cuota.fecha_pago.strftime('%d/%m/%Y') }}</td>
+                <td>{{ cuota.saldo_pendiente | cop }}</td>
+                <td>{{ cuota.interes_mora | cop }}</td>
+                <td>{{ cuota.total_cobro | cop }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <form method="POST">
+
+        <div class="form-grid">
+
+            <div>
+                <label>Fecha de pago</label>
+                <input type="date" name="fecha_pago" required>
             </div>
 
-            <button type="submit">Registrar pago</button>
-            <a href="/ver_cuotas/{{ credito.id }}">Volver</a>
-        </form>
-    </div>
+            <div>
+                <label>Medio de pago</label>
+                <select name="medio_pago" id="medio_pago" onchange="mostrarOtroMedio()" required>
+                    <option value="">Seleccione</option>
+                    <option value="Bancolombia">Bancolombia</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="OTRO">Otro</option>
+                </select>
+            </div>
+
+        </div>
+
+        <div id="otro_medio_box" style="display:none;">
+            <label>Escriba el otro medio de pago</label>
+            <input type="text" name="medio_pago_otro">
+        </div>
+
+        <label>Valor a pagar</label>
+        <input type="text" name="valor" id="valor" class="input-moneda" required>
+
+        <div class="acciones">
+            <button type="submit" class="btn-azul">Registrar pago</button>
+            <a href="/ver_cuotas/{{ credito.id }}" class="btn-gris">Volver</a>
+        </div>
+
+    </form>
+
+</div>
 </body>
 </html>

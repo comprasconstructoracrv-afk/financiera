@@ -90,6 +90,70 @@
             border-radius: 8px;
             margin-bottom: 20px;
         }
+
+        .bloques-anio {
+            margin-top: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .anio-bloque {
+            background: #ffffff;
+            border: 1px solid #dbe2ea;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        }
+
+        .anio-bloque summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 18px 22px;
+            background: #f8fafc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            font-size: 18px;
+            color: #102a43;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .anio-bloque summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .anio-bloque[open] summary {
+            background: #eef4fb;
+        }
+
+        .cantidad-registros {
+            font-size: 13px;
+            font-weight: normal;
+            color: #6b7280;
+        }
+
+        .tabla-wrapper {
+            overflow-x: auto;
+        }
+
+        .tabla-tasas {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0;
+        }
+
+        .tabla-tasas th,
+        .tabla-tasas td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+        }
+
+        .tabla-tasas th {
+            background: #f1f3f5;
+        }
     </style>
 </head>
 <body>
@@ -139,38 +203,47 @@
             </div>
         </form>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>Año</th>
-                    <th>Mes</th>
-                    <th>Tasa anual (%)</th>
-                    <th>Tasa mensual (%)</th>
-                    <th>Tasa diaria</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for tasa in tasas %}
-                <tr>
-                    <td>{{ tasa.anio }}</td>
-                    <td>
-                        {% if tasa.mes == 1 %}Enero{% elif tasa.mes == 2 %}Febrero{% elif tasa.mes == 3 %}Marzo
-                        {% elif tasa.mes == 4 %}Abril{% elif tasa.mes == 5 %}Mayo{% elif tasa.mes == 6 %}Junio
-                        {% elif tasa.mes == 7 %}Julio{% elif tasa.mes == 8 %}Agosto{% elif tasa.mes == 9 %}Septiembre
-                        {% elif tasa.mes == 10 %}Octubre{% elif tasa.mes == 11 %}Noviembre{% elif tasa.mes == 12 %}Diciembre
-                        {% endif %}
-                    </td>
-                    <td>{{ '%.2f'|format(tasa.tasa_anual) }}</td>
-                    <td>{{ '%.6f'|format(tasa.tasa_mensual) }}</td>
-                    <td>{{ '%.10f'|format(tasa.tasa_diaria) }}</td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5">No hay tasas registradas.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="bloques-anio">
+            {% for grupo in tasas | groupby('anio') %}
+            <details class="anio-bloque" {% if loop.first %}open{% endif %}>
+                <summary>
+                    <span>Año {{ grupo.grouper }}</span>
+                    <span class="cantidad-registros">{{ grupo.list|length }} meses registrados</span>
+                </summary>
+
+                <div class="tabla-wrapper">
+                    <table class="tabla-tasas">
+                        <thead>
+                            <tr>
+                                <th>Mes</th>
+                                <th>Tasa anual (%)</th>
+                                <th>Tasa mensual (%)</th>
+                                <th>Tasa diaria</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tasa in grupo.list %}
+                            <tr>
+                                <td>
+                                    {% if tasa.mes == 1 %}Enero{% elif tasa.mes == 2 %}Febrero{% elif tasa.mes == 3 %}Marzo
+                                    {% elif tasa.mes == 4 %}Abril{% elif tasa.mes == 5 %}Mayo{% elif tasa.mes == 6 %}Junio
+                                    {% elif tasa.mes == 7 %}Julio{% elif tasa.mes == 8 %}Agosto{% elif tasa.mes == 9 %}Septiembre
+                                    {% elif tasa.mes == 10 %}Octubre{% elif tasa.mes == 11 %}Noviembre{% elif tasa.mes == 12 %}Diciembre
+                                    {% endif %}
+                                </td>
+                                <td>{{ '%.2f'|format(tasa.tasa_anual) }}</td>
+                                <td>{{ '%.6f'|format(tasa.tasa_mensual) }}</td>
+                                <td>{{ '%.10f'|format(tasa.tasa_diaria) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+            {% else %}
+            <div class="flash">No hay tasas registradas.</div>
+            {% endfor %}
+        </div>
     </div>
 </body>
 </html>

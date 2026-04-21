@@ -2,11 +2,9 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Detalle del pago</title>
+    <title>Recibo pago a la fecha</title>
     <style>
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             margin: 0;
@@ -21,7 +19,7 @@
             margin: auto;
         }
 
-        .detalle-doc {
+        .recibo {
             background: white;
             border-radius: 22px;
             padding: 20px 20px 24px 20px;
@@ -30,7 +28,7 @@
             overflow: hidden;
         }
 
-        .detalle-doc::before {
+        .recibo::before {
             content: "";
             position: absolute;
             top: -60px;
@@ -41,7 +39,7 @@
             border-radius: 50%;
         }
 
-        .detalle-doc::after {
+        .recibo::after {
             content: "";
             position: absolute;
             bottom: -55px;
@@ -67,9 +65,7 @@
             display: block;
         }
 
-        .titulo-box {
-            text-align: center;
-        }
+        .titulo-box { text-align: center; }
 
         .titulo-box h1 {
             margin: 0;
@@ -92,9 +88,7 @@
             line-height: 1.25;
         }
 
-        .lado-derecho {
-            text-align: right;
-        }
+        .lado-derecho { text-align: right; }
 
         .lado-derecho .fecha {
             font-size: 12px;
@@ -162,9 +156,7 @@
             line-height: 1.3;
         }
 
-        .dato strong {
-            color: #111827;
-        }
+        .dato strong { color: #111827; }
 
         .tabla-box {
             margin-top: 12px;
@@ -219,56 +211,8 @@
             color: #111827;
         }
 
-        .valor-dorado {
-            color: #a97800;
-        }
-
-        .valor-verde {
-            color: #166534;
-        }
-
-        .grid-distribucion {
-            margin-top: 12px;
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            position: relative;
-            z-index: 2;
-        }
-
-        .mini-card {
-            background: #fbfbfc;
-            border: 1px solid #e5e7eb;
-            border-radius: 14px;
-            padding: 12px 14px;
-        }
-
-        .mini-card .label {
-            font-size: 11px;
-            color: #6b7280;
-            text-transform: uppercase;
-            margin-bottom: 6px;
-            line-height: 1.2;
-        }
-
-        .mini-card .valor {
-            font-size: 18px;
-            font-weight: bold;
-            color: #111827;
-        }
-
-        .observacion-box {
-            margin-top: 12px;
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 14px;
-            font-size: 13px;
-            color: #374151;
-            line-height: 1.4;
-            position: relative;
-            z-index: 2;
-        }
+        .valor-dorado { color: #a97800; }
+        .valor-verde { color: #166534; }
 
         .mensaje {
             margin-top: 12px;
@@ -320,12 +264,6 @@
             color: #374151;
         }
 
-        .btn-recibo {
-            background: linear-gradient(135deg, #198754, #157347);
-            color: white;
-            box-shadow: 0 6px 16px rgba(25, 135, 84, 0.25);
-        }
-
         @media print {
             @page {
                 size: A4 portrait;
@@ -343,7 +281,7 @@
                 margin: 0;
             }
 
-            .detalle-doc {
+            .recibo {
                 box-shadow: none;
                 border-radius: 0;
                 padding: 10px 12px 12px 12px;
@@ -352,135 +290,12 @@
             .acciones {
                 display: none;
             }
-
-            .header {
-                grid-template-columns: 100px 1fr 150px;
-                gap: 10px;
-            }
-
-            .logo-box img {
-                max-width: 78px;
-            }
-
-            .titulo-box h1 {
-                font-size: 16px;
-            }
-
-            .titulo-box .empresa {
-                font-size: 11px;
-                margin-top: 2px;
-            }
-
-            .titulo-box .detalle {
-                font-size: 10px;
-                line-height: 1.15;
-            }
-
-            .lado-derecho .fecha {
-                font-size: 11px;
-                margin-bottom: 6px;
-            }
-
-            .badge {
-                font-size: 11px;
-                padding: 8px 12px;
-                box-shadow: none;
-            }
-
-            .separador {
-                margin: 10px 0 10px 0;
-            }
-
-            .grid-info,
-            .totales,
-            .grid-distribucion {
-                gap: 8px;
-            }
-
-            .card,
-            .mini-card {
-                padding: 10px 12px;
-                border-radius: 12px;
-            }
-
-            .card h3 {
-                font-size: 13px;
-                margin-bottom: 8px;
-            }
-
-            .dato {
-                font-size: 11px;
-                margin-bottom: 5px;
-                line-height: 1.2;
-            }
-
-            .tabla-box {
-                margin-top: 10px;
-            }
-
-            thead th {
-                padding: 8px 6px;
-                font-size: 11px;
-            }
-
-            tbody td {
-                padding: 8px 6px;
-                font-size: 11px;
-            }
-
-            .total-card {
-                padding: 10px 12px;
-                font-size: 13px;
-            }
-
-            .mini-card .label {
-                font-size: 10px;
-            }
-
-            .mini-card .valor {
-                font-size: 14px;
-            }
-
-            .observacion-box {
-                font-size: 11px;
-                padding: 10px 12px;
-            }
-
-            .mensaje strong {
-                font-size: 14px;
-            }
-
-            .mensaje span {
-                font-size: 10px;
-            }
-        }
-
-        @media (max-width: 900px) {
-            .header {
-                grid-template-columns: 1fr;
-                text-align: center;
-            }
-
-            .logo-box,
-            .lado-derecho {
-                text-align: center;
-            }
-
-            .logo-box img {
-                margin: auto;
-            }
-
-            .grid-info,
-            .totales,
-            .grid-distribucion {
-                grid-template-columns: 1fr;
-            }
         }
     </style>
 </head>
 <body>
     <div class="wrapper">
-        <div class="detalle-doc">
+        <div class="recibo">
 
             <div class="header">
                 <div class="logo-box">
@@ -488,7 +303,7 @@
                 </div>
 
                 <div class="titulo-box">
-                    <h1>Detalle del Pago</h1>
+                    <h1>Recibo de Pago a la Fecha</h1>
                     <div class="empresa">CONSTRUCCIONES Y URBANIZACIONES S.A.S</div>
                     <div class="detalle">
                         NIT: 901.527.083-2<br>
@@ -500,9 +315,9 @@
 
                 <div class="lado-derecho">
                     <div class="fecha">
-                        Fecha: {{ pago.fecha.strftime('%Y-%m-%d') if pago.fecha else '' }}
+                        Fecha: {{ pagos[0].fecha.strftime('%Y-%m-%d') if pagos else '' }}
                     </div>
-                    <div class="badge">DETALLE DEL PAGO</div>
+                    <div class="badge">PAGO DEUDA A LA FECHA</div>
                 </div>
             </div>
 
@@ -518,11 +333,11 @@
                 </div>
 
                 <div class="card">
-                    <h3>Datos del pago</h3>
+                    <h3>Datos de la operación</h3>
                     <div class="dato"><strong>Sede:</strong> {{ credito.sede }}</div>
-                    <div class="dato"><strong>Medio de pago:</strong> {{ pago.medio_pago }}</div>
-                    <div class="dato"><strong>Tipo de pago:</strong> {{ pago.tipo_pago if pago.tipo_pago else 'No definido' }}</div>
-                    <div class="dato"><strong>Días de mora al pago:</strong> {{ pago.dias_mora_pagados }}</div>
+                    <div class="dato"><strong>Tipo:</strong> PAGO DEUDA A LA FECHA</div>
+                    <div class="dato"><strong>Medio:</strong> {{ pagos[0].medio_pago if pagos else '' }}</div>
+                    <div class="dato"><strong>Cuotas tocadas:</strong> {{ filas|length }}</div>
                 </div>
             </div>
 
@@ -533,78 +348,44 @@
                             <th>Referencia</th>
                             <th>N° Cuota</th>
                             <th>Valor Cuota</th>
+                            <th>Mora aplicada</th>
                             <th>Valor pagado</th>
-                            <th>Mora generada</th>
                         </tr>
                     </thead>
                     <tbody>
+                        {% for fila in filas %}
                         <tr>
                             <td>CRÉDITO</td>
-                            <td>{{ cuota.numero }}</td>
-                            <td class="valor">{{ cuota.valor_cuota | cop }}</td>
-                            <td class="valor">{{ pago.valor | cop }}</td>
-                            <td class="valor">{{ pago.mora_generada_al_pago | cop }}</td>
+                            <td>{{ fila.cuota_numero }}</td>
+                            <td class="valor">{{ fila.valor_cuota | cop }}</td>
+                            <td class="valor">{{ fila.mora_aplicada | cop }}</td>
+                            <td class="valor">{{ fila.valor_pagado | cop }}</td>
                         </tr>
+                        {% endfor %}
                     </tbody>
                 </table>
             </div>
 
             <div class="totales">
                 <div class="total-card">
-                    Saldo pendiente antes del pago:
-                    <span class="valor-dorado">{{ pago.saldo_pendiente_antes_pago | cop }}</span>
+                    Cuotas abonadas:
+                    <span class="valor-dorado">{{ filas|length }}</span>
                 </div>
 
                 <div class="total-card">
-                    Total exigible al pago:
-                    <span class="valor-verde">{{ pago.total_exigible_al_pago | cop }}</span>
+                    Total recibido hoy:
+                    <span class="valor-verde">{{ total_pagado | cop }}</span>
                 </div>
-            </div>
-
-            <div class="grid-distribucion">
-                <div class="mini-card">
-                    <div class="label">Aplicado a interés</div>
-                    <div class="valor">{{ pago.valor_aplicado_interes | cop }}</div>
-                </div>
-
-                <div class="mini-card">
-                    <div class="label">Aplicado a capital</div>
-                    <div class="valor">{{ pago.valor_aplicado_capital | cop }}</div>
-                </div>
-
-                <div class="mini-card">
-                    <div class="label">Aplicado a mora</div>
-                    <div class="valor">{{ pago.valor_aplicado_mora | cop }}</div>
-                </div>
-
-                <div class="mini-card">
-                    <div class="label">Prepago a capital</div>
-                    <div class="valor">{{ pago.valor_aplicado_prepago_capital | cop }}</div>
-                </div>
-            </div>
-
-            <div class="observacion-box">
-                <strong>Observación:</strong>
-                {{ pago.observacion if pago.observacion else 'Sin observación registrada.' }}
             </div>
 
             <div class="mensaje">
-                <strong>Detalle del pago registrado correctamente.</strong>
-                <span>Este documento sirve como soporte visual del desglose y aplicación del pago.</span>
+                <strong>Pago a la fecha registrado correctamente.</strong>
+                <span>Este documento resume la aplicación del pago distribuido en las cuotas exigibles.</span>
             </div>
 
             <div class="acciones">
-                <a href="/ver_recibo_pago/{{ pago.id }}" class="btn btn-recibo">
-                    Ver recibo
-                </a>
-
-                <button class="btn btn-imprimir" onclick="window.print()">
-                    Imprimir detalle
-                </button>
-
-                <a href="/ver_cuotas/{{ credito.id }}" class="btn btn-volver">
-                    Volver
-                </a>
+                <button class="btn btn-imprimir" onclick="window.print()">Imprimir recibo</button>
+                <a href="/ver_cuotas/{{ credito.id }}" class="btn btn-volver">Volver</a>
             </div>
 
         </div>
