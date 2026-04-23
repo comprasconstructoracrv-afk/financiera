@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, session, flash, url_for
-from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo
+from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo, Sede
 from datetime import datetime, date, timedelta
 import calendar
 import os
@@ -715,8 +715,23 @@ def obtener_primera_y_ultima_cuota(credito):
 
     return fecha_inicio, fecha_final, dia_pago
 
+def inicializar_sedes():
+    sedes_base = ['IBAGUE', 'ESPINAL', 'GIRARDOT', 'CRV']
+
+    for nombre in sedes_base:
+        existe = Sede.query.filter_by(nombre=nombre).first()
+        if not existe:
+            db.session.add(Sede(nombre=nombre, activa=True))
+
+    db.session.commit()
+
 
 # 🧱 CREAR BD + USUARIO ADMIN
+
+with app.app_context():
+    db.create_all()
+    inicializar_sedes()
+
 with app.app_context():
     db.create_all()
 
@@ -769,6 +784,8 @@ def crear_credito():
     if 'user' not in session:
         return redirect('/login')
 
+    sedes = Sede.query.filter_by(activa=True).order_by(Sede.nombre.asc()).all()
+
     if request.method == 'POST':
         try:
             cliente = request.form['cliente'].strip()
@@ -800,7 +817,7 @@ def crear_credito():
 
             if monto_financiado <= 0:
                 flash("El monto financiado debe ser mayor que cero", "error")
-                return render_template('crear_credito.html')
+                return render_template('crear_credito.html', sedes=sedes)
 
             cuota = calcular_cuota(monto_financiado, interes, cuotas)
 
@@ -846,19 +863,21 @@ def crear_credito():
         except Exception as e:
             db.session.rollback()
             flash(f"Error al guardar el crédito: {str(e)}", "error")
-            return render_template('crear_credito.html')
+            return render_template('crear_credito.html', sedes=sedes)
 
-    return render_template('crear_credito.html')
+    return render_template('crear_credito.html', sedes=sedes)
 
 @app.route('/dashboard')
 def dashboard():
     if 'user' not in session:
         return redirect('/login')
 
-    sedes = ['IBAGUE', 'ESPINAL', 'GIRARDOT', 'CRV']
+    sedes_db = Sede.query.filter_by(activa=True).order_by(Sede.nombre.asc()).all()
     resumen_sedes = []
 
-    for sede in sedes:
+    for sede_obj in sedes_db:
+        sede = sede_obj.nombre
+
         creditos = Credito.query.filter_by(sede=sede).all()
 
         total = len(creditos)
@@ -3153,6 +3172,35 @@ def plan_pagos_credito(credito_id):
         cuotas=cuotas,
         fecha_credito=fecha_credito.strftime('%d/%m/%Y')
     )
+
+@app.route('/agregar_sede', methods=['GET', 'POST'])
+def agregar_sede():
+    if 'user' not in session:
+        return redirect('/login')
+
+    if request.method == 'POST':
+        nombre = request.form.get('nombre', '').strip().upper()
+
+        if not nombre:
+            flash('Debes ingresar el nombre de la sede.', 'error')
+            return render_template('agregar_sede.html')
+
+        existente = Sede.query.filter_by(nombre=nombre).first()
+        if existente:
+            flash('Esa sede ya existe.', 'error')
+            return render_template('agregar_sede.html')
+
+        try:
+            nueva_sede = Sede(nombre=nombre, activa=True)
+            db.session.add(nueva_sede)
+            db.session.commit()
+            flash('Sede agregada correctamente.', 'success')
+            return redirect('/dashboard')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al agregar sede: {str(e)}', 'error')
+
+    return render_template('agregar_sede.html')
 
 if __name__ == "__main__":
     app.run(debug=True)

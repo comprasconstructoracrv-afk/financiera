@@ -375,13 +375,12 @@
 
                             <div class="campo campo-completo">
                                 <label>Sede</label>
-                                <select name="sede" required>
-                                    <option value="">Seleccione una sede</option>
-                                    <option value="IBAGUE">Ibagué</option>
-                                    <option value="ESPINAL">Espinal</option>
-                                    <option value="GIRARDOT">Girardot</option>
-                                    <option value="CRV">CRV</option>
-                                </select>
+                            <select name="sede" required>
+                                <option value="">Seleccione una sede</option>
+                                {% for sede in sedes %}
+                                    <option value="{{ sede.nombre }}">{{ sede.nombre }}</option>
+                                {% endfor %}
+                            </select>
                             </div>
                         </div>
                     </div>

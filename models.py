@@ -109,3 +109,12 @@ class TasaPeriodo(db.Model):
     tasa_anual = db.Column(db.Float, nullable=False)
     tasa_mensual = db.Column(db.Float, nullable=False)
     tasa_diaria = db.Column(db.Float, nullable=False)
+
+class Sede(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(80), unique=True, nullable=False)
+    activa = db.Column(db.Boolean, default=True)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Sede {self.nombre}>"

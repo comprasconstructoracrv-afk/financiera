@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Agregar sede</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #eef2f7, #dfe9f3);
+            padding: 30px;
+        }
+
+        .contenedor {
+            max-width: 700px;
+            margin: auto;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+            padding: 30px;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #102a43;
+            font-size: 38px;
+        }
+
+        p {
+            color: #52606d;
+            margin-bottom: 24px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #243b53;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid #cfd8e3;
+            border-radius: 12px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+
+        .acciones {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 22px;
+            border-radius: 12px;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .btn-guardar {
+            background: linear-gradient(135deg, #16a34a, #166534);
+        }
+
+        .btn-volver {
+            background: linear-gradient(135deg, #6c757d, #495057);
+        }
+
+        .alerta {
+            padding: 12px 14px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .success {
+            background: #198754;
+        }
+
+        .error {
+            background: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+        <div class="panel">
+            <h1>Agregar sede</h1>
+            <p>Registra una nueva sede para que quede disponible en todo el sistema.</p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alerta {{ category }}">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <form method="POST">
+                <label for="nombre">Nombre de la sede</label>
+                <input type="text" id="nombre" name="nombre" placeholder="Ej: BOGOTA" required>
+
+                <div class="acciones">
+                    <button type="submit" class="btn btn-guardar">Guardar sede</button>
+                    <a href="/dashboard" class="btn btn-volver">Volver</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
