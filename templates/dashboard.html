@@ -325,6 +325,51 @@
         .btn-paz-salvo { 
             background: #f59e0b; 
         }
+
+        .acciones-dashboard {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        /* BOTÓN BASE */
+        .btn-dash {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            color: white;
+            font-size: 14px;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        /* EFECTO HOVER */
+        .btn-dash:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 18px rgba(0,0,0,0.15);
+        }
+
+        /* COLORES */
+        .btn-dash.azul {
+            background: linear-gradient(135deg, #1677ff, #0d47a1);
+        }
+
+        .btn-dash.naranja {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .btn-dash.verde {
+            background: linear-gradient(135deg, #16a34a, #166534);
+        }
+
+        .btn-dash.rojo {
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+        }
     </style>
 </head>
 <body>
@@ -335,11 +380,22 @@
                 <h1>FINANCIERA CRV</h1>
                 <p>Panel general de cartera por sede</p>
 
-                <div class="acciones">
-                    <a href="/crear_credito" class="btn btn-crear">Crear crédito</a>
-                    <a href="/paz_y_salvo" class="btn btn-paz-salvo">Paz y salvo</a>
-                    <a href="/configuracion_tasa" class="btn btn-tasa">Configurar tasa mora</a>
-                    <a href="/logout" class="btn btn-salir">Cerrar sesión</a>
+                <div class="acciones-dashboard">
+                    <a href="/crear_credito" class="btn-dash azul">
+                        Crear crédito
+                    </a>
+
+                    <a href="/paz_y_salvo" class="btn-dash naranja">
+                        Paz y salvo
+                    </a>
+
+                    <a href="/configuracion_tasa" class="btn-dash verde">
+                        Configurar tasa mora
+                    </a>
+
+                    <a href="/logout" class="btn-dash rojo">
+                        Cerrar sesión
+                    </a>
                 </div>
             </div>
 

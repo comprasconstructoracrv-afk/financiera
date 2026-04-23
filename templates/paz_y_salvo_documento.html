@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Paz y Salvo</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        @page {
+            size: letter;
+            margin: 14mm 16mm;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Times New Roman", Georgia, serif;
+            background: #eef2f7;
+            color: #1f2937;
+            padding: 14px;
+            font-size: 14.5px;
+            line-height: 1.7;
+        }
+
+        .contenedor {
+            max-width: 820px;
+            margin: auto;
+        }
+
+        .barra-acciones {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .acciones {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 18px;
+            border-radius: 10px;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+        }
+
+        .btn-imprimir {
+            background: linear-gradient(135deg, #1677ff, #0d47a1);
+            color: white;
+        }
+
+        .btn-volver {
+            background: linear-gradient(135deg, #6c757d, #495057);
+            color: white;
+        }
+
+        .documento {
+            background: white;
+            border-radius: 18px;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.08);
+            padding: 30px 38px 28px 38px;
+            page-break-inside: avoid;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 18px;
+            border-bottom: 1px solid #d9dee7;
+            padding-bottom: 10px;
+        }
+
+        .header-izq h1 {
+            margin: 0;
+            font-size: 32px;
+            color: #102a43;
+            letter-spacing: 0.3px;
+        }
+
+        .header-izq p {
+            margin: 6px 0 0 0;
+            color: #52606d;
+            font-size: 13px;
+            font-family: Arial, sans-serif;
+        }
+
+        .header-der {
+            text-align: right;
+            min-width: 180px;
+        }
+
+        .header-der img {
+            max-height: 82px;
+            width: auto;
+            display: block;
+            margin-left: auto;
+        }
+
+        .nit-empresa {
+            margin-top: 6px;
+            font-size: 15px;
+            font-weight: bold;
+            color: #c79a22;
+            font-family: Arial, sans-serif;
+        }
+
+        .marca-agua {
+            position: absolute;
+            right: 40px;
+            bottom: 70px;
+            width: 180px;
+            height: 180px;
+            border: 10px solid rgba(199, 154, 34, 0.07);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .documento-wrap {
+            position: relative;
+        }
+
+        .bloque-fecha {
+            margin-bottom: 14px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .contenido {
+            font-size: 13px;
+            line-height: 1.65;
+            text-align: justify;
+            color: #2f3b4a;
+        }
+
+        .contenido p {
+            margin: 0 0 16px 0;
+        }
+
+        .datos-obligacion {
+            background: #fafbfc;
+            border: 1px solid #dbe2ea;
+            border-radius: 12px;
+            padding: 18px 20px;
+            margin: 18px 0;
+            page-break-inside: avoid;
+        }
+
+        .datos-obligacion h3 {
+            margin: 0 0 10px 0;
+            color: #102a43;
+            font-size: 16px;
+            font-family: Arial, sans-serif;
+        }
+
+        .dato {
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+
+        .dato:last-child {
+            margin-bottom: 0;
+        }
+
+        .cierre {
+            margin-top: 45px;
+            font-size: 13px;
+            line-height: 1.8;
+            text-align: left;
+        }
+
+        .cierre strong {
+            color: #102a43;
+        }
+
+        .pie {
+            margin-top: 30px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 12px;
+            color: #6b7280;
+            text-align: right;
+            line-height: 1.45;
+            font-family: Arial, sans-serif;
+        }
+
+        .no-break {
+            page-break-inside: avoid;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+                font-size: 14.5px;
+                line-height: 1.7;
+            }
+
+            .barra-acciones {
+                display: none !important;
+            }
+
+            .documento {
+                box-shadow: none;
+                border-radius: 0;
+                padding: 24px 30px 20px 30px;
+            }
+
+            .header {
+                margin-bottom: 10px;
+                padding-bottom: 8px;
+            }
+
+            .bloque-fecha {
+                margin-bottom: 8px;
+            }
+
+            .contenido p {
+                margin-bottom: 8px;
+            }
+
+            .datos-obligacion {
+                margin: 10px 0;
+                padding: 10px 12px;
+            }
+
+            .cierre {
+                margin-top: 16px;
+            }
+
+            .pie {
+                margin-top: 10px;
+                padding-top: 8px;
+            }
+
+            .marca-agua {
+                right: 20px;
+                bottom: 40px;
+                width: 150px;
+                height: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+        <div class="barra-acciones">
+            <div></div>
+            <div class="acciones">
+                <button onclick="window.print()" class="btn btn-imprimir">Imprimir</button>
+                <a href="/paz_y_salvo" class="btn btn-volver">Volver</a>
+            </div>
+        </div>
+
+        <div class="documento documento-wrap no-break">
+            <div class="marca-agua"></div>
+
+            <div class="header">
+                <div class="header-izq">
+                    <h1>PAZ Y SALVO</h1>
+                    <p>Certificación de cancelación total de obligación</p>
+                </div>
+
+                <div class="header-der">
+                    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
+                    <div class="nit-empresa">NIT 901.527.083-2</div>
+                </div>
+            </div>
+
+            <div class="bloque-fecha">
+                <strong>Ciudad y fecha:</strong> Ibagué, Tolima, {{ fecha_actual }}
+            </div>
+
+            <div class="contenido">
+                <p>
+                    <strong>CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S</strong>, identificada con NIT
+                    <strong>901.527.083-2</strong>, hace constar por medio del presente documento que:
+                </p>
+
+                <p>
+                    El/La Sr(a). <strong>{{ credito.cliente }}</strong>, identificado(a) con cédula de ciudadanía
+                    No. <strong>{{ credito.cedula_cliente or 'No registrada' }}</strong>, se encuentra a la fecha a
+                    <strong>PAZ Y SALVO</strong> por todo concepto relacionado con la obligación contraída bajo las
+                    siguientes condiciones:
+                </p>
+
+                <div class="datos-obligacion">
+                    <h3>Datos de la obligación</h3>
+
+                    <div class="dato">
+                        <strong>Documento de soporte:</strong> Pagaré No. {{ credito.numero_pagare }}
+                    </div>
+
+                    <div class="dato">
+                        <strong>Fecha de obligación:</strong> {{ fecha_credito_larga }}
+                    </div>
+
+                    <div class="dato">
+                        <strong>Valor de la obligación:</strong> {{ monto_numero }} ({{ monto_letras }} M/CTE)
+                    </div>
+                </div>
+
+                <p>
+                    Con la expedición de este certificado, se confirma que la obligación mencionada ha sido cancelada
+                    en su totalidad, no existiendo saldos pendientes por capital, intereses ni otros conceptos.
+                </p>
+
+                <p>
+                    En consecuencia, se declara que el cliente no tiene cuentas pendientes con
+                    <strong>CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S</strong> respecto al contrato o título valor
+                    aquí descrito.
+                </p>
+            </div>
+
+            <div class="cierre">
+                Cordialmente,<br><br>
+                <strong>CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S</strong><br>
+                Área de Cartera<br>
+                NIT 901.527.083-2
+            </div>
+
+            <div class="pie">
+                CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S<br>
+                NIT 901.527.083-2
+            </div>
+        </div>
+    </div>
+</body>
+</html>

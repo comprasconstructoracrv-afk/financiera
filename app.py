@@ -14,6 +14,9 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.lib.utils import ImageReader
 from reportlab.lib.pagesizes import letter
+from datetime import date, datetime
+from math import floor
+from flask import render_template, request, redirect, url_for, flash, session
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
@@ -589,6 +592,129 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
         'mora_recaudada_meses': mora_recaudada_meses,
     }
 
+def numero_a_letras_es(n):
+    unidades = (
+        '', 'UNO', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE'
+    )
+    decenas = (
+        '', 'DIEZ', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA',
+        'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA'
+    )
+    especiales = {
+        11: 'ONCE', 12: 'DOCE', 13: 'TRECE', 14: 'CATORCE', 15: 'QUINCE',
+        16: 'DIECISEIS', 17: 'DIECISIETE', 18: 'DIECIOCHO', 19: 'DIECINUEVE',
+        21: 'VEINTIUNO', 22: 'VEINTIDOS', 23: 'VEINTITRES', 24: 'VEINTICUATRO',
+        25: 'VEINTICINCO', 26: 'VEINTISEIS', 27: 'VEINTISIETE',
+        28: 'VEINTIOCHO', 29: 'VEINTINUEVE'
+    }
+    centenas = (
+        '', 'CIENTO', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS',
+        'QUINIENTOS', 'SEISCIENTOS', 'SETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS'
+    )
+
+    def convertir_menor_100(num):
+        if num < 10:
+            return unidades[num]
+        if num in especiales:
+            return especiales[num]
+        if num == 10:
+            return 'DIEZ'
+        if num < 20:
+            return 'DIECI' + unidades[num - 10].lower().upper()
+        if num == 20:
+            return 'VEINTE'
+        if num < 30:
+            return especiales.get(num, 'VEINTI' + unidades[num - 20].lower().upper())
+        d = num // 10
+        u = num % 10
+        if u == 0:
+            return decenas[d]
+        return f"{decenas[d]} Y {unidades[u]}"
+
+    def convertir_menor_1000(num):
+        if num == 0:
+            return ''
+        if num == 100:
+            return 'CIEN'
+        c = num // 100
+        resto = num % 100
+        if c == 0:
+            return convertir_menor_100(resto)
+        if resto == 0:
+            return centenas[c]
+        return f"{centenas[c]} {convertir_menor_100(resto)}"
+
+    def convertir(num):
+        if num == 0:
+            return 'CERO'
+        if num < 1000:
+            return convertir_menor_1000(num)
+        if num < 1000000:
+            miles = num // 1000
+            resto = num % 1000
+            if miles == 1:
+                texto_miles = 'MIL'
+            else:
+                texto_miles = f"{convertir_menor_1000(miles)} MIL"
+            if resto == 0:
+                return texto_miles
+            return f"{texto_miles} {convertir_menor_1000(resto)}"
+        millones = num // 1000000
+        resto = num % 1000000
+        if millones == 1:
+            texto_millones = 'UN MILLON'
+        else:
+            texto_millones = f"{convertir(millones)} MILLONES"
+        if resto == 0:
+            return texto_millones
+        return f"{texto_millones} {convertir(resto)}"
+
+    entero = int(round(float(n or 0)))
+    return convertir(entero)
+
+
+def formatear_fecha_larga(fecha_obj):
+    if not fecha_obj:
+        return ''
+    meses = {
+        1: 'enero', 2: 'febrero', 3: 'marzo', 4: 'abril',
+        5: 'mayo', 6: 'junio', 7: 'julio', 8: 'agosto',
+        9: 'septiembre', 10: 'octubre', 11: 'noviembre', 12: 'diciembre'
+    }
+    return f"{fecha_obj.day} días del mes de {meses[fecha_obj.month]} del {fecha_obj.year}"
+
+
+def fecha_a_ddmmyyyy(fecha_obj):
+    if not fecha_obj:
+        return ''
+    return fecha_obj.strftime('%d/%m/%Y')
+
+
+def obtener_fecha_credito_real(credito):
+    if hasattr(credito, 'fecha_credito') and credito.fecha_credito:
+        return credito.fecha_credito.date() if isinstance(credito.fecha_credito, datetime) else credito.fecha_credito
+    if hasattr(credito, 'fecha_creacion') and credito.fecha_creacion:
+        return credito.fecha_creacion.date() if isinstance(credito.fecha_creacion, datetime) else credito.fecha_creacion
+    return date.today()
+
+
+def obtener_primera_y_ultima_cuota(credito):
+    cuotas = []
+    if hasattr(credito, 'cuotas_rel') and credito.cuotas_rel:
+        cuotas = sorted(credito.cuotas_rel, key=lambda c: c.numero)
+
+    if not cuotas:
+        return None, None, None
+
+    primera = cuotas[0]
+    ultima = cuotas[-1]
+
+    fecha_inicio = primera.fecha_pago.date() if isinstance(primera.fecha_pago, datetime) else primera.fecha_pago
+    fecha_final = ultima.fecha_pago.date() if isinstance(ultima.fecha_pago, datetime) else ultima.fecha_pago
+    dia_pago = fecha_inicio.day if fecha_inicio else ''
+
+    return fecha_inicio, fecha_final, dia_pago
+
 
 # 🧱 CREAR BD + USUARIO ADMIN
 with app.app_context():
@@ -715,7 +841,7 @@ def crear_credito():
             db.session.commit()
 
             flash("Crédito creado correctamente", "success")
-            return redirect(f'/ver_creditos/{sede}')
+            return redirect(url_for('pagare_credito', credito_id=nuevo.id, desde='crear'))
 
         except Exception as e:
             db.session.rollback()
@@ -1433,6 +1559,28 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
             return sede_credito in sedes_base
         return sede_credito == sede_seleccionada
 
+    def fecha_solo_fecha(valor):
+        if valor is None:
+            return None
+        if isinstance(valor, datetime):
+            return valor.date()
+        return valor
+
+    def credito_pertenece_anio(credito):
+        fecha_credito = None
+
+        if hasattr(credito, 'fecha_credito') and credito.fecha_credito:
+            fecha_credito = fecha_solo_fecha(credito.fecha_credito)
+        elif hasattr(credito, 'fecha_creacion') and credito.fecha_creacion:
+            fecha_credito = fecha_solo_fecha(credito.fecha_creacion)
+        elif hasattr(credito, 'fecha_inicio') and credito.fecha_inicio:
+            fecha_credito = fecha_solo_fecha(credito.fecha_inicio)
+
+        if not fecha_credito:
+            return False
+
+        return fecha_credito.year == anio_seleccionado
+
     def cuota_aplica(cuota):
         credito = Credito.query.get(cuota.credito_id)
         if not credito:
@@ -1488,6 +1636,7 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
     pagos = Pago.query.all()
 
     creditos_filtrados = [c for c in creditos if credito_aplica(c)]
+    creditos_filtrados_anio = [c for c in creditos_filtrados if credito_pertenece_anio(c)]
     cuotas_filtradas = [c for c in cuotas if cuota_aplica(c)]
     pagos_filtrados = [p for p in pagos if pago_aplica(p)]
 
@@ -1507,7 +1656,7 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
         'diferencia_total': 0.0
     }
 
-    for credito in creditos_filtrados:
+    for credito in creditos_filtrados_anio:
         resumen_general['total_prestado'] += round(credito.monto_financiado or 0, 2)
         resumen_general['saldo_actual_total'] += round(credito.saldo_actual or 0, 2)
 
@@ -1598,7 +1747,7 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
         }
     }
 
-    for credito in creditos_filtrados:
+    for credito in creditos_filtrados_anio:
         sede = sede_normalizada(credito.sede)
         if sede not in mapa_sede:
             continue
@@ -2876,33 +3025,15 @@ def eliminar_credito(credito_id):
 
     credito = Credito.query.get_or_404(credito_id)
 
-    sede_actual = credito.sede
+    try:
+        db.session.delete(credito)
+        db.session.commit()
+        flash('Crédito eliminado correctamente.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al eliminar crédito: {str(e)}', 'error')
 
-    # Buscar cuotas del crédito
-    cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
-
-    # Eliminar pagos asociados a cada cuota
-    for cuota in cuotas:
-        pagos = Pago.query.filter_by(cuota_id=cuota.id).all()
-        for pago in pagos:
-            db.session.delete(pago)
-
-    # Eliminar cuotas
-    for cuota in cuotas:
-        db.session.delete(cuota)
-
-    # Eliminar crédito
-    db.session.delete(credito)
-    db.session.commit()
-
-    return redirect(f'/ver_creditos/{sede_actual}')
-
-def credito_esta_cancelado(credito):
-    cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
-    if not cuotas:
-        return False
-    return all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas)
-
+    return redirect(request.referrer or url_for('dashboard'))
 
 @app.route('/paz_y_salvo')
 def paz_y_salvo():
@@ -2936,6 +3067,48 @@ def paz_y_salvo():
         q=q
     )
 
+@app.route('/pagare_credito/<int:credito_id>')
+def pagare_credito(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    fecha_suscripcion = obtener_fecha_credito_real(credito)
+    fecha_inicial_pagos, fecha_vencimiento_final, dia_pago = obtener_primera_y_ultima_cuota(credito)
+
+    valor_pagare = credito.monto_financiado or 0
+    valor_pagare_letras = numero_a_letras_es(valor_pagare)
+
+    contexto = {
+        'credito': credito,
+        'lugar_suscripcion': 'Ibagué, Tolima',
+        'fecha_suscripcion': fecha_suscripcion,
+        'fecha_suscripcion_texto': fecha_a_ddmmyyyy(fecha_suscripcion),
+        'valor_pagare': valor_pagare,
+        'valor_pagare_letras': valor_pagare_letras,
+        'plazo_meses': credito.cuotas,
+        'dia_pago': dia_pago,
+        'fecha_inicial_pagos': fecha_inicial_pagos,
+        'fecha_vencimiento_final': fecha_vencimiento_final,
+        'fecha_inicial_pagos_texto': fecha_a_ddmmyyyy(fecha_inicial_pagos),
+        'fecha_vencimiento_final_texto': fecha_a_ddmmyyyy(fecha_vencimiento_final),
+        'fecha_carta_texto': formatear_fecha_larga(fecha_suscripcion),
+        'cuota_mensual': credito.cuota_mensual or 0,
+        'interes_mensual': credito.interes or 0,
+        'desde_creacion': request.args.get('desde') == 'crear'
+    }
+
+    return render_template('pagare_credito.html', **contexto)
+
+def credito_esta_cancelado(credito):
+    cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+
+    if not cuotas:
+        return False
+
+    return all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas)
+
 @app.route('/generar_paz_y_salvo/<int:credito_id>')
 def generar_paz_y_salvo(credito_id):
     if 'user' not in session:
@@ -2949,176 +3122,36 @@ def generar_paz_y_salvo(credito_id):
     fecha_hoy = date.today()
     fecha_credito = credito.fecha_creacion.date() if credito.fecha_creacion else fecha_hoy
 
-    monto_texto = numero_a_letras(credito.monto_financiado)
-    monto_numero = formato_cop(credito.monto_financiado)
+    monto_letras = numero_a_letras(credito.monto_financiado or 0)
+    monto_numero = formato_cop(credito.monto_financiado or 0)
 
-    output = BytesIO()
-    ancho, alto = letter
+    fecha_actual = fecha_documento_es(fecha_hoy)
+    fecha_credito_larga = fecha_documento_es(fecha_credito)
 
-    from reportlab.pdfgen import canvas
-    c = canvas.Canvas(output, pagesize=letter)
-
-    # Fondo blanco
-    c.setFillColor(colors.white)
-    c.rect(0, 0, ancho, alto, fill=1, stroke=0)
-
-    # Colores corporativos
-    negro = colors.HexColor("#0a0a0a")
-    dorado = colors.HexColor("#d3a130")
-    dorado_claro = colors.HexColor("#ead9a2")
-    gris_texto = colors.HexColor("#3a3a3a")
-
-    # Franja superior negra
-    c.setFillColor(negro)
-    c.rect(0, alto - 110, ancho, 110, fill=1, stroke=0)
-
-    # Curva blanca grande superior
-    c.setFillColor(colors.white)
-    c.circle(ancho * 0.28, alto - 50, 240, fill=1, stroke=0)
-
-    # Línea dorada superior
-    c.setStrokeColor(dorado)
-    c.setLineWidth(8)
-    c.bezier(0, alto - 40, 160, alto - 20, 430, alto - 80, ancho, alto - 35)
-
-    # Aro decorativo derecho
-    c.setStrokeColor(dorado_claro)
-    c.setLineWidth(14)
-    c.circle(ancho - 40, alto - 230, 75, fill=0, stroke=1)
-
-    # Aro decorativo izquierdo inferior
-    c.setStrokeColor(dorado_claro)
-    c.setLineWidth(12)
-    c.circle(30, 90, 55, fill=0, stroke=1)
-
-    # Franja inferior negra
-    c.setFillColor(negro)
-    c.rect(0, 0, ancho, 70, fill=1, stroke=0)
-
-    # Curva blanca inferior
-    c.setFillColor(colors.white)
-    c.circle(ancho * 0.48, 70, 250, fill=1, stroke=0)
-
-    # Línea dorada inferior
-    c.setStrokeColor(dorado)
-    c.setLineWidth(6)
-    c.bezier(150, 65, 260, 20, 430, 40, ancho, 55)
-
-    # Logo
-    logo_path = os.path.join(app.root_path, 'static', 'logo.png')
-    if os.path.exists(logo_path):
-        c.drawImage(logo_path, ancho - 150, alto - 95, width=105, height=60, mask='auto')
-
-    # Título
-    c.setFont("Helvetica-Bold", 18)
-    c.setFillColor(colors.black)
-    c.drawCentredString(ancho / 2, alto - 160, "PAZ Y SALVO")
-
-    # Texto principal
-    x = 45
-    y = alto - 210
-    ancho_texto = 520
-
-    c.setFillColor(colors.black)
-
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(x, y, "Fecha:")
-    c.setFont("Helvetica", 11)
-    c.drawString(x + 42, y, fecha_larga_es(fecha_hoy) + ".")
-
-    y -= 45
-
-    text = c.beginText(x, y)
-    text.setFont("Helvetica", 11)
-    text.setFillColor(gris_texto)
-    text.setLeading(22)
-
-    nombre_cliente = credito.cliente or ""
-    cedula = credito.cedula_cliente or "No registrada"
-    numero_pagare = credito.numero_pagare or "Sin asignar"
-    fecha_credito_txt = fecha_documento_es(fecha_credito)
-
-    parrafo_1 = (
-        "CRV- CONSTRUCCIONES Y URBANIZACIONES S.A.S, por medio del presente "
-        "documento certifica que el(la) sr(a) "
-        f"{nombre_cliente} "
-        "identificado(a) con número de cédula de ciudadanía "
-        f"{cedula} "
-        "ha realizado la cancelación total de la obligación que se relaciona a continuación:"
+    return render_template(
+        'paz_y_salvo_documento.html',
+        credito=credito,
+        fecha_actual=fecha_actual,
+        fecha_credito_larga=fecha_credito_larga,
+        monto_letras=monto_letras,
+        monto_numero=monto_numero
     )
 
-    parrafo_2 = (
-        f"Pagaré N° {numero_pagare} con fecha {fecha_credito_txt}."
-    )
+@app.route('/plan_pagos/<int:credito_id>')
+def plan_pagos_credito(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
 
-    parrafo_3 = (
-        "Dicha obligación esta relacionada con la compra de una bicicleta eléctrica a crédito "
-        f"por un valor de {monto_texto} M/CTE "
-        f"({monto_numero} moneda corriente legal colombiana ) "
-        f"el cual se firmo el día {fecha_credito_txt}. "
-        "De esta manera, el cliente se encuentra a PAZ Y SALVO con la obligación anteriormente mencionada."
-    )
+    credito = Credito.query.get_or_404(credito_id)
+    cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero.asc()).all()
 
-    def escribir_parrafo(text_obj, texto, negrita=False):
-        palabras = texto.split(" ")
-        linea = ""
-        for palabra in palabras:
-            prueba = linea + palabra + " "
-            if c.stringWidth(prueba, "Helvetica-Bold" if negrita else "Helvetica", 11) > ancho_texto:
-                text_obj.textLine(linea.rstrip())
-                linea = palabra + " "
-            else:
-                linea = prueba
-        if linea:
-            text_obj.textLine(linea.rstrip())
+    fecha_credito = credito.fecha_creacion.date() if credito.fecha_creacion else date.today()
 
-    # Primer párrafo
-    text.setFont("Helvetica", 11)
-    escribir_parrafo(text, parrafo_1)
-    text.textLine("")
-
-    # Segundo párrafo en negrita
-    text.setFont("Helvetica-Bold", 11)
-    escribir_parrafo(text, parrafo_2, negrita=True)
-    text.textLine("")
-
-    # Tercer párrafo
-    text.setFont("Helvetica", 11)
-    escribir_parrafo(text, parrafo_3)
-
-    c.drawText(text)
-
-    # Cierre
-    y_final = 145
-
-    c.setFont("Helvetica-Oblique", 11)
-    c.setFillColor(gris_texto)
-    c.drawString(x, y_final, "Cordialmente,")
-
-    c.setFont("Helvetica-Bold", 12)
-    c.setFillColor(colors.black)
-    c.drawString(x, y_final - 45, "CRV CONSTRUCCIONES Y URBANIZACIONES")
-
-    c.setFont("Helvetica", 11)
-    c.drawString(x, y_final - 68, "NIT: 901.527.083-2")
-
-    # Pie derecho
-    c.setFont("Helvetica-Bold", 11)
-    c.drawRightString(ancho - 30, 90, "CONSTRUCCIONES Y URBANIZACIONES S.A.S")
-    c.drawRightString(ancho - 30, 74, "Nit: 901.527.083-2")
-    c.drawRightString(ancho - 30, 58, "AV. Ambala n° 27-126 Piso 3")
-    c.drawRightString(ancho - 30, 42, "Ibagué - Tolima")
-    c.drawRightString(ancho - 30, 26, "Teléfono: 311 414 5843")
-
-    c.showPage()
-    c.save()
-
-    output.seek(0)
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name=f"paz_y_salvo_{credito.id}.pdf",
-        mimetype='application/pdf'
+    return render_template(
+        'plan_pagos.html',
+        credito=credito,
+        cuotas=cuotas,
+        fecha_credito=fecha_credito.strftime('%d/%m/%Y')
     )
 
 if __name__ == "__main__":

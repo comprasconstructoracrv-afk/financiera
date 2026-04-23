@@ -4,1282 +4,1341 @@
     <meta charset="UTF-8">
     <title>Reporte financiero</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-    * {
-        box-sizing: border-box;
-    }
-
-    body {
-        margin: 0;
-        font-family: Arial, sans-serif;
-        background: linear-gradient(135deg, #eef2f7, #dfe9f3);
-        padding: 30px;
-        color: #1f2937;
-    }
-
-    .contenedor {
-        max-width: 1550px;
-        margin: auto;
-    }
-
-    .encabezado {
-        background: white;
-        border-radius: 24px;
-        padding: 30px 35px;
-        box-shadow: 0 12px 30px rgba(0,0,0,0.08);
-        margin-bottom: 30px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 20px;
-        flex-wrap: wrap;
-    }
-
-    .encabezado-texto h1 {
-        margin: 0;
-        font-size: 42px;
-        color: #102a43;
-    }
-
-    .encabezado-texto p {
-        margin: 10px 0 0 0;
-        color: #52606d;
-        font-size: 16px;
-    }
-
-    .logo img {
-        max-height: 100px;
-        width: auto;
-        object-fit: contain;
-    }
-
-    .acciones {
-        margin-top: 18px;
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-
-    .btn {
-        display: inline-block;
-        padding: 11px 18px;
-        border-radius: 10px;
-        text-decoration: none;
-        color: white;
-        font-weight: bold;
-        font-size: 14px;
-    }
-
-    .btn-volver {
-        background: #6c757d;
-    }
-
-    .seccion {
-        background: white;
-        border-radius: 24px;
-        padding: 25px;
-        box-shadow: 0 12px 30px rgba(0,0,0,0.08);
-        margin-bottom: 30px;
-    }
-
-    .seccion h2 {
-        margin-top: 0;
-        margin-bottom: 22px;
-        font-size: 28px;
-        color: #102a43;
-    }
-
-    .grid-resumen {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 18px;
-    }
-
-    .card {
-        border-radius: 18px;
-        padding: 18px;
-        color: white;
-        min-height: 120px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-    }
-
-    .card .label {
-        font-size: 12px;
-        text-transform: uppercase;
-        margin-bottom: 10px;
-        opacity: 0.9;
-        letter-spacing: 0.5px;
-    }
-
-    .card .valor {
-        font-size: 28px;
-        font-weight: bold;
-        line-height: 1.2;
-    }
-
-    .card-1 { background: linear-gradient(135deg, #1677ff, #0d47a1); }
-    .card-2 { background: linear-gradient(135deg, #198754, #0f5132); }
-    .card-3 { background: linear-gradient(135deg, #f59e0b, #b45309); }
-    .card-4 { background: linear-gradient(135deg, #7c3aed, #4c1d95); }
-    .card-5 { background: linear-gradient(135deg, #0ea5e9, #075985); }
-    .card-6 { background: linear-gradient(135deg, #dc3545, #7f1d1d); }
-    .card-7 { background: linear-gradient(135deg, #14b8a6, #115e59); }
-
-    .grid-graficas {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 25px;
-    }
-
-    .grafica-box {
-        background: #f8fafc;
-        border: 1px solid #e5e7eb;
-        border-radius: 18px;
-        padding: 20px;
-    }
-
-    .grafica-box h3 {
-        margin-top: 0;
-        margin-bottom: 18px;
-        font-size: 20px;
-        color: #102a43;
-    }
-
-    .canvas-container {
-        position: relative;
-        width: 100%;
-        min-height: 420px;
-    }
-
-    .tabla-wrapper {
-        overflow-x: auto;
-        border-radius: 14px;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        min-width: 1100px;
-        background: white;
-    }
-
-    th, td {
-        padding: 12px 10px;
-        border-bottom: 1px solid #e5e7eb;
-        text-align: center;
-        font-size: 14px;
-    }
-
-    th {
-        background: #eaf2ff;
-        color: #102a43;
-        font-weight: bold;
-    }
-
-    tr:hover td {
-        background: #f8fbff;
-    }
-
-    .subtitulo-tabla {
-        margin-bottom: 15px;
-        color: #52606d;
-        font-size: 15px;
-    }
-
-    .barra-controles {
-        margin-top: 22px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 20px;
-        flex-wrap: wrap;
-    }
-
-    .form-filtros {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-    }
-
-    .form-filtros label {
-        font-weight: bold;
-        color: #374151;
-    }
-
-    .form-filtros select {
-        padding: 10px 12px;
-        border-radius: 10px;
-        border: 1px solid #d1d5db;
-        font-size: 14px;
-        background: white;
-    }
-
-    .acciones-reporte {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-
-    .btn {
-        display: inline-block;
-        padding: 11px 18px;
-        border-radius: 10px;
-        text-decoration: none;
-        color: white;
-        font-weight: bold;
-        font-size: 14px;
-        border: none;
-        cursor: pointer;
-        transition: 0.2s ease;
-    }
-
-    .btn:hover {
-        transform: translateY(-1px);
-        opacity: 0.95;
-    }
-
-    .btn-volver {
-        background: #6c757d;
-    }
-
-    .btn-consultar {
-        background: #4b5563;
-    }
-
-    .btn-excel {
-        background: #198754;
-    }
-
-    .btn-pdf {
-        background: #dc3545;
-    }
-
-    .acciones-reporte {
-        display: flex;
-        gap: 14px;
-        flex-wrap: wrap;
-    }
-
-    /* BOTÓN BASE */
-    .btn-premium {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 12px 18px;
-        border-radius: 12px;
-        font-weight: 600;
-        font-size: 14px;
-        text-decoration: none;
-        color: white;
-        transition: all 0.25s ease;
-     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-
-    /* EFECTO HOVER FINTECH */
-    .btn-premium:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-        opacity: 0.95;
-    }
-
-    /* BOTÓN INICIO (gris elegante) */
-    .btn-inicio {
-        background: linear-gradient(135deg, #6c757d, #495057);
-    }
-
-    /* BOTÓN EXCEL (verde moderno) */
-    .btn-excel {
-        background: linear-gradient(135deg, #198754, #157347);
-    }
-
-    /* BOTÓN PDF (rojo moderno) */
-    .btn-pdf {
-        background: linear-gradient(135deg, #dc3545, #b02a37);
-    }  
-    .btn-premium:active {
-        transform: scale(0.97);
-        box-shadow: 0 3px 8px rgba(0,0,0,0.1);
-    }
-
-    .spinner {
-        width: 16px;
-        height: 16px;
-        border: 2px solid rgba(255,255,255,0.3);
-        border-top: 2px solid white;
-        border-radius: 50%;
-        animation: spin 0.7s linear infinite;
-    }
-
-    @keyframes spin {
-        to {
-            transform: rotate(360deg);
+    <style>
+        * {
+            box-sizing: border-box;
         }
-    }
 
-    .btn-loading {
-        pointer-events: none;
-        opacity: 0.8;
-    }
-
-    .overlay-cargando {
-        position: fixed;
-        inset: 0;
-        background: rgba(15, 23, 42, 0.55);
-        backdrop-filter: blur(3px);
-        display: none;
-        justify-content: center;
-        align-items: center;
-        z-index: 9999;
-    }
-
-    .overlay-cargando.activo {
-        display: flex;
-    }
-
-    .overlay-contenido {
-        background: white;
-        padding: 32px 36px;
-        border-radius: 20px;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.22);
-        text-align: center;
-        min-width: 320px;
-        max-width: 420px;
-    }
-
-    .overlay-contenido h3 {
-        margin: 18px 0 8px 0;
-        font-size: 24px;
-        color: #102a43;
-    }
-
-    .overlay-contenido p {
-        margin: 0;
-        font-size: 15px;
-        color: #52606d;
-    }
-
-    .spinner-overlay {
-        width: 54px;
-        height: 54px;
-        margin: 0 auto;
-        border: 5px solid rgba(22, 119, 255, 0.18);
-        border-top: 5px solid #1677ff;
-        border-radius: 50%;
-        animation: girarOverlay 0.8s linear infinite;
-    }
-    .icono-svg {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .icono-svg svg {
-        width: 18px;
-        height: 18px;
-        flex-shrink: 0;
-    }
-
-    .btn-premium {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        padding: 12px 18px;
-        border-radius: 12px;
-        font-weight: 600;
-        font-size: 14px;
-        text-decoration: none;
-        color: white;
-        transition: all 0.25s ease;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-
-    @keyframes girarOverlay {
-        to {
-            transform: rotate(360deg);
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #eef2f7, #dfe9f3);
+            padding: 30px;
+            color: #1f2937;
         }
-    }
 
-    @media (max-width: 768px) {
+        .contenedor {
+            max-width: 1550px;
+            margin: auto;
+        }
+
         .encabezado {
-            justify-content: center;
-            text-align: center;
-        }
-
-        .acciones {
-            justify-content: center;
+            background: white;
+            border-radius: 24px;
+            padding: 30px 35px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
         }
 
         .encabezado-texto h1 {
-            font-size: 34px;
+            margin: 0;
+            font-size: 42px;
+            color: #102a43;
         }
-    }
 
-    .card-7 { background: linear-gradient(135deg, #334155, #0f172a); }
-</style>
+        .encabezado-texto p {
+            margin: 10px 0 0 0;
+            color: #52606d;
+            font-size: 16px;
+        }
+
+        .logo img {
+            max-height: 100px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .seccion {
+            background: white;
+            border-radius: 24px;
+            padding: 25px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+
+        .seccion h2 {
+            margin-top: 0;
+            margin-bottom: 22px;
+            font-size: 28px;
+            color: #102a43;
+        }
+
+        .subtitulo-tabla {
+            margin-bottom: 15px;
+            color: #52606d;
+            font-size: 15px;
+        }
+
+        .grid-resumen {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+            align-items: stretch;
+            margin-top: 10px;
+        }
+
+        .card {
+            border-radius: 18px;
+            padding: 18px;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        }
+
+        .card .label {
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            opacity: 0.9;
+            letter-spacing: 0.5px;
+        }
+
+        .card .valor {
+            font-size: 28px;
+            font-weight: bold;
+            line-height: 1.2;
+        }
+
+        .card-1 { background: linear-gradient(135deg, #1677ff, #0d47a1); }
+        .card-2 { background: linear-gradient(135deg, #198754, #0f5132); }
+        .card-3 { background: linear-gradient(135deg, #f59e0b, #b45309); }
+        .card-4 { background: linear-gradient(135deg, #7c3aed, #4c1d95); }
+        .card-5 { background: linear-gradient(135deg, #0ea5e9, #075985); }
+        .card-6 { background: linear-gradient(135deg, #dc3545, #7f1d1d); }
+        .card-7 { background: linear-gradient(135deg, #334155, #0f172a); }
+
+        .bloque-navegacion-resumen {
+            background: linear-gradient(135deg, #f8fbff, #eef5ff);
+            border: 1px solid #dbe7f5;
+            border-radius: 18px;
+            padding: 18px 20px;
+            margin: 0 0 22px 0;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+        }
+
+        .bloque-navegacion-resumen h3 {
+            margin: 0 0 14px 0;
+            font-size: 20px;
+            color: #102a43;
+            line-height: 1.2;
+        }
+
+        .nav-reporte {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .btn-nav-reporte {
+            background: white;
+            color: #102a43;
+            border: 1px solid #c9d7ea;
+            padding: 11px 18px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s ease;
+            box-shadow: 0 4px 10px rgba(16, 42, 67, 0.06);
+        }
+
+        .btn-nav-reporte:hover {
+            background: #eaf2ff;
+            transform: translateY(-1px);
+        }
+
+        .btn-nav-reporte.activo {
+            background: linear-gradient(135deg, #1677ff, #0d47a1);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 8px 18px rgba(22, 119, 255, 0.22);
+        }
+
+        .grid-graficas {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 25px;
+        }
+
+        .grafica-box {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 18px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .grafica-box h3 {
+            margin-top: 0;
+            margin-bottom: 18px;
+            font-size: 20px;
+            color: #102a43;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            min-height: 420px;
+        }
+
+        .tabla-wrapper {
+            overflow-x: auto;
+            border-radius: 14px;
+            margin-bottom: 24px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1100px;
+            background: white;
+        }
+
+        th, td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        th {
+            background: #eaf2ff;
+            color: #102a43;
+            font-weight: bold;
+        }
+
+        tr:hover td {
+            background: #f8fbff;
+        }
+
+        .barra-controles {
+            margin-top: 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .form-filtros {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .form-filtros label {
+            font-weight: bold;
+            color: #374151;
+        }
+
+        .form-filtros select {
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            font-size: 14px;
+            background: white;
+        }
+
+        .acciones-reporte {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 11px 18px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            border: none;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            opacity: 0.95;
+        }
+
+        .btn-consultar {
+            background: #4b5563;
+        }
+
+        .btn-premium {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 18px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            text-decoration: none;
+            color: white;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .btn-premium:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            opacity: 0.95;
+        }
+
+        .btn-inicio {
+            background: linear-gradient(135deg, #6c757d, #495057);
+        }
+
+        .btn-excel {
+            background: linear-gradient(135deg, #198754, #157347);
+        }
+
+        .btn-pdf {
+            background: linear-gradient(135deg, #dc3545, #b02a37);
+        }
+
+        .btn-premium:active {
+            transform: scale(0.97);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .btn-loading {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        .overlay-cargando {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(3px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .overlay-cargando.activo {
+            display: flex;
+        }
+
+        .overlay-contenido {
+            background: white;
+            padding: 32px 36px;
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.22);
+            text-align: center;
+            min-width: 320px;
+            max-width: 420px;
+        }
+
+        .overlay-contenido h3 {
+            margin: 18px 0 8px 0;
+            font-size: 24px;
+            color: #102a43;
+        }
+
+        .overlay-contenido p {
+            margin: 0;
+            font-size: 15px;
+            color: #52606d;
+        }
+
+        .spinner-overlay {
+            width: 54px;
+            height: 54px;
+            margin: 0 auto;
+            border: 5px solid rgba(22, 119, 255, 0.18);
+            border-top: 5px solid #1677ff;
+            border-radius: 50%;
+            animation: girarOverlay 0.8s linear infinite;
+        }
+
+        @keyframes girarOverlay {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .oculto {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .encabezado {
+                justify-content: center;
+                text-align: center;
+            }
+
+            .encabezado-texto h1 {
+                font-size: 34px;
+            }
+
+            .grid-resumen {
+                grid-template-columns: 1fr;
+            }
+
+            .bloque-navegacion-resumen {
+                min-height: auto;
+            }
+        }
+
+        .bloque-navegacion-resumen {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 18px;
+            padding: 22px;
+            margin-top: 22px;
+        }
+
+        tr.fila-total td {
+            font-weight: bold;
+            background: #f8fafc;
+        }
+
+        .cabecera-seccion {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .subtitulo-seccion {
+            margin: 8px 0 0 0;
+            color: #52606d;
+            font-size: 15px;
+        }
+
+        .form-filtro-seccion {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            background: #f8fafc;
+            border: 1px solid #dbe7f5;
+            border-radius: 16px;
+            padding: 14px 16px;
+        }
+
+        .form-filtro-seccion label {
+            font-weight: bold;
+            color: #374151;
+        }
+
+        .form-filtro-seccion select {
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            font-size: 14px;
+            background: white;
+        }
+
+        .texto-filtro-superior {
+            color: #52606d;
+            font-size: 14px;
+            font-weight: 600;
+        }
+    </style>
 </head>
 <body>
-    <div class="encabezado">
-    <div class="encabezado-texto">
-        <h1>Reporte financiero</h1>
-        <p>
-            Consolidado general, por sede y mensual -
-            Año {{ anio_seleccionado }} -
-            Sede {{ sede_seleccionada }}
-        </p>
+    <div class="contenedor">
 
-        <div class="barra-controles">
-            <form method="GET" class="form-filtros">
-                <label for="anio">Año:</label>
-                <select name="anio" id="anio">
-                    {% for anio in anios_disponibles %}
-                        <option value="{{ anio }}" {% if anio == anio_seleccionado %}selected{% endif %}>
-                            {{ anio }}
-                        </option>
-                    {% endfor %}
-                </select>
+        <div class="encabezado">
+            <div class="encabezado-texto">
+                <h1>Reporte financiero</h1>
+                <p>
+                    Consolidado anual general y reporte detallado de la financiera.
+                </p>
 
-                <label for="sede">Sede:</label>
-                <select name="sede" id="sede">
-                    {% for sede in sedes_disponibles %}
-                        <option value="{{ sede }}" {% if sede == sede_seleccionada %}selected{% endif %}>
-                            {{ sede }}
-                        </option>
-                    {% endfor %}
-                </select>
+                <div class="barra-controles">
+                    <div class="form-filtros">
+                        <span class="texto-filtro-superior">El año del resumen se selecciona en los módulos inferiores.</span>
+                    </div>
 
-                <button type="submit" class="btn btn-consultar">Consultar</button>
-            </form>
+                    <div class="acciones-reporte">
+                        <a href="/dashboard" class="btn-premium btn-inicio">
+                            <span>Inicio</span>
+                        </a>
 
-            <div class="acciones-reporte">
-    <a href="/dashboard" class="btn-premium btn-inicio">
-        <span class="icono-svg">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 11.5L12 4l9 7.5"></path>
-                <path d="M5 10.5V20h14v-9.5"></path>
-            </svg>
-        </span>
-        <span>Inicio</span>
-    </a>
+                        <a href="/reporte_financiero/excel?anio={{ anio_seleccionado }}"
+                           class="btn-premium btn-excel btn-exportar"
+                           data-tipo="excel"
+                           data-texto="Exportar Excel">
+                            <span>Exportar Excel</span>
+                        </a>
 
-    <a href="/reporte_financiero/excel?anio={{ anio_seleccionado }}&sede={{ sede_seleccionada }}"
-       class="btn-premium btn-excel btn-exportar"
-       data-tipo="excel">
-        <span class="icono-svg">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
-                <path d="M14 3v5h5"></path>
-                <path d="M9 10l6 8"></path>
-                <path d="M15 10l-6 8"></path>
-            </svg>
-        </span>
-        <span>Exportar Excel</span>
-    </a>
+                        <a href="/reporte_financiero/pdf?anio={{ anio_seleccionado }}"
+                           class="btn-premium btn-pdf btn-exportar"
+                           data-tipo="pdf"
+                           data-texto="Exportar PDF">
+                            <span>Exportar PDF</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
 
-    <a href="/reporte_financiero/pdf?anio={{ anio_seleccionado }}&sede={{ sede_seleccionada }}"
-       class="btn-premium btn-pdf btn-exportar"
-       data-tipo="pdf">
-        <span class="icono-svg">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
-                <path d="M14 3v5h5"></path>
-                <path d="M8 13h3"></path>
-                <path d="M8 17h8"></path>
-                <path d="M8 9h1"></path>
-            </svg>
-        </span>
-        <span>Exportar PDF</span>
-    </a>
-</div>
-        </div>
-    </div>
-
-    <div class="logo">
-        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
-    </div>
-</div>
-
-        <div class="seccion">
-    <h2>Resumen general</h2>
-
-    <div class="grid-resumen">
-        <div class="card card-1">
-            <div class="label">Total prestado</div>
-            <div class="valor">{{ resumen_general.total_prestado | cop }}</div>
-        </div>
-
-        <div class="card card-2">
-            <div class="label">Total recaudado</div>
-            <div class="valor">{{ resumen_general.total_recaudado | cop }}</div>
-        </div>
-
-        <div class="card card-3">
-            <div class="label">Saldo actual total</div>
-            <div class="valor">{{ resumen_general.saldo_actual_total | cop }}</div>
-        </div>
-
-        <div class="card card-4">
-            <div class="label">Interés corriente causado</div>
-            <div class="valor">{{ resumen_general.interes_corriente_causado | cop }}</div>
-        </div>
-
-        <div class="card card-5">
-            <div class="label">Interés corriente recaudado</div>
-            <div class="valor">{{ resumen_general.interes_corriente_recaudado | cop }}</div>
-        </div>
-
-        <div class="card card-6">
-            <div class="label">Mora causada</div>
-            <div class="valor">{{ resumen_general.mora_causada | cop }}</div>
-        </div>
-
-        <div class="card card-7">
-            <div class="label">Mora recaudada</div>
-            <div class="valor">{{ resumen_general.mora_recaudada | cop }}</div>
-        </div>
-    </div>
-</div>
-
-        <div class="seccion">
-    <h2>Gráficas financieras</h2>
-
-    <div class="grid-graficas">
-        <div class="grafica-box">
-            <h3>Distribución del saldo actual por sede</h3>
-            <div class="canvas-container">
-                <canvas id="graficaTortaSedes"></canvas>
+            <div class="logo">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
             </div>
         </div>
 
-        <div class="grafica-box">
-            <h3>Comparativo financiero por sede</h3>
-            <div class="canvas-container">
-                <canvas id="graficaBarrasSedes"></canvas>
+        <div class="seccion">
+            <div class="cabecera-seccion">
+                <div>
+                    <h2>Resumen general anual</h2>
+                    <p class="subtitulo-seccion">Consulta rápida del comportamiento anual consolidado de la financiera.</p>
+                </div>
+
+                <form method="GET" class="form-filtro-seccion">
+                    <label for="anio_resumen_general">Año:</label>
+                    <select name="anio" id="anio_resumen_general">
+                        {% for anio in anios_disponibles %}
+                            <option value="{{ anio }}" {% if anio == anio_seleccionado %}selected{% endif %}>{{ anio }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <button type="submit" class="btn btn-consultar">Ver resumen</button>
+                </form>
+            </div>
+
+            <div class="grid-resumen">
+                <div class="card card-1">
+                    <div class="label">Total prestado</div>
+                    <div class="valor">{{ resumen_general.total_prestado | cop }}</div>
+                </div>
+
+                <div class="card card-2">
+                    <div class="label">Total recaudado</div>
+                    <div class="valor">{{ resumen_general.total_recaudado | cop }}</div>
+                </div>
+
+                <div class="card card-3">
+                    <div class="label">Saldo actual total</div>
+                    <div class="valor">{{ resumen_general.saldo_actual_total | cop }}</div>
+                </div>
+
+                <div class="card card-4">
+                    <div class="label">Interés corriente causado</div>
+                    <div class="valor">{{ resumen_general.interes_corriente_causado | cop }}</div>
+                </div>
+
+                <div class="card card-5">
+                    <div class="label">Interés corriente recaudado</div>
+                    <div class="valor">{{ resumen_general.interes_corriente_recaudado | cop }}</div>
+                </div>
+
+                <div class="card card-6">
+                    <div class="label">Mora causada</div>
+                    <div class="valor">{{ resumen_general.mora_causada | cop }}</div>
+                </div>
+
+                <div class="card card-7">
+                    <div class="label">Mora recaudada</div>
+                    <div class="valor">{{ resumen_general.mora_recaudada | cop }}</div>
+                </div>
+
+                <div class="card card-3">
+                    <div class="label">Diferencia interés corriente</div>
+                    <div class="valor">{{ resumen_general.diferencia_interes_corriente | cop }}</div>
+                </div>
+
+                <div class="card card-6">
+                    <div class="label">Diferencia mora</div>
+                    <div class="valor">{{ resumen_general.diferencia_mora | cop }}</div>
+                </div>
+
+                <div class="card card-7">
+                    <div class="label">Diferencia total</div>
+                    <div class="valor">{{ resumen_general.diferencia_total | cop }}</div>
+                </div>
             </div>
         </div>
 
-        <div class="grafica-box">
-            <h3>Comparativo mensual {{ anio_seleccionado }}</h3>
-            <div class="canvas-container">
-                <canvas id="graficaBarrasMensuales"></canvas>
+        <div class="seccion">
+            <h2>Resumen detallado del reporte</h2>
+
+        <div class="seccion">
+            <div class="cabecera-seccion">
+                <div>
+                    <h2>Resumen detallado del reporte</h2>
+                    <p class="subtitulo-seccion">Consulta el detalle anual por sede, tablas y comparativos.</p>
+                </div>
+
+                <form method="GET" class="form-filtro-seccion">
+                    <label for="anio_resumen_detallado">Año:</label>
+                    <select name="anio" id="anio_resumen_detallado">
+                        {% for anio in anios_disponibles %}
+                            <option value="{{ anio }}" {% if anio == anio_seleccionado %}selected{% endif %}>{{ anio }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <button type="submit" class="btn btn-consultar">Ver detalle</button>
+                </form>
+            </div>
+
+            <div class="bloque-navegacion-resumen">
+                <h3>Reportes detallados</h3>
+                <div class="nav-reporte">
+                    <button class="btn-nav-reporte" onclick="mostrarSeccionReporte('seccionGraficas', this)">Gráficas</button>
+                    <button class="btn-nav-reporte" onclick="mostrarSeccionReporte('seccionSedes', this)">Resumen por sede</button>
+                    <button class="btn-nav-reporte" onclick="mostrarSeccionReporte('seccionMensual', this)">Resumen mensual</button>
+                    <button class="btn-nav-reporte" onclick="mostrarSeccionReporte('seccionTablas', this)">Tablas detalladas</button>
+                    <button class="btn-nav-reporte" onclick="mostrarSeccionReporte('seccionComparativos', this)">Comparativos</button>
+                </div>
+            </div>
+
+            <div class="grid-resumen">
+              
+            </div>
+
+        </div>
+
+        <div class="seccion seccion-reporte oculto" id="seccionGraficas">
+            <h2>Gráficas financieras</h2>
+
+            <div class="grid-graficas">
+                <div class="grafica-box">
+                    <h3>Distribución del saldo actual por sede</h3>
+                    <div class="canvas-container">
+                        <canvas id="graficaTortaSedes"></canvas>
+                    </div>
+                </div>
+
+                <div class="grafica-box">
+                    <h3>Comparativo financiero por sede</h3>
+                    <div class="canvas-container">
+                        <canvas id="graficaBarrasSedes"></canvas>
+                    </div>
+                </div>
+
+                <div class="grafica-box">
+                    <h3>Comparativo mensual {{ anio_seleccionado }}</h3>
+                    <div class="canvas-container">
+                        <canvas id="graficaBarrasMensuales"></canvas>
+                    </div>
+                </div>
+
+                <div class="grafica-box">
+                    <h3>Total prestado vs recaudado por sede</h3>
+                    <div class="canvas-container">
+                        <canvas id="graficaPrestadoRecaudadoSedes"></canvas>
+                    </div>
+                </div>
+
+                <div class="grafica-box">
+                    <h3>Diferencia de intereses corrientes por sede</h3>
+                    <div class="canvas-container">
+                        <canvas id="graficaDiferenciaInteresSedes"></canvas>
+                    </div>
+                </div>
+
+                <div class="grafica-box">
+                    <h3>Diferencia de mora por sede</h3>
+                    <div class="canvas-container">
+                        <canvas id="graficaDiferenciaMoraSedes"></canvas>
+                    </div>
+                </div>
+
+                <div class="grafica-box">
+                    <h3>Diferencia mensual: causado vs recaudado</h3>
+                    <div class="canvas-container">
+                        <canvas id="graficaDiferenciaMensual"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="grafica-box">
-        <h3>Total prestado vs recaudado por sede</h3>
-        <div class="canvas-container">
-            <canvas id="graficaPrestadoRecaudadoSedes"></canvas>
+        <div class="seccion seccion-reporte oculto" id="seccionSedes">
+            <h2>Resumen por sede</h2>
+            <div class="subtitulo-tabla">Vista consolidada de cartera, recaudo e intereses por cada sede.</div>
+
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sede</th>
+                            <th>Total prestado</th>
+                            <th>Total recaudado</th>
+                            <th>Saldo actual</th>
+                            <th>Interés corriente causado</th>
+                            <th>Interés corriente recaudado</th>
+                            <th>Mora causada</th>
+                            <th>Mora recaudada</th>
+                            <th>Diferencia interés</th>
+                            <th>Diferencia mora</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in resumen_por_sede %}
+                        <tr>
+                            <td><strong>{{ fila.sede }}</strong></td>
+                            <td>{{ fila.total_prestado | cop }}</td>
+                            <td>{{ fila.total_recaudado | cop }}</td>
+                            <td>{{ fila.saldo_actual | cop }}</td>
+                            <td>{{ fila.interes_corriente_causado | cop }}</td>
+                            <td>{{ fila.interes_corriente_recaudado | cop }}</td>
+                            <td>{{ fila.mora_causada | cop }}</td>
+                            <td>{{ fila.mora_recaudada | cop }}</td>
+                            <td>{{ fila.diferencia_interes_corriente | cop }}</td>
+                            <td>{{ fila.diferencia_mora | cop }}</td>
+                        </tr>
+                        {% endfor %}
+
+                        <tr>
+                            <td><strong>TOTALES</strong></td>
+                            <td><strong>{{ resumen_general.total_prestado | cop }}</strong></td>
+                            <td><strong>{{ resumen_general.total_recaudado | cop }}</strong></td>
+                            <td><strong>{{ resumen_general.saldo_actual_total | cop }}</strong></td>
+                            <td><strong>{{ resumen_general.interes_corriente_causado | cop }}</strong></td>
+                            <td><strong>{{ resumen_general.interes_corriente_recaudado | cop }}</strong></td>
+                            <td><strong>{{ resumen_general.mora_causada | cop }}</strong></td>
+                            <td><strong>{{ resumen_general.mora_recaudada | cop }}</strong></td>
+                            <td><strong>{{ resumen_general.diferencia_interes_corriente | cop }}</strong></td>
+                            <td><strong>{{ resumen_general.diferencia_mora | cop }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
 
-    <div class="grafica-box">
-        <h3>Diferencia de intereses corrientes por sede</h3>
-        <div class="canvas-container">
-            <canvas id="graficaDiferenciaInteresSedes"></canvas>
+        <div class="seccion seccion-reporte oculto" id="seccionMensual">
+            <h2>Resumen mensual {{ anio_seleccionado }}</h2>
+            <div class="subtitulo-tabla">Seguimiento mensual de intereses corrientes, mora e ingresos totales.</div>
+
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mes</th>
+                            <th>Interés corriente causado</th>
+                            <th>Interés corriente recaudado</th>
+                            <th>Mora causada</th>
+                            <th>Mora recaudada</th>
+                            <th>Diferencia interés</th>
+                            <th>Diferencia mora</th>
+                            <th>Total ingresos</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set total_interes_causado = namespace(valor=0) %}
+                        {% set total_interes_recaudado = namespace(valor=0) %}
+                        {% set total_mora_causada = namespace(valor=0) %}
+                        {% set total_mora_recaudada = namespace(valor=0) %}
+                        {% set total_diferencia_interes = namespace(valor=0) %}
+                        {% set total_diferencia_mora = namespace(valor=0) %}
+                        {% set total_ingresos = namespace(valor=0) %}
+
+                        {% for fila in resumen_mensual %}
+                        {% set total_interes_causado.valor = total_interes_causado.valor + fila.interes_corriente_causado %}
+                        {% set total_interes_recaudado.valor = total_interes_recaudado.valor + fila.interes_corriente_recaudado %}
+                        {% set total_mora_causada.valor = total_mora_causada.valor + fila.mora_causada %}
+                        {% set total_mora_recaudada.valor = total_mora_recaudada.valor + fila.mora_recaudada %}
+                        {% set total_diferencia_interes.valor = total_diferencia_interes.valor + fila.diferencia_interes_corriente %}
+                        {% set total_diferencia_mora.valor = total_diferencia_mora.valor + fila.diferencia_mora %}
+                        {% set total_ingresos.valor = total_ingresos.valor + fila.total_ingresos %}
+
+                        <tr>
+                            <td><strong>{{ fila.mes }}</strong></td>
+                            <td>{{ fila.interes_corriente_causado | cop }}</td>
+                            <td>{{ fila.interes_corriente_recaudado | cop }}</td>
+                            <td>{{ fila.mora_causada | cop }}</td>
+                            <td>{{ fila.mora_recaudada | cop }}</td>
+                            <td>{{ fila.diferencia_interes_corriente | cop }}</td>
+                            <td>{{ fila.diferencia_mora | cop }}</td>
+                            <td>{{ fila.total_ingresos | cop }}</td>
+                        </tr>
+                        {% endfor %}
+
+                        <tr>
+                            <td><strong>TOTALES</strong></td>
+                            <td><strong>{{ total_interes_causado.valor | cop }}</strong></td>
+                            <td><strong>{{ total_interes_recaudado.valor | cop }}</strong></td>
+                            <td><strong>{{ total_mora_causada.valor | cop }}</strong></td>
+                            <td><strong>{{ total_mora_recaudada.valor | cop }}</strong></td>
+                            <td><strong>{{ total_diferencia_interes.valor | cop }}</strong></td>
+                            <td><strong>{{ total_diferencia_mora.valor | cop }}</strong></td>
+                            <td><strong>{{ total_ingresos.valor | cop }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
 
-    <div class="grafica-box">
-        <h3>Diferencia de mora por sede</h3>
-        <div class="canvas-container">
-            <canvas id="graficaDiferenciaMoraSedes"></canvas>
+        <div class="seccion seccion-reporte oculto" id="seccionTablas">
+            <h2>Tablas detalladas del reporte</h2>
+            <div class="subtitulo-tabla">Consulta detallada de intereses corrientes, mora y diferencias por mes y sede.</div>
+
+            <h3>Intereses corrientes causados</h3>
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>MES</th>
+                            <th>IBAGUE</th>
+                            <th>GIRARDOT</th>
+                            <th>ESPINAL</th>
+                            <th>CRV</th>
+                            <th>TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in tabla_intereses_causados %}
+                        <tr>
+                            <td><strong>{{ fila.mes }}</strong></td>
+                            <td>{{ fila.IBAGUE | cop }}</td>
+                            <td>{{ fila.GIRARDOT | cop }}</td>
+                            <td>{{ fila.ESPINAL | cop }}</td>
+                            <td>{{ fila.CRV | cop }}</td>
+                            <td><strong>{{ fila.TOTAL | cop }}</strong></td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td><strong>TOTALES</strong></td>
+                            <td><strong>{{ totales_intereses_causados.IBAGUE | cop }}</strong></td>
+                            <td><strong>{{ totales_intereses_causados.GIRARDOT | cop }}</strong></td>
+                            <td><strong>{{ totales_intereses_causados.ESPINAL | cop }}</strong></td>
+                            <td><strong>{{ totales_intereses_causados.CRV | cop }}</strong></td>
+                            <td><strong>{{ totales_intereses_causados.TOTAL | cop }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Intereses corrientes recaudados</h3>
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>MES</th>
+                            <th>IBAGUE</th>
+                            <th>GIRARDOT</th>
+                            <th>ESPINAL</th>
+                            <th>CRV</th>
+                            <th>TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in tabla_intereses_recaudados %}
+                        <tr>
+                            <td><strong>{{ fila.mes }}</strong></td>
+                            <td>{{ fila.IBAGUE | cop }}</td>
+                            <td>{{ fila.GIRARDOT | cop }}</td>
+                            <td>{{ fila.ESPINAL | cop }}</td>
+                            <td>{{ fila.CRV | cop }}</td>
+                            <td><strong>{{ fila.TOTAL | cop }}</strong></td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td><strong>TOTALES</strong></td>
+                            <td><strong>{{ totales_intereses_recaudados.IBAGUE | cop }}</strong></td>
+                            <td><strong>{{ totales_intereses_recaudados.GIRARDOT | cop }}</strong></td>
+                            <td><strong>{{ totales_intereses_recaudados.ESPINAL | cop }}</strong></td>
+                            <td><strong>{{ totales_intereses_recaudados.CRV | cop }}</strong></td>
+                            <td><strong>{{ totales_intereses_recaudados.TOTAL | cop }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Diferencia de intereses corrientes</h3>
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>MES</th>
+                            <th>IBAGUE</th>
+                            <th>GIRARDOT</th>
+                            <th>ESPINAL</th>
+                            <th>CRV</th>
+                            <th>TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in tabla_diferencia_intereses %}
+                        <tr>
+                            <td><strong>{{ fila.mes }}</strong></td>
+                            <td>{{ fila.IBAGUE | cop }}</td>
+                            <td>{{ fila.GIRARDOT | cop }}</td>
+                            <td>{{ fila.ESPINAL | cop }}</td>
+                            <td>{{ fila.CRV | cop }}</td>
+                            <td><strong>{{ fila.TOTAL | cop }}</strong></td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td><strong>TOTALES</strong></td>
+                            <td><strong>{{ totales_diferencia_intereses.IBAGUE | cop }}</strong></td>
+                            <td><strong>{{ totales_diferencia_intereses.GIRARDOT | cop }}</strong></td>
+                            <td><strong>{{ totales_diferencia_intereses.ESPINAL | cop }}</strong></td>
+                            <td><strong>{{ totales_diferencia_intereses.CRV | cop }}</strong></td>
+                            <td><strong>{{ totales_diferencia_intereses.TOTAL | cop }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Mora causada</h3>
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>MES</th>
+                            <th>IBAGUE</th>
+                            <th>GIRARDOT</th>
+                            <th>ESPINAL</th>
+                            <th>CRV</th>
+                            <th>TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in tabla_mora_causada %}
+                        <tr>
+                            <td><strong>{{ fila.mes }}</strong></td>
+                            <td>{{ fila.IBAGUE | cop }}</td>
+                            <td>{{ fila.GIRARDOT | cop }}</td>
+                            <td>{{ fila.ESPINAL | cop }}</td>
+                            <td>{{ fila.CRV | cop }}</td>
+                            <td><strong>{{ fila.TOTAL | cop }}</strong></td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td><strong>TOTALES</strong></td>
+                            <td><strong>{{ totales_mora_causada.IBAGUE | cop }}</strong></td>
+                            <td><strong>{{ totales_mora_causada.GIRARDOT | cop }}</strong></td>
+                            <td><strong>{{ totales_mora_causada.ESPINAL | cop }}</strong></td>
+                            <td><strong>{{ totales_mora_causada.CRV | cop }}</strong></td>
+                            <td><strong>{{ totales_mora_causada.TOTAL | cop }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Mora recaudada</h3>
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>MES</th>
+                            <th>IBAGUE</th>
+                            <th>GIRARDOT</th>
+                            <th>ESPINAL</th>
+                            <th>CRV</th>
+                            <th>TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in tabla_mora_recaudada %}
+                        <tr>
+                            <td><strong>{{ fila.mes }}</strong></td>
+                            <td>{{ fila.IBAGUE | cop }}</td>
+                            <td>{{ fila.GIRARDOT | cop }}</td>
+                            <td>{{ fila.ESPINAL | cop }}</td>
+                            <td>{{ fila.CRV | cop }}</td>
+                            <td><strong>{{ fila.TOTAL | cop }}</strong></td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td><strong>TOTALES</strong></td>
+                            <td><strong>{{ totales_mora_recaudada.IBAGUE | cop }}</strong></td>
+                            <td><strong>{{ totales_mora_recaudada.GIRARDOT | cop }}</strong></td>
+                            <td><strong>{{ totales_mora_recaudada.ESPINAL | cop }}</strong></td>
+                            <td><strong>{{ totales_mora_recaudada.CRV | cop }}</strong></td>
+                            <td><strong>{{ totales_mora_recaudada.TOTAL | cop }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Diferencia de mora</h3>
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>MES</th>
+                            <th>IBAGUE</th>
+                            <th>GIRARDOT</th>
+                            <th>ESPINAL</th>
+                            <th>CRV</th>
+                            <th>TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in tabla_diferencia_mora %}
+                        <tr>
+                            <td><strong>{{ fila.mes }}</strong></td>
+                            <td>{{ fila.IBAGUE | cop }}</td>
+                            <td>{{ fila.GIRARDOT | cop }}</td>
+                            <td>{{ fila.ESPINAL | cop }}</td>
+                            <td>{{ fila.CRV | cop }}</td>
+                            <td><strong>{{ fila.TOTAL | cop }}</strong></td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td><strong>TOTALES</strong></td>
+                            <td><strong>{{ totales_diferencia_mora.IBAGUE | cop }}</strong></td>
+                            <td><strong>{{ totales_diferencia_mora.GIRARDOT | cop }}</strong></td>
+                            <td><strong>{{ totales_diferencia_mora.ESPINAL | cop }}</strong></td>
+                            <td><strong>{{ totales_diferencia_mora.CRV | cop }}</strong></td>
+                            <td><strong>{{ totales_diferencia_mora.TOTAL | cop }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
 
-    <div class="grafica-box">
-        <h3>Diferencia mensual: causado vs recaudado</h3>
-        <div class="canvas-container">
-            <canvas id="graficaDiferenciaMensual"></canvas>
+        <div class="seccion seccion-reporte oculto" id="seccionComparativos">
+            <h2>Comparativos y saldos</h2>
+
+            <h3>Saldos de la financiera</h3>
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>RAZÓN SOCIAL</th>
+                            <th>TOTAL PRÉSTAMO</th>
+                            <th>LO PAGADO</th>
+                            <th>LO QUE DEBEN</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in resumen_por_sede %}
+                        <tr>
+                            <td><strong>{{ fila.sede }}</strong></td>
+                            <td>{{ fila.total_prestado | cop }}</td>
+                            <td>{{ fila.total_recaudado | cop }}</td>
+                            <td>{{ fila.saldo_actual | cop }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td><strong>TOTALES</strong></td>
+                            <td><strong>{{ resumen_general.total_prestado | cop }}</strong></td>
+                            <td><strong>{{ resumen_general.total_recaudado | cop }}</strong></td>
+                            <td><strong>{{ resumen_general.saldo_actual_total | cop }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Comparativo intereses</h3>
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>RAZÓN SOCIAL</th>
+                            <th>CAUSADOS</th>
+                            <th>RECAUDADO</th>
+                            <th>TOTAL DIFERENCIA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in resumen_por_sede %}
+                        <tr>
+                            <td><strong>{{ fila.sede }}</strong></td>
+                            <td>{{ fila.interes_corriente_causado | cop }}</td>
+                            <td>{{ fila.interes_corriente_recaudado | cop }}</td>
+                            <td>{{ fila.diferencia_interes_corriente | cop }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td><strong>TOTALES</strong></td>
+                            <td><strong>{{ resumen_general.interes_corriente_causado | cop }}</strong></td>
+                            <td><strong>{{ resumen_general.interes_corriente_recaudado | cop }}</strong></td>
+                            <td><strong>{{ resumen_general.diferencia_interes_corriente | cop }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Comparativo mora</h3>
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>RAZÓN SOCIAL</th>
+                            <th>CAUSADA</th>
+                            <th>RECAUDADA</th>
+                            <th>TOTAL DIFERENCIA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in resumen_por_sede %}
+                        <tr>
+                            <td><strong>{{ fila.sede }}</strong></td>
+                            <td>{{ fila.mora_causada | cop }}</td>
+                            <td>{{ fila.mora_recaudada | cop }}</td>
+                            <td>{{ fila.diferencia_mora | cop }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td><strong>TOTALES</strong></td>
+                            <td><strong>{{ resumen_general.mora_causada | cop }}</strong></td>
+                            <td><strong>{{ resumen_general.mora_recaudada | cop }}</strong></td>
+                            <td><strong>{{ resumen_general.diferencia_mora | cop }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
-
-</div>
-
-        <div class="card card-3">
-            <div class="label">Diferencia interés corriente</div>
-            <div class="valor">{{ resumen_general.diferencia_interes_corriente | cop }}</div>
-        </div>
-
-        <div class="card card-6">
-            <div class="label">Diferencia mora</div>
-            <div class="valor">{{ resumen_general.diferencia_mora | cop }}</div>
-        </div>
-
-        <div class="card card-7">
-            <div class="label">Diferencia total</div>
-            <div class="valor">{{ resumen_general.diferencia_total | cop }}</div>
-        </div>
-
-        <div class="seccion">
-    <h2>Resumen por sede</h2>
-    <div class="subtitulo-tabla">Vista consolidada de cartera, recaudo e intereses por cada sede.</div>
-
-    <div class="tabla-wrapper">
-        <table>
-            <thead>
-                <tr>
-                    <th>Sede</th>
-                    <th>Total prestado</th>
-                    <th>Total recaudado</th>
-                    <th>Saldo actual</th>
-                    <th>Interés corriente causado</th>
-                    <th>Interés corriente recaudado</th>
-                    <th>Mora causada</th>
-                    <th>Mora recaudada</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for fila in resumen_por_sede %}
-                <tr>
-                    <td><strong>{{ fila.sede }}</strong></td>
-                    <td>{{ fila.total_prestado | cop }}</td>
-                    <td>{{ fila.total_recaudado | cop }}</td>
-                    <td>{{ fila.saldo_actual | cop }}</td>
-                    <td>{{ fila.interes_corriente_causado | cop }}</td>
-                    <td>{{ fila.interes_corriente_recaudado | cop }}</td>
-                    <td>{{ fila.mora_causada | cop }}</td>
-                    <td>{{ fila.mora_recaudada | cop }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-        <div class="seccion">
-    <h2>Resumen mensual {{ anio_seleccionado }}</h2>
-    <div class="subtitulo-tabla">Seguimiento mensual de intereses corrientes, mora e ingresos totales.</div>
-
-    <div class="tabla-wrapper">
-        <table>
-            <thead>
-                <tr>
-                    <th>Mes</th>
-                    <th>Interés corriente causado</th>
-                    <th>Interés corriente recaudado</th>
-                    <th>Mora causada</th>
-                    <th>Mora recaudada</th>
-                    <th>Total ingresos</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for fila in resumen_mensual %}
-                <tr>
-                    <td><strong>{{ fila.mes }}</strong></td>
-                    <td>{{ fila.interes_corriente_causado | cop }}</td>
-                    <td>{{ fila.interes_corriente_recaudado | cop }}</td>
-                    <td>{{ fila.mora_causada | cop }}</td>
-                    <td>{{ fila.mora_recaudada | cop }}</td>
-                    <td>{{ fila.total_ingresos | cop }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <div class="seccion">
-        <h2>Intereses corrientes causados en el {{ anio_seleccionado }}</h2>
-        <div class="tabla-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>MES</th>
-                        <th>IBAGUE</th>
-                        <th>GIRARDOT</th>
-                        <th>ESPINAL</th>
-                        <th>CRV</th>
-                        <th>TOTAL</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for fila in tabla_intereses_causados %}
-                    <tr>
-                        <td><strong>{{ fila.mes }}</strong></td>
-                        <td>{{ fila.IBAGUE | cop }}</td>
-                        <td>{{ fila.GIRARDOT | cop }}</td>
-                        <td>{{ fila.ESPINAL | cop }}</td>
-                        <td>{{ fila.CRV | cop }}</td>
-                        <td><strong>{{ fila.TOTAL | cop }}</strong></td>
-                    </tr>
-                    {% endfor %}
-                    <tr>
-                        <td><strong>TOTALES</strong></td>
-                        <td><strong>{{ totales_intereses_causados.IBAGUE | cop }}</strong></td>
-                        <td><strong>{{ totales_intereses_causados.GIRARDOT | cop }}</strong></td>
-                        <td><strong>{{ totales_intereses_causados.ESPINAL | cop }}</strong></td>
-                        <td><strong>{{ totales_intereses_causados.CRV | cop }}</strong></td>
-                        <td><strong>{{ totales_intereses_causados.TOTAL | cop }}</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="seccion">
-        <h2>Intereses corrientes recaudados en el {{ anio_seleccionado }}</h2>
-        <div class="tabla-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>MES</th>
-                        <th>IBAGUE</th>
-                        <th>GIRARDOT</th>
-                        <th>ESPINAL</th>
-                        <th>CRV</th>
-                        <th>TOTAL</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for fila in tabla_intereses_recaudados %}
-                    <tr>
-                        <td><strong>{{ fila.mes }}</strong></td>
-                        <td>{{ fila.IBAGUE | cop }}</td>
-                        <td>{{ fila.GIRARDOT | cop }}</td>
-                        <td>{{ fila.ESPINAL | cop }}</td>
-                        <td>{{ fila.CRV | cop }}</td>
-                        <td><strong>{{ fila.TOTAL | cop }}</strong></td>
-                    </tr>
-                    {% endfor %}
-                    <tr>
-                        <td><strong>TOTALES</strong></td>
-                        <td><strong>{{ totales_intereses_recaudados.IBAGUE | cop }}</strong></td>
-                        <td><strong>{{ totales_intereses_recaudados.GIRARDOT | cop }}</strong></td>
-                        <td><strong>{{ totales_intereses_recaudados.ESPINAL | cop }}</strong></td>
-                        <td><strong>{{ totales_intereses_recaudados.CRV | cop }}</strong></td>
-                        <td><strong>{{ totales_intereses_recaudados.TOTAL | cop }}</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="seccion">
-        <h2>Diferencia de intereses corrientes</h2>
-        <div class="tabla-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>MES</th>
-                        <th>IBAGUE</th>
-                        <th>GIRARDOT</th>
-                        <th>ESPINAL</th>
-                        <th>CRV</th>
-                        <th>TOTAL</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for fila in tabla_diferencia_intereses %}
-                    <tr>
-                        <td><strong>{{ fila.mes }}</strong></td>
-                        <td>{{ fila.IBAGUE | cop }}</td>
-                        <td>{{ fila.GIRARDOT | cop }}</td>
-                        <td>{{ fila.ESPINAL | cop }}</td>
-                        <td>{{ fila.CRV | cop }}</td>
-                        <td><strong>{{ fila.TOTAL | cop }}</strong></td>
-                    </tr>
-                    {% endfor %}
-                    <tr>
-                        <td><strong>TOTALES</strong></td>
-                        <td><strong>{{ totales_diferencia_intereses.IBAGUE | cop }}</strong></td>
-                        <td><strong>{{ totales_diferencia_intereses.GIRARDOT | cop }}</strong></td>
-                        <td><strong>{{ totales_diferencia_intereses.ESPINAL | cop }}</strong></td>
-                        <td><strong>{{ totales_diferencia_intereses.CRV | cop }}</strong></td>
-                        <td><strong>{{ totales_diferencia_intereses.TOTAL | cop }}</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="seccion">
-        <h2>Mora causada en el {{ anio_seleccionado }}</h2>
-        <div class="tabla-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>MES</th>
-                        <th>IBAGUE</th>
-                        <th>GIRARDOT</th>
-                        <th>ESPINAL</th>
-                        <th>CRV</th>
-                        <th>TOTAL</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for fila in tabla_mora_causada %}
-                    <tr>
-                        <td><strong>{{ fila.mes }}</strong></td>
-                        <td>{{ fila.IBAGUE | cop }}</td>
-                        <td>{{ fila.GIRARDOT | cop }}</td>
-                        <td>{{ fila.ESPINAL | cop }}</td>
-                        <td>{{ fila.CRV | cop }}</td>
-                        <td><strong>{{ fila.TOTAL | cop }}</strong></td>
-                    </tr>
-                    {% endfor %}
-                    <tr>
-                        <td><strong>TOTALES</strong></td>
-                        <td><strong>{{ totales_mora_causada.IBAGUE | cop }}</strong></td>
-                        <td><strong>{{ totales_mora_causada.GIRARDOT | cop }}</strong></td>
-                        <td><strong>{{ totales_mora_causada.ESPINAL | cop }}</strong></td>
-                        <td><strong>{{ totales_mora_causada.CRV | cop }}</strong></td>
-                        <td><strong>{{ totales_mora_causada.TOTAL | cop }}</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="seccion">
-        <h2>Mora recaudada en el {{ anio_seleccionado }}</h2>
-        <div class="tabla-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>MES</th>
-                        <th>IBAGUE</th>
-                        <th>GIRARDOT</th>
-                        <th>ESPINAL</th>
-                        <th>CRV</th>
-                        <th>TOTAL</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for fila in tabla_mora_recaudada %}
-                    <tr>
-                        <td><strong>{{ fila.mes }}</strong></td>
-                        <td>{{ fila.IBAGUE | cop }}</td>
-                        <td>{{ fila.GIRARDOT | cop }}</td>
-                        <td>{{ fila.ESPINAL | cop }}</td>
-                        <td>{{ fila.CRV | cop }}</td>
-                        <td><strong>{{ fila.TOTAL | cop }}</strong></td>
-                    </tr>
-                    {% endfor %}
-                    <tr>
-                        <td><strong>TOTALES</strong></td>
-                        <td><strong>{{ totales_mora_recaudada.IBAGUE | cop }}</strong></td>
-                        <td><strong>{{ totales_mora_recaudada.GIRARDOT | cop }}</strong></td>
-                        <td><strong>{{ totales_mora_recaudada.ESPINAL | cop }}</strong></td>
-                        <td><strong>{{ totales_mora_recaudada.CRV | cop }}</strong></td>
-                        <td><strong>{{ totales_mora_recaudada.TOTAL | cop }}</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="seccion">
-        <h2>Diferencia de mora</h2>
-        <div class="tabla-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>MES</th>
-                        <th>IBAGUE</th>
-                        <th>GIRARDOT</th>
-                        <th>ESPINAL</th>
-                        <th>CRV</th>
-                        <th>TOTAL</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for fila in tabla_diferencia_mora %}
-                    <tr>
-                        <td><strong>{{ fila.mes }}</strong></td>
-                        <td>{{ fila.IBAGUE | cop }}</td>
-                        <td>{{ fila.GIRARDOT | cop }}</td>
-                        <td>{{ fila.ESPINAL | cop }}</td>
-                        <td>{{ fila.CRV | cop }}</td>
-                        <td><strong>{{ fila.TOTAL | cop }}</strong></td>
-                    </tr>
-                    {% endfor %}
-                    <tr>
-                        <td><strong>TOTALES</strong></td>
-                        <td><strong>{{ totales_diferencia_mora.IBAGUE | cop }}</strong></td>
-                        <td><strong>{{ totales_diferencia_mora.GIRARDOT | cop }}</strong></td>
-                        <td><strong>{{ totales_diferencia_mora.ESPINAL | cop }}</strong></td>
-                        <td><strong>{{ totales_diferencia_mora.CRV | cop }}</strong></td>
-                        <td><strong>{{ totales_diferencia_mora.TOTAL | cop }}</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="seccion">
-        <h2>Saldos de la financiera</h2>
-        <div class="tabla-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>RAZÓN SOCIAL</th>
-                        <th>TOTAL PRÉSTAMO</th>
-                        <th>LO PAGADO</th>
-                        <th>LO QUE DEBEN</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for fila in resumen_por_sede %}
-                    <tr>
-                        <td><strong>{{ fila.sede }}</strong></td>
-                        <td>{{ fila.total_prestado | cop }}</td>
-                        <td>{{ fila.total_recaudado | cop }}</td>
-                        <td>{{ fila.saldo_actual | cop }}</td>
-                    </tr>
-                    {% endfor %}
-                    <tr>
-                        <td><strong>TOTALES</strong></td>
-                        <td><strong>{{ resumen_general.total_prestado | cop }}</strong></td>
-                        <td><strong>{{ resumen_general.total_recaudado | cop }}</strong></td>
-                        <td><strong>{{ resumen_general.saldo_actual_total | cop }}</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="seccion">
-        <h2>Comparativo intereses</h2>
-        <div class="tabla-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>RAZÓN SOCIAL</th>
-                        <th>CAUSADOS</th>
-                        <th>RECAUDADO</th>
-                        <th>TOTAL DIFERENCIA</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for fila in resumen_por_sede %}
-                    <tr>
-                        <td><strong>{{ fila.sede }}</strong></td>
-                        <td>{{ fila.interes_corriente_causado | cop }}</td>
-                        <td>{{ fila.interes_corriente_recaudado | cop }}</td>
-                        <td>{{ fila.diferencia_interes_corriente | cop }}</td>
-                    </tr>
-                    {% endfor %}
-                    <tr>
-                        <td><strong>TOTALES</strong></td>
-                        <td><strong>{{ resumen_general.interes_corriente_causado | cop }}</strong></td>
-                        <td><strong>{{ resumen_general.interes_corriente_recaudado | cop }}</strong></td>
-                        <td><strong>{{ resumen_general.diferencia_interes_corriente | cop }}</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="seccion">
-        <h2>Comparativo mora</h2>
-        <div class="tabla-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>RAZÓN SOCIAL</th>
-                        <th>CAUSADA</th>
-                        <th>RECAUDADA</th>
-                        <th>TOTAL DIFERENCIA</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for fila in resumen_por_sede %}
-                    <tr>
-                        <td><strong>{{ fila.sede }}</strong></td>
-                        <td>{{ fila.mora_causada | cop }}</td>
-                        <td>{{ fila.mora_recaudada | cop }}</td>
-                        <td>{{ fila.diferencia_mora | cop }}</td>
-                    </tr>
-                    {% endfor %}
-                    <tr>
-                        <td><strong>TOTALES</strong></td>
-                        <td><strong>{{ resumen_general.mora_causada | cop }}</strong></td>
-                        <td><strong>{{ resumen_general.mora_recaudada | cop }}</strong></td>
-                        <td><strong>{{ resumen_general.diferencia_mora | cop }}</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    
-</div>
 
     </div>
+
     <script>
-    const labelsSedes = {{ labels_sedes | tojson }};
-    const saldoActualSedes = {{ saldo_actual_sedes | tojson }};
-    const interesCausadoSedes = {{ interes_causado_sedes | tojson }};
-    const interesRecaudadoSedes = {{ interes_recaudado_sedes | tojson }};
-    const moraCausadaSedes = {{ mora_causada_sedes | tojson }};
-    const moraRecaudadaSedes = {{ mora_recaudada_sedes | tojson }};
+        const labelsSedes = {{ labels_sedes | tojson }};
+        const saldoActualSedes = {{ saldo_actual_sedes | tojson }};
+        const interesCausadoSedes = {{ interes_causado_sedes | tojson }};
+        const interesRecaudadoSedes = {{ interes_recaudado_sedes | tojson }};
+        const moraCausadaSedes = {{ mora_causada_sedes | tojson }};
+        const moraRecaudadaSedes = {{ mora_recaudada_sedes | tojson }};
+        const totalPrestadoSedes = {{ total_prestado_sedes | tojson }};
+        const totalRecaudadoSedes = {{ total_recaudado_sedes | tojson }};
+        const diferenciaInteresSedes = {{ diferencia_interes_sedes | tojson }};
+        const diferenciaMoraSedes = {{ diferencia_mora_sedes | tojson }};
 
-    const labelsMeses = {{ labels_meses | tojson }};
-    const interesCausadoMeses = {{ interes_causado_meses | tojson }};
-    const interesRecaudadoMeses = {{ interes_recaudado_meses | tojson }};
-    const moraCausadaMeses = {{ mora_causada_meses | tojson }};
-    const moraRecaudadaMeses = {{ mora_recaudada_meses | tojson }};
+        const labelsMeses = {{ labels_meses | tojson }};
+        const interesCausadoMeses = {{ interes_causado_meses | tojson }};
+        const interesRecaudadoMeses = {{ interes_recaudado_meses | tojson }};
+        const moraCausadaMeses = {{ mora_causada_meses | tojson }};
+        const moraRecaudadaMeses = {{ mora_recaudada_meses | tojson }};
 
-    new Chart(document.getElementById('graficaTortaSedes'), {
-        type: 'pie',
-        data: {
-            labels: labelsSedes,
-            datasets: [{
-                data: saldoActualSedes,
-                backgroundColor: [
-                    '#1677ff',
-                    '#198754',
-                    '#dc3545',
-                    '#f59e0b'
+        new Chart(document.getElementById('graficaTortaSedes'), {
+            type: 'pie',
+            data: {
+                labels: labelsSedes,
+                datasets: [{
+                    data: saldoActualSedes,
+                    backgroundColor: ['#1677ff', '#198754', '#dc3545', '#f59e0b']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('graficaBarrasSedes'), {
+            type: 'bar',
+            data: {
+                labels: labelsSedes,
+                datasets: [
+                    { label: 'Interés causado', data: interesCausadoSedes, backgroundColor: '#1677ff' },
+                    { label: 'Interés recaudado', data: interesRecaudadoSedes, backgroundColor: '#198754' },
+                    { label: 'Mora causada', data: moraCausadaSedes, backgroundColor: '#dc3545' },
+                    { label: 'Mora recaudada', data: moraRecaudadaSedes, backgroundColor: '#f59e0b' }
                 ]
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom'
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                },
+                scales: {
+                    y: { beginAtZero: true }
                 }
+            }
+        });
+
+        new Chart(document.getElementById('graficaBarrasMensuales'), {
+            type: 'bar',
+            data: {
+                labels: labelsMeses,
+                datasets: [
+                    { label: 'Interés causado', data: interesCausadoMeses, backgroundColor: '#1677ff' },
+                    { label: 'Interés recaudado', data: interesRecaudadoMeses, backgroundColor: '#198754' },
+                    { label: 'Mora causada', data: moraCausadaMeses, backgroundColor: '#dc3545' },
+                    { label: 'Mora recaudada', data: moraRecaudadaMeses, backgroundColor: '#f59e0b' }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('graficaPrestadoRecaudadoSedes'), {
+            type: 'bar',
+            data: {
+                labels: labelsSedes,
+                datasets: [
+                    {
+                        label: 'Total prestado',
+                        data: totalPrestadoSedes,
+                        backgroundColor: '#2563eb'
+                    },
+                    {
+                        label: 'Total recaudado',
+                        data: totalRecaudadoSedes,
+                        backgroundColor: '#16a34a'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        new Chart(document.getElementById('graficaDiferenciaInteresSedes'), {
+            type: 'bar',
+            data: {
+                labels: labelsSedes,
+                datasets: [{
+                    label: 'Diferencia interés corriente',
+                    data: diferenciaInteresSedes,
+                    backgroundColor: '#dc2626'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        new Chart(document.getElementById('graficaDiferenciaMoraSedes'), {
+            type: 'bar',
+            data: {
+                labels: labelsSedes,
+                datasets: [{
+                    label: 'Diferencia mora',
+                    data: diferenciaMoraSedes,
+                    backgroundColor: '#7c3aed'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        new Chart(document.getElementById('graficaDiferenciaMensual'), {
+            type: 'bar',
+            data: {
+                labels: labelsMeses,
+                datasets: [
+                    {
+                        label: 'Interés causado',
+                        data: interesCausadoMeses,
+                        backgroundColor: '#8b5cf6'
+                    },
+                    {
+                        label: 'Interés recaudado',
+                        data: interesRecaudadoMeses,
+                        backgroundColor: '#0ea5e9'
+                    },
+                    {
+                        label: 'Mora causada',
+                        data: moraCausadaMeses,
+                        backgroundColor: '#ef4444'
+                    },
+                    {
+                        label: 'Mora recaudada',
+                        data: moraRecaudadaMeses,
+                        backgroundColor: '#14b8a6'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        document.querySelectorAll('.btn-exportar').forEach(btn => {
+            btn.addEventListener('click', function () {
+                if (this.classList.contains('btn-loading')) return;
+
+                this.classList.add('btn-loading');
+
+                const textoOriginal = this.getAttribute('data-texto');
+                this.innerHTML = `<div class="spinner"></div>Generando...`;
+
+                setTimeout(() => {
+                    this.innerHTML = textoOriginal;
+                    this.classList.remove('btn-loading');
+                }, 5000);
+            });
+        });
+
+        document.querySelectorAll('.btn-exportar').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const overlay = document.getElementById('overlay-cargando');
+                const titulo = document.getElementById('overlay-titulo');
+                const texto = document.getElementById('overlay-texto');
+                const tipo = this.dataset.tipo;
+
+                if (tipo === 'excel') {
+                    titulo.textContent = 'Generando archivo Excel...';
+                    texto.textContent = 'Estamos preparando el consolidado para descarga.';
+                } else {
+                    titulo.textContent = 'Generando archivo PDF...';
+                    texto.textContent = 'Estamos armando el reporte en formato PDF.';
+                }
+
+                overlay.classList.add('activo');
+
+                setTimeout(() => {
+                    overlay.classList.remove('activo');
+                }, 6000);
+            });
+        });
+
+        function mostrarSeccionReporte(idSeccion, boton) {
+            const secciones = document.querySelectorAll('.seccion-reporte');
+            const botones = document.querySelectorAll('.btn-nav-reporte');
+            const objetivo = document.getElementById(idSeccion);
+            const yaVisible = !objetivo.classList.contains('oculto');
+
+            secciones.forEach(sec => sec.classList.add('oculto'));
+            botones.forEach(btn => btn.classList.remove('activo'));
+
+            if (!yaVisible) {
+                objetivo.classList.remove('oculto');
+                boton.classList.add('activo');
             }
         }
-    });
+    </script>
 
-    new Chart(document.getElementById('graficaBarrasSedes'), {
-        type: 'bar',
-        data: {
-            labels: labelsSedes,
-            datasets: [
-                {
-                    label: 'Interés causado',
-                    data: interesCausadoSedes,
-                    backgroundColor: '#1677ff'
-                },
-                {
-                    label: 'Interés recaudado',
-                    data: interesRecaudadoSedes,
-                    backgroundColor: '#198754'
-                },
-                {
-                    label: 'Mora causada',
-                    data: moraCausadaSedes,
-                    backgroundColor: '#dc3545'
-                },
-                {
-                    label: 'Mora recaudada',
-                    data: moraRecaudadaSedes,
-                    backgroundColor: '#f59e0b'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
-
-    new Chart(document.getElementById('graficaBarrasMensuales'), {
-        type: 'bar',
-        data: {
-            labels: labelsMeses,
-            datasets: [
-                {
-                    label: 'Interés causado',
-                    data: interesCausadoMeses,
-                    backgroundColor: '#1677ff'
-                },
-                {
-                    label: 'Interés recaudado',
-                    data: interesRecaudadoMeses,
-                    backgroundColor: '#198754'
-                },
-                {
-                    label: 'Mora causada',
-                    data: moraCausadaMeses,
-                    backgroundColor: '#dc3545'
-                },
-                {
-                    label: 'Mora recaudada',
-                    data: moraRecaudadaMeses,
-                    backgroundColor: '#f59e0b'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
-</script>
-<script>
-document.querySelectorAll('.btn-exportar').forEach(btn => {
-    btn.addEventListener('click', function () {
-
-        // Evitar múltiples clics
-        if (this.classList.contains('btn-loading')) return;
-
-        this.classList.add('btn-loading');
-
-        const textoOriginal = this.getAttribute('data-texto');
-
-        // Reemplaza contenido con spinner + texto
-        this.innerHTML = `
-            <div class="spinner"></div>
-            Generando...
-        `;
-
-        // Opcional: restaurar texto después de unos segundos
-        setTimeout(() => {
-            this.innerHTML = textoOriginal;
-            this.classList.remove('btn-loading');
-        }, 5000);
-    });
-});
-</script>
-<script>
-document.querySelectorAll('.btn-exportar').forEach(btn => {
-    btn.addEventListener('click', function () {
-        const overlay = document.getElementById('overlay-cargando');
-        const titulo = document.getElementById('overlay-titulo');
-        const texto = document.getElementById('overlay-texto');
-        const tipo = this.dataset.tipo;
-
-        if (tipo === 'excel') {
-            titulo.textContent = 'Generando archivo Excel...';
-            texto.textContent = 'Estamos preparando el consolidado para descarga.';
-        } else {
-            titulo.textContent = 'Generando archivo PDF...';
-            texto.textContent = 'Estamos armando el reporte en formato PDF.';
-        }
-
-        overlay.classList.add('activo');
-
-        // Seguridad visual por si la descarga tarda o el navegador bloquea la navegación visual
-        setTimeout(() => {
-            overlay.classList.remove('activo');
-        }, 6000);
-    });
-});
-</script>
-<script>
-new Chart(document.getElementById('graficaPrestadoRecaudadoSedes'), {
-    type: 'bar',
-    data: {
-        labels: {{ labels_sedes | tojson }},
-        datasets: [
-            {
-                label: 'Total prestado',
-                data: {{ total_prestado_sedes | tojson }},
-                backgroundColor: '#2563eb'
-            },
-            {
-                label: 'Total recaudado',
-                data: {{ total_recaudado_sedes | tojson }},
-                backgroundColor: '#16a34a'
-            }
-        ]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false
-    }
-});
-
-new Chart(document.getElementById('graficaDiferenciaInteresSedes'), {
-    type: 'bar',
-    data: {
-        labels: {{ labels_sedes | tojson }},
-        datasets: [{
-            label: 'Diferencia interés corriente',
-            data: {{ diferencia_interes_sedes | tojson }},
-            backgroundColor: '#dc2626'
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false
-    }
-});
-
-new Chart(document.getElementById('graficaDiferenciaMoraSedes'), {
-    type: 'bar',
-    data: {
-        labels: {{ labels_sedes | tojson }},
-        datasets: [{
-            label: 'Diferencia mora',
-            data: {{ diferencia_mora_sedes | tojson }},
-            backgroundColor: '#7c3aed'
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false
-    }
-});
-
-new Chart(document.getElementById('graficaDiferenciaMensual'), {
-    type: 'bar',
-    data: {
-        labels: {{ labels_meses | tojson }},
-        datasets: [
-            {
-                label: 'Interés causado',
-                data: {{ interes_causado_meses | tojson }},
-                backgroundColor: '#8b5cf6'
-            },
-            {
-                label: 'Interés recaudado',
-                data: {{ interes_recaudado_meses | tojson }},
-                backgroundColor: '#0ea5e9'
-            },
-            {
-                label: 'Mora causada',
-                data: {{ mora_causada_meses | tojson }},
-                backgroundColor: '#ef4444'
-            },
-            {
-                label: 'Mora recaudada',
-                data: {{ mora_recaudada_meses | tojson }},
-                backgroundColor: '#14b8a6'
-            }
-        ]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false
-    }
-});
-</script>
-<div id="overlay-cargando" class="overlay-cargando">
-    <div class="overlay-contenido">
-        <div class="spinner-overlay"></div>
-        <h3 id="overlay-titulo">Generando reporte...</h3>
-        <p id="overlay-texto">Por favor espera un momento.</p>
+    <div id="overlay-cargando" class="overlay-cargando">
+        <div class="overlay-contenido">
+            <div class="spinner-overlay"></div>
+            <h3 id="overlay-titulo">Generando reporte...</h3>
+            <p id="overlay-texto">Por favor espera un momento.</p>
+        </div>
     </div>
-</div>
 </body>
 </html>

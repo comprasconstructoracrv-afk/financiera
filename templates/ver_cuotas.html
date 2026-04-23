@@ -582,6 +582,51 @@
         transform: translateY(-2px);
         box-shadow: 0 12px 22px rgba(29, 78, 216, 0.3);
     }
+
+    .btn-plan {
+        background: linear-gradient(135deg, #0ea5e9, #075985);
+        color: white;
+        text-decoration: none;
+        padding: 12px 18px;
+        border-radius: 12px;
+        font-weight: bold;
+        display: inline-block;
+        box-shadow: 0 8px 18px rgba(14, 165, 233, 0.22);
+        transition: 0.2s ease;
+    }
+
+    .btn-plan:hover {
+        transform: translateY(-1px);
+        opacity: 0.95;
+    }
+
+    .btn-modern {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 20px;
+        border-radius: 14px;
+        border: none;
+        font-size: 14px;
+        font-weight: 600;
+        color: white;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+    }
+
+    .btn-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 18px rgba(0,0,0,0.2);
+    }
+
+    .btn-gray { background: linear-gradient(135deg, #6c757d, #495057); }
+    .btn-red { background: linear-gradient(135deg, #e53935, #b71c1c); }
+    .btn-blue { background: linear-gradient(135deg, #3b82f6, #1e3a8a); }
+    .btn-green { background: linear-gradient(135deg, #16a34a, #166534); }
+    .btn-cyan { background: linear-gradient(135deg, #06b6d4, #0e7490); }
+
 </style>
 </head>
 <body>
@@ -619,6 +664,10 @@
 
             <a href="/abono_capital/{{ credito.id }}" class="btn-accion btn-abono">
                 Abono a capital
+            </a>
+
+            <a href="{{ url_for('plan_pagos_credito', credito_id=credito.id) }}" target="_blank" class="btn-accion btn-plan">
+                Imprimir plan de pagos
             </a>
 
         </div>

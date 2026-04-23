@@ -52,8 +52,22 @@
             width: auto;
         }
 
+        .barra-controles {
+            margin-top: 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .texto-filtro-superior {
+            color: #52606d;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
         .acciones {
-            margin-top: 18px;
             display: flex;
             gap: 12px;
             flex-wrap: wrap;
@@ -67,7 +81,19 @@
             color: white;
             font-weight: bold;
             font-size: 14px;
+            border: none;
+            cursor: pointer;
+            transition: 0.2s ease;
             background: #6c757d;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            opacity: 0.95;
+        }
+
+        .btn-consultar {
+            background: #4b5563;
         }
 
         .seccion {
@@ -85,10 +111,50 @@
             color: #102a43;
         }
 
+        .subtitulo-seccion {
+            margin: 8px 0 0 0;
+            color: #52606d;
+            font-size: 15px;
+        }
+
+        .cabecera-seccion {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .form-filtro-seccion {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            background: #f8fafc;
+            border: 1px solid #dbe7f5;
+            border-radius: 16px;
+            padding: 14px 16px;
+        }
+
+        .form-filtro-seccion label {
+            font-weight: bold;
+            color: #374151;
+        }
+
+        .form-filtro-seccion select {
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            font-size: 14px;
+            background: white;
+        }
+
         .grid-kpis {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 18px;
+            align-items: stretch;
         }
 
         .card-kpi {
@@ -123,6 +189,53 @@
         .k6 { background: linear-gradient(135deg, #7c3aed, #4c1d95); }
         .k7 { background: linear-gradient(135deg, #14b8a6, #115e59); }
 
+        .bloque-navegacion-resumen {
+            background: linear-gradient(135deg, #f8fbff, #eef5ff);
+            border: 1px solid #dbe7f5;
+            border-radius: 18px;
+            padding: 18px 20px;
+            margin: 0 0 22px 0;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+        }
+
+        .bloque-navegacion-resumen h3 {
+            margin: 0 0 14px 0;
+            font-size: 20px;
+            color: #102a43;
+            line-height: 1.2;
+        }
+
+        .nav-reporte {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .btn-nav-reporte {
+            background: white;
+            color: #102a43;
+            border: 1px solid #c9d7ea;
+            padding: 11px 18px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s ease;
+            box-shadow: 0 4px 10px rgba(16, 42, 67, 0.06);
+        }
+
+        .btn-nav-reporte:hover {
+            background: #eaf2ff;
+            transform: translateY(-1px);
+        }
+
+        .btn-nav-reporte.activo {
+            background: linear-gradient(135deg, #1677ff, #0d47a1);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 8px 18px rgba(22, 119, 255, 0.22);
+        }
+
         .grid-graficas {
             display: grid;
             grid-template-columns: 1fr;
@@ -134,6 +247,7 @@
             border: 1px solid #e5e7eb;
             border-radius: 18px;
             padding: 20px;
+            margin-bottom: 20px;
         }
 
         .grafica-box h3 {
@@ -152,6 +266,7 @@
         .tabla-wrapper {
             overflow-x: auto;
             border-radius: 14px;
+            margin-bottom: 24px;
         }
 
         table {
@@ -177,6 +292,36 @@
         tr:hover td {
             background: #f8fbff;
         }
+
+        .fila-total td {
+            font-weight: bold;
+            background: #f8fafc;
+        }
+
+        .subtitulo-tabla {
+            margin-bottom: 15px;
+            color: #52606d;
+            font-size: 15px;
+        }
+
+        .oculto {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .encabezado {
+                justify-content: center;
+                text-align: center;
+            }
+
+            .encabezado h1 {
+                font-size: 34px;
+            }
+
+            .grid-kpis {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -186,38 +331,17 @@
             <div>
                 <h1>Dashboard gerencial</h1>
                 <p>
-                   Métricas de cartera y recaudo -
-                   {{ meses_disponibles[mes_seleccionado] }} {{ anio_seleccionado }} -
-                   Sede {{ sede_seleccionada }}
+                    Indicadores anuales y reporte detallado mensual de la cartera.
                 </p>
 
-                <form method="GET" style="margin-top:18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-    <label for="anio" style="font-weight:bold; color:#374151;">Año:</label>
-    <select name="anio" id="anio" style="padding:10px 12px; border-radius:10px; border:1px solid #d1d5db; font-size:14px;">
-        {% for anio in anios_disponibles %}
-            <option value="{{ anio }}" {% if anio == anio_seleccionado %}selected{% endif %}>{{ anio }}</option>
-        {% endfor %}
-    </select>
+                <div class="barra-controles">
+                    <div class="texto-filtro-superior">
+                        El resumen anual y el detalle se consultan en los módulos inferiores.
+                    </div>
 
-    <label for="mes" style="font-weight:bold; color:#374151;">Mes:</label>
-    <select name="mes" id="mes" style="padding:10px 12px; border-radius:10px; border:1px solid #d1d5db; font-size:14px;">
-        {% for numero_mes, nombre_mes in meses_disponibles.items() %}
-            <option value="{{ numero_mes }}" {% if numero_mes == mes_seleccionado %}selected{% endif %}>{{ nombre_mes }}</option>
-        {% endfor %}
-    </select>
-
-    <label for="sede" style="font-weight:bold; color:#374151;">Sede:</label>
-    <select name="sede" id="sede" style="padding:10px 12px; border-radius:10px; border:1px solid #d1d5db; font-size:14px;">
-        {% for sede in sedes_disponibles %}
-            <option value="{{ sede }}" {% if sede == sede_seleccionada %}selected{% endif %}>{{ sede }}</option>
-        {% endfor %}
-    </select>
-
-    <button type="submit" class="btn" style="border:none; cursor:pointer;">Consultar</button>
-</form>
-
-                <div class="acciones">
-                    <a href="/dashboard" class="btn">Inicio</a>
+                    <div class="acciones">
+                        <a href="/dashboard" class="btn">Inicio</a>
+                    </div>
                 </div>
             </div>
 
@@ -227,7 +351,23 @@
         </div>
 
         <div class="seccion">
-            <h2>KPIs principales</h2>
+            <div class="cabecera-seccion">
+                <div>
+                    <h2>KPIs principales anuales</h2>
+                    <p class="subtitulo-seccion">Vista ejecutiva del comportamiento anual consolidado.</p>
+                </div>
+
+                <form method="GET" class="form-filtro-seccion">
+                    <label for="anio_kpi">Año:</label>
+                    <select name="anio" id="anio_kpi">
+                        {% for anio in anios_disponibles %}
+                            <option value="{{ anio }}" {% if anio == anio_seleccionado %}selected{% endif %}>{{ anio }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <button type="submit" class="btn btn-consultar">Ver resumen</button>
+                </form>
+            </div>
 
             <div class="grid-kpis">
                 <div class="card-kpi k1">
@@ -268,6 +408,42 @@
         </div>
 
         <div class="seccion">
+            <div class="cabecera-seccion">
+                <div>
+                    <h2>Resumen detallado del dashboard</h2>
+                    <p class="subtitulo-seccion">Consulta el detalle por mes, por sede, gráficas y tablas gerenciales.</p>
+                </div>
+
+                <form method="GET" class="form-filtro-seccion">
+                    <label for="anio_detalle">Año:</label>
+                    <select name="anio" id="anio_detalle">
+                        {% for anio in anios_disponibles %}
+                            <option value="{{ anio }}" {% if anio == anio_seleccionado %}selected{% endif %}>{{ anio }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <label for="mes_detalle">Mes:</label>
+                    <select name="mes" id="mes_detalle">
+                        {% for numero_mes, nombre_mes in meses_disponibles.items() %}
+                            <option value="{{ numero_mes }}" {% if numero_mes == mes_seleccionado %}selected{% endif %}>{{ nombre_mes }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <button type="submit" class="btn btn-consultar">Ver detalle</button>
+                </form>
+            </div>
+
+            <div class="bloque-navegacion-resumen">
+                <h3>Reportes detallados</h3>
+                <div class="nav-reporte">
+                    <button class="btn-nav-reporte" onclick="mostrarSeccionDashboard('seccionGraficas', this)">Gráficas</button>
+                    <button class="btn-nav-reporte" onclick="mostrarSeccionDashboard('seccionSedes', this)">Resumen por sede</button>
+                    <button class="btn-nav-reporte" onclick="mostrarSeccionDashboard('seccionComparativos', this)">Comparativos</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="seccion seccion-dashboard oculto" id="seccionGraficas">
             <h2>Gráficas gerenciales</h2>
 
             <div class="grid-graficas">
@@ -294,8 +470,9 @@
             </div>
         </div>
 
-        <div class="seccion">
+        <div class="seccion seccion-dashboard oculto" id="seccionSedes">
             <h2>Resumen por sede</h2>
+            <div class="subtitulo-tabla">Vista consolidada de cartera, recaudo y estado de créditos por cada sede.</div>
 
             <div class="tabla-wrapper">
                 <table>
@@ -322,6 +499,61 @@
                             <td>{{ fila.cancelados }}</td>
                         </tr>
                         {% endfor %}
+                        <tr class="fila-total">
+                            <td><strong>TOTALES</strong></td>
+                            <td><strong>{{ kpis.cartera_activa + kpis.creditos_cancelados }}</strong></td>
+                            <td><strong>{{ kpis.saldo_total | cop }}</strong></td>
+                            <td><strong>{{ kpis.recaudo_mes | cop }}</strong></td>
+                            <td><strong>{{ kpis.creditos_en_mora }}</strong></td>
+                            <td><strong>{{ kpis.creditos_al_dia }}</strong></td>
+                            <td><strong>{{ kpis.creditos_cancelados }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="seccion seccion-dashboard oculto" id="seccionComparativos">
+            <h2>Comparativos gerenciales</h2>
+
+            <h3>Resumen consolidado</h3>
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Indicador</th>
+                            <th>Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Cartera activa</strong></td>
+                            <td>{{ kpis.cartera_activa }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Saldo total por cobrar</strong></td>
+                            <td>{{ kpis.saldo_total | cop }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Recaudo del mes</strong></td>
+                            <td>{{ kpis.recaudo_mes | cop }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Créditos en mora</strong></td>
+                            <td>{{ kpis.creditos_en_mora }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Créditos al día</strong></td>
+                            <td>{{ kpis.creditos_al_dia }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Créditos cancelados</strong></td>
+                            <td>{{ kpis.creditos_cancelados }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Mora acumulada</strong></td>
+                            <td>{{ kpis.mora_acumulada | cop }}</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -414,6 +646,21 @@
                 }
             }
         });
+
+        function mostrarSeccionDashboard(idSeccion, boton) {
+            const secciones = document.querySelectorAll('.seccion-dashboard');
+            const botones = document.querySelectorAll('.btn-nav-reporte');
+            const objetivo = document.getElementById(idSeccion);
+            const yaVisible = !objetivo.classList.contains('oculto');
+
+            secciones.forEach(sec => sec.classList.add('oculto'));
+            botones.forEach(btn => btn.classList.remove('activo'));
+
+            if (!yaVisible) {
+                objetivo.classList.remove('oculto');
+                boton.classList.add('activo');
+            }
+        }
     </script>
 </body>
 </html>

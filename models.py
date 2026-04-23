@@ -43,6 +43,7 @@ class Credito(db.Model):
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
     fecha_liquidacion = db.Column(db.DateTime, nullable=True)
     valor_liquidado = db.Column(db.Float, nullable=True)
+    cuotas_rel = db.relationship('Cuota', backref='credito', cascade='all, delete-orphan', lazy=True)
     
 
 # CUOTAS
@@ -65,6 +66,7 @@ class Cuota(db.Model):
     dias_mora_historico = db.Column(db.Integer, default=0)
     interes_mora_historico = db.Column(db.Float, default=0)
     estado = db.Column(db.String(20), default='PENDIENTE')
+    pagos_rel = db.relationship('Pago', backref='cuota', cascade='all, delete-orphan', lazy=True)
 
 # PAGOS
 class Pago(db.Model):

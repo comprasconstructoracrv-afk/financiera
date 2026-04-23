@@ -4,81 +4,201 @@
     <meta charset="UTF-8">
     <title>Crear Crédito</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
+            margin: 0;
             font-family: Arial, sans-serif;
-            background: #f4f6f9;
+            background: linear-gradient(135deg, #eef2f7, #dfe9f3);
             padding: 30px;
+            color: #1f2937;
         }
 
         .contenedor {
-            max-width: 750px;
+            max-width: 1100px;
             margin: auto;
+        }
+
+        .panel-principal {
             background: white;
-            padding: 30px;
+            border-radius: 24px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+
+        .encabezado-formulario {
+            padding: 30px 35px 20px 35px;
+            border-bottom: 1px solid #e5e7eb;
+            background: linear-gradient(135deg, #f8fbff, #eef5ff);
+        }
+
+        .encabezado-formulario h1 {
+            margin: 0;
+            font-size: 42px;
+            color: #102a43;
+        }
+
+        .encabezado-formulario p {
+            margin: 10px 0 0 0;
+            color: #52606d;
+            font-size: 16px;
+        }
+
+        .contenido-formulario {
+            padding: 30px 35px 35px 35px;
+        }
+
+        .alertas {
+            margin-bottom: 22px;
+        }
+
+        .alerta {
+            padding: 14px 16px;
             border-radius: 12px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.08);
+            margin-bottom: 12px;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
         }
 
-        h1 {
-            margin-bottom: 25px;
+        .alerta-success {
+            background: linear-gradient(135deg, #198754, #157347);
         }
 
-        h2 {
-            margin-top: 30px;
-            margin-bottom: 15px;
-            font-size: 20px;
+        .alerta-error {
+            background: linear-gradient(135deg, #dc3545, #b02a37);
+        }
+
+        .seccion-formulario {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 20px;
+            padding: 22px;
+            margin-bottom: 24px;
+        }
+
+        .seccion-formulario h2 {
+            margin: 0 0 18px 0;
+            font-size: 24px;
             color: #0d6efd;
-            border-bottom: 1px solid #dee2e6;
-            padding-bottom: 8px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #dbe2ea;
+        }
+
+        .grid-formulario {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px 20px;
+        }
+
+        .campo {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .campo-completo {
+            grid-column: 1 / -1;
         }
 
         label {
             font-weight: bold;
-            display: block;
-            margin-top: 15px;
-            margin-bottom: 6px;
+            margin-bottom: 7px;
+            color: #243b53;
         }
 
         input, select {
             width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            box-sizing: border-box;
+            padding: 12px 14px;
+            border: 1px solid #cfd8e3;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+            transition: 0.2s ease;
+            outline: none;
+        }
+
+        input:focus, select:focus {
+            border-color: #1677ff;
+            box-shadow: 0 0 0 4px rgba(22, 119, 255, 0.12);
+        }
+
+        .bloque-codeudor {
+            display: none;
+            margin-top: 16px;
+            padding: 18px;
+            background: white;
+            border-radius: 16px;
+            border: 1px solid #dbe2ea;
+        }
+
+        .bloque-codeudor.activo {
+            display: block;
         }
 
         .botones {
-            margin-top: 25px;
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-top: 8px;
         }
 
-        button, a {
-            display: inline-block;
-            padding: 10px 16px;
-            border-radius: 8px;
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 22px;
+            border-radius: 12px;
             text-decoration: none;
             border: none;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 15px;
+            font-weight: bold;
+            transition: 0.2s ease;
         }
 
-        button {
-            background: #007bff;
+        .btn:hover {
+            transform: translateY(-1px);
+            opacity: 0.96;
+        }
+
+        .btn-crear {
+            background: linear-gradient(135deg, #1677ff, #0d47a1);
             color: white;
+            box-shadow: 0 8px 18px rgba(22, 119, 255, 0.22);
         }
 
-        a {
-            background: #6c757d;
+        .btn-volver {
+            background: linear-gradient(135deg, #6c757d, #495057);
             color: white;
-            margin-left: 10px;
+            box-shadow: 0 8px 18px rgba(108, 117, 125, 0.18);
         }
 
-        #bloque_codeudor {
-            display: none;
-            margin-top: 10px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            border: 1px solid #dee2e6;
+        .texto-ayuda {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 6px;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 18px;
+            }
+
+            .encabezado-formulario h1 {
+                font-size: 34px;
+            }
+
+            .contenido-formulario,
+            .encabezado-formulario {
+                padding-left: 20px;
+                padding-right: 20px;
+            }
+
+            .grid-formulario {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 
@@ -116,9 +236,9 @@
             const bloque = document.getElementById('bloque_codeudor');
 
             if (selector.value === 'SI') {
-                bloque.style.display = 'block';
+                bloque.classList.add('activo');
             } else {
-                bloque.style.display = 'none';
+                bloque.classList.remove('activo');
             }
         }
 
@@ -160,107 +280,163 @@
 </head>
 <body>
     <div class="contenedor">
-        <h1>Crear Crédito</h1>
+        <div class="panel-principal">
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            <div style="margin-bottom: 20px;">
-              {% for category, message in messages %}
-                <div style="
-                    padding: 12px 14px;
-                    border-radius: 8px;
-                    margin-bottom: 10px;
-                    color: white;
-                    font-weight: bold;
-                    background-color: {% if category == 'success' %}#198754{% else %}#dc3545{% endif %};
-                ">
-                  {{ message }}
-                </div>
-              {% endfor %}
-            </div>
-          {% endif %}
-        {% endwith %}
-
-        <form method="POST">
-            <h2>Datos del cliente</h2>
-
-            <label>Nombre completo:</label>
-            <input type="text" name="cliente" required>
-
-            <label>Cédula:</label>
-            <input type="text" name="cedula_cliente">
-
-            <label>Teléfono 1:</label>
-            <input type="text" name="telefono_1">
-
-            <label>Teléfono 2:</label>
-            <input type="text" name="telefono_2">
-
-            <label>Dirección:</label>
-            <input type="text" name="direccion_cliente">
-
-            <label>Correo electrónico:</label>
-            <input type="email" name="correo_cliente">
-
-            <h2>Datos del crédito</h2>
-
-            <label>Número de pagaré:</label>
-            <input type="text" name="numero_pagare" required>
-
-            <label>Fecha del crédito:</label>
-            <input type="date" name="fecha_credito" required>
-
-            <label>Monto solicitado:</label>
-            <input type="text" name="monto" class="input-moneda" inputmode="numeric" required>
-
-            <label>Abono inicial:</label>
-            <input type="text" name="abono_inicial" class="input-moneda" inputmode="numeric" placeholder="0">
-
-            <label>Interés mensual (%):</label>
-            <input type="number" name="interes" step="0.01" required>
-
-            <label>Cuotas:</label>
-            <input type="number" name="cuotas" required>
-
-            <label>Sede:</label>
-            <select name="sede" required>
-                <option value="">Seleccione una sede</option>
-                <option value="IBAGUE">Ibagué</option>
-                <option value="ESPINAL">Espinal</option>
-                <option value="GIRARDOT">Girardot</option>
-                <option value="CRV">CRV</option>
-            </select>
-            
-            <h2>Codeudor</h2>
-
-            <label>¿Tiene codeudor?</label>
-            <select name="tiene_codeudor" id="tiene_codeudor" onchange="toggleCodeudor()">
-                <option value="NO" selected>No</option>
-                <option value="SI">Sí</option>
-            </select>
-
-            <div id="bloque_codeudor">
-                <label>Nombre del codeudor:</label>
-                <input type="text" name="codeudor_nombre">
-
-                <label>Identificación del codeudor:</label>
-                <input type="text" name="codeudor_identificacion">
-
-                <label>Dirección del codeudor:</label>
-                <input type="text" name="codeudor_direccion">
-
-                <label>Teléfono del codeudor:</label>
-                <input type="text" name="codeudor_telefono">
-
-                <label>Correo del codeudor:</label>
-                <input type="email" name="codeudor_correo">
+            <div class="encabezado-formulario">
+                <h1>Crear Crédito</h1>
+                <p>Registra la información del cliente, del crédito y del codeudor en un solo formulario.</p>
             </div>
 
-            <div class="botones">
-                <button type="submit">Crear</button>
-                <a href="/dashboard">Volver</a>
+            <div class="contenido-formulario">
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    <div class="alertas">
+                      {% for category, message in messages %}
+                        <div class="alerta {% if category == 'success' %}alerta-success{% else %}alerta-error{% endif %}">
+                          {{ message }}
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endwith %}
+
+                <form method="POST">
+
+                    <div class="seccion-formulario">
+                        <h2>Datos del cliente</h2>
+
+                        <div class="grid-formulario">
+                            <div class="campo campo-completo">
+                                <label>Nombre completo</label>
+                                <input type="text" name="cliente" required>
+                            </div>
+
+                            <div class="campo">
+                                <label>Cédula</label>
+                                <input type="text" name="cedula_cliente">
+                            </div>
+
+                            <div class="campo">
+                                <label>Correo electrónico</label>
+                                <input type="email" name="correo_cliente">
+                            </div>
+
+                            <div class="campo">
+                                <label>Teléfono 1</label>
+                                <input type="text" name="telefono_1">
+                            </div>
+
+                            <div class="campo">
+                                <label>Teléfono 2</label>
+                                <input type="text" name="telefono_2">
+                            </div>
+
+                            <div class="campo campo-completo">
+                                <label>Dirección</label>
+                                <input type="text" name="direccion_cliente">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="seccion-formulario">
+                        <h2>Datos del crédito</h2>
+
+                        <div class="grid-formulario">
+                            <div class="campo">
+                                <label>Número de pagaré</label>
+                                <input type="text" name="numero_pagare" required>
+                            </div>
+
+                            <div class="campo">
+                                <label>Fecha del crédito</label>
+                                <input type="date" name="fecha_credito" required>
+                            </div>
+
+                            <div class="campo">
+                                <label>Monto solicitado</label>
+                                <input type="text" name="monto" class="input-moneda" inputmode="numeric" required>
+                            </div>
+
+                            <div class="campo">
+                                <label>Abono inicial</label>
+                                <input type="text" name="abono_inicial" class="input-moneda" inputmode="numeric" placeholder="0">
+                            </div>
+
+                            <div class="campo">
+                                <label>Interés mensual (%)</label>
+                                <input type="number" name="interes" step="0.01" required>
+                            </div>
+
+                            <div class="campo">
+                                <label>Cuotas</label>
+                                <input type="number" name="cuotas" required>
+                            </div>
+
+                            <div class="campo campo-completo">
+                                <label>Sede</label>
+                                <select name="sede" required>
+                                    <option value="">Seleccione una sede</option>
+                                    <option value="IBAGUE">Ibagué</option>
+                                    <option value="ESPINAL">Espinal</option>
+                                    <option value="GIRARDOT">Girardot</option>
+                                    <option value="CRV">CRV</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="seccion-formulario">
+                        <h2>Codeudor</h2>
+
+                        <div class="grid-formulario">
+                            <div class="campo campo-completo">
+                                <label>¿Tiene codeudor?</label>
+                                <select name="tiene_codeudor" id="tiene_codeudor" onchange="toggleCodeudor()">
+                                    <option value="NO" selected>No</option>
+                                    <option value="SI">Sí</option>
+                                </select>
+                                <div class="texto-ayuda">Activa esta opción solo si el crédito requiere respaldo adicional.</div>
+                            </div>
+                        </div>
+
+                        <div id="bloque_codeudor" class="bloque-codeudor">
+                            <div class="grid-formulario">
+                                <div class="campo campo-completo">
+                                    <label>Nombre del codeudor</label>
+                                    <input type="text" name="codeudor_nombre">
+                                </div>
+
+                                <div class="campo">
+                                    <label>Identificación del codeudor</label>
+                                    <input type="text" name="codeudor_identificacion">
+                                </div>
+
+                                <div class="campo">
+                                    <label>Teléfono del codeudor</label>
+                                    <input type="text" name="codeudor_telefono">
+                                </div>
+
+                                <div class="campo campo-completo">
+                                    <label>Dirección del codeudor</label>
+                                    <input type="text" name="codeudor_direccion">
+                                </div>
+
+                                <div class="campo campo-completo">
+                                    <label>Correo del codeudor</label>
+                                    <input type="email" name="codeudor_correo">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="botones">
+                        <button type="submit" class="btn btn-crear">Crear crédito</button>
+                        <a href="/dashboard" class="btn btn-volver">Volver</a>
+                    </div>
+                </form>
             </div>
-        </form>
+        </div>
     </div>
 </body>
 </html>

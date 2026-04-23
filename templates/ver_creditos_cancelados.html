@@ -200,6 +200,44 @@
             border-radius: 8px;
             font-size: 14px;
         }
+
+        .btn-eliminar {
+            background: linear-gradient(135deg, #dc3545, #b02a37);
+            color: white;
+            border: none;
+            padding: 9px 15px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            box-shadow: 0 6px 16px rgba(220, 53, 69, 0.18);
+            transition: 0.2s ease;
+        }
+
+        .btn-eliminar:hover {
+            transform: translateY(-1px);
+            opacity: 0.96;
+            box-shadow: 0 10px 20px rgba(220, 53, 69, 0.24);
+        }
+
+        .btn-eliminar {
+            background: linear-gradient(135deg, #dc3545, #b02a37);
+            color: white;
+            border: none;
+            padding: 9px 15px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            box-shadow: 0 6px 16px rgba(220, 53, 69, 0.18);
+            transition: 0.2s ease;
+        }
+
+        .btn-eliminar:hover {
+            transform: translateY(-1px);
+            opacity: 0.96;
+            box-shadow: 0 10px 20px rgba(220, 53, 69, 0.24);
+        }
     </style>
 </head>
 
@@ -266,6 +304,7 @@
                     <th>Saldo actual</th>
                     <th>Ver cuotas</th>
                     <th>Extracto</th>
+                    <th>Eliminar</th>
                 </tr>
             </thead>
 
@@ -321,6 +360,14 @@
                     <td>
                         <a href="/extracto_credito/{{ item.credito.id }}" class="btn-extracto">Extracto</a>
                     </td>
+
+                        <td>
+                            <form action="{{ url_for('eliminar_credito', credito_id=item.credito.id) }}" method="POST"
+                                onsubmit="return confirm('¿Seguro que deseas eliminar este crédito? Esta acción no se puede deshacer.');">
+                                <button type="submit" class="btn-eliminar">Eliminar</button>
+                            </form>
+                        </td>
+
                 </tr>
                 {% else %}
                 <tr>
