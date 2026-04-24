@@ -770,7 +770,6 @@
                         <tr>
                             <th>#</th>
                             <th>Fecha cuota</th>
-                            <th>Saldo pendiente</th>
                             <th>Mora</th>
                             <th>Total exigible</th>
                             <th>Estado</th>
@@ -847,7 +846,6 @@
                     <th>Capital</th>
                     <th>Interés</th>
                     <th>Saldo restante</th>
-                    <th>Saldo pendiente</th>
                     <th>% mora mensual</th>
                     <th>Días mora</th>
                     <th>Mora</th>
@@ -876,7 +874,6 @@
                     <td class="col-moneda">{{ cuota.capital | cop }}</td>
                     <td class="col-moneda">{{ cuota.interes | cop }}</td>
                     <td class="col-moneda">{{ cuota.saldo_restante | cop }}</td>
-                    <td class="col-moneda"><strong>{{ cuota.saldo_pendiente | cop }}</strong></td>
 
                     <td>
                         {% if cuota.interes_mora > 0 or cuota.interes_mora_historico > 0 %}

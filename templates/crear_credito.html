@@ -289,18 +289,6 @@
 
             <div class="contenido-formulario">
 
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                  {% if messages %}
-                    <div class="alertas">
-                      {% for category, message in messages %}
-                        <div class="alerta {% if category == 'success' %}alerta-success{% else %}alerta-error{% endif %}">
-                          {{ message }}
-                        </div>
-                      {% endfor %}
-                    </div>
-                  {% endif %}
-                {% endwith %}
-
                 <form method="POST">
 
                     <div class="seccion-formulario">

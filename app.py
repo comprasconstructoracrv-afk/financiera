@@ -1587,6 +1587,38 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
             return valor.date()
         return valor
 
+    def distribuir_mora_por_dias(fecha_vencimiento, fecha_pago, valor_mora):
+        fecha_vencimiento = fecha_solo_fecha(fecha_vencimiento)
+        fecha_pago = fecha_solo_fecha(fecha_pago)
+
+        if not fecha_vencimiento or not fecha_pago:
+            return []
+
+        valor_mora = round(valor_mora or 0, 2)
+
+        if valor_mora <= 0:
+            return []
+
+        dias_mora = (fecha_pago - fecha_vencimiento).days
+
+        if dias_mora <= 0:
+            return []
+
+        valor_dia = valor_mora / dias_mora
+        resultado = []
+
+        for i in range(1, dias_mora + 1):
+            dia_mora = fecha_vencimiento + timedelta(days=i)
+
+            resultado.append({
+                'fecha': dia_mora,
+                'anio': dia_mora.year,
+                'mes': dia_mora.month,
+                'valor': valor_dia
+            })
+
+        return resultado
+
     def credito_pertenece_anio(credito):
         fecha_credito = None
 
@@ -1700,10 +1732,21 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
         if fecha_cuota.year == anio_seleccionado and fecha_cuota <= hoy and cuota.interes_mora and cuota.interes_mora > 0:
             resumen_general['mora_causada'] += round(cuota.interes_mora or 0, 2)
 
-    # Mora histórica causada en pagos del año
+    # Mora causada histórica distribuida por año real de generación
     for pago in pagos_filtrados:
-        if pago.fecha and pago.fecha.year == anio_seleccionado:
-            resumen_general['mora_causada'] += round(pago.mora_generada_al_pago or 0, 2)
+        cuota = Cuota.query.get(pago.cuota_id)
+        if not cuota:
+            continue
+
+        distribucion_mora = distribuir_mora_por_dias(
+            cuota.fecha_pago,
+            pago.fecha,
+            pago.mora_generada_al_pago or 0
+        )
+
+        for item_mora in distribucion_mora:
+            if item_mora['anio'] == anio_seleccionado:
+                resumen_general['mora_causada'] += round(item_mora['valor'], 2)
 
     resumen_general['diferencia_interes_corriente'] = round(
         resumen_general['interes_corriente_causado'] - resumen_general['interes_corriente_recaudado'], 2
@@ -1810,7 +1853,16 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
             mapa_sede[sede]['total_recaudado'] += round(pago.valor or 0, 2)
             mapa_sede[sede]['interes_corriente_recaudado'] += round(pago.valor_aplicado_interes or 0, 2)
             mapa_sede[sede]['mora_recaudada'] += round(pago.valor_aplicado_mora or 0, 2)
-            mapa_sede[sede]['mora_causada'] += round(pago.mora_generada_al_pago or 0, 2)
+
+        distribucion_mora = distribuir_mora_por_dias(
+            cuota.fecha_pago,
+            pago.fecha,
+            pago.mora_generada_al_pago or 0
+        )
+
+        for item_mora in distribucion_mora:
+            if item_mora['anio'] == anio_seleccionado:
+                mapa_sede[sede]['mora_causada'] += round(item_mora['valor'], 2)
 
     resumen_por_sede = []
     for sede in sedes_base:
@@ -1852,10 +1904,23 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
                     mora_causada += round(cuota.interes_mora or 0, 2)
 
         for pago in pagos_filtrados:
+            cuota_pago = Cuota.query.get(pago.cuota_id)
+
             if pago.fecha and pago.fecha.year == anio_seleccionado and pago.fecha.month == mes:
                 interes_recaudado += round(pago.valor_aplicado_interes or 0, 2)
                 mora_recaudada += round(pago.valor_aplicado_mora or 0, 2)
                 total_ingresos += round(pago.valor or 0, 2)
+
+            if cuota_pago:
+                distribucion_mora = distribuir_mora_por_dias(
+                    cuota_pago.fecha_pago,
+                    pago.fecha,
+                    pago.mora_generada_al_pago or 0
+                )
+
+                for item_mora in distribucion_mora:
+                    if item_mora['anio'] == anio_seleccionado and item_mora['mes'] == mes:
+                        mora_causada += round(item_mora['valor'], 2)
 
         resumen_mensual.append({
             'mes_numero': mes,
@@ -1901,6 +1966,16 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
         if pago.fecha and pago.fecha.year == anio_seleccionado and sede in sedes_base:
             intereses_recaudados_detalle[pago.fecha.month][sede] += round(pago.valor_aplicado_interes or 0, 2)
             mora_recaudada_detalle[pago.fecha.month][sede] += round(pago.valor_aplicado_mora or 0, 2)
+
+        distribucion_mora = distribuir_mora_por_dias(
+            cuota.fecha_pago,
+            pago.fecha,
+            pago.mora_generada_al_pago or 0
+        )
+
+        for item_mora in distribucion_mora:
+            if item_mora['anio'] == anio_seleccionado and sede in sedes_base:
+                mora_causada_detalle[item_mora['mes']][sede] += round(item_mora['valor'], 2)
 
     def construir_filas_tabla(origen):
         filas = []
@@ -3286,16 +3361,22 @@ def eliminar_credito(credito_id):
         return redirect('/login')
 
     credito = Credito.query.get_or_404(credito_id)
+    sede = credito.sede
+    origen = request.form.get('origen', 'activos')
 
     try:
         db.session.delete(credito)
         db.session.commit()
         flash('Crédito eliminado correctamente.', 'success')
+
     except Exception as e:
         db.session.rollback()
         flash(f'Error al eliminar crédito: {str(e)}', 'error')
 
-    return redirect(request.referrer or url_for('dashboard'))
+    if origen == 'cancelados':
+        return redirect(url_for('ver_creditos_cancelados', sede=sede))
+
+    return redirect(url_for('ver_creditos', sede=sede))
 
 @app.route('/paz_y_salvo')
 def paz_y_salvo():

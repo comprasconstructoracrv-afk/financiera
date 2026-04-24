@@ -368,10 +368,45 @@
             opacity: 0.96;
             box-shadow: 0 10px 20px rgba(220, 53, 69, 0.24);
         }
+
+        .flash-contenedor {
+            max-width: 700px;
+            margin: 0 auto 20px auto;
+        }
+
+        .flash-mensaje {
+            padding: 14px 18px;
+            border-radius: 14px;
+            text-align: center;
+            font-weight: bold;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+        }
+
+        .flash-mensaje.success {
+            background: linear-gradient(135deg, #198754, #0f5132);
+            color: white;
+        }
+
+        .flash-mensaje.error {
+            background: linear-gradient(135deg, #dc3545, #991b1b);
+            color: white;
+        }
     </style>
 </head>
 
 <body>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-contenedor">
+                {% for category, message in messages %}
+                    <div class="flash-mensaje {{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
 
 <div class="contenedor">
     <div class="header-creditos">
@@ -515,6 +550,7 @@
                     <div class="accion-col">
                         <form action="/eliminar_credito/{{ item.credito.id }}" method="POST"
                             onsubmit="return confirm('¿Seguro que deseas eliminar este crédito? Esta acción borrará también cuotas y pagos relacionados.');">
+                            <input type="hidden" name="origen" value="activos">
                             <button type="submit" class="btn-eliminar">Eliminar</button>
                         </form>
                     </div>
