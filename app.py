@@ -1692,13 +1692,18 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
         if not fecha_cuota:
             continue
 
-        # Interés corriente causado: solo meses ya alcanzados
+        # Interés corriente causado: solo cuotas del año y ya alcanzadas
         if fecha_cuota.year == anio_seleccionado and fecha_cuota <= hoy:
             resumen_general['interes_corriente_causado'] += round(cuota.interes or 0, 2)
 
-        # Mora causada: solo lo generado sobre cuotas del año, acumulado hasta hoy
-        if fecha_cuota.year == anio_seleccionado and fecha_cuota <= hoy:
+        # Mora pendiente actual no pagada
+        if fecha_cuota.year == anio_seleccionado and fecha_cuota <= hoy and cuota.interes_mora and cuota.interes_mora > 0:
             resumen_general['mora_causada'] += round(cuota.interes_mora or 0, 2)
+
+    # Mora histórica causada en pagos del año
+    for pago in pagos_filtrados:
+        if pago.fecha and pago.fecha.year == anio_seleccionado:
+            resumen_general['mora_causada'] += round(pago.mora_generada_al_pago or 0, 2)
 
     resumen_general['diferencia_interes_corriente'] = round(
         resumen_general['interes_corriente_causado'] - resumen_general['interes_corriente_recaudado'], 2
@@ -1786,7 +1791,9 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
 
         if fecha_cuota.year == anio_seleccionado and fecha_cuota <= hoy:
             mapa_sede[sede]['interes_corriente_causado'] += round(cuota.interes or 0, 2)
-            mapa_sede[sede]['mora_causada'] += round(cuota.interes_mora or 0, 2)
+
+            if cuota.interes_mora and cuota.interes_mora > 0:
+                mapa_sede[sede]['mora_causada'] += round(cuota.interes_mora or 0, 2)
 
     for pago in pagos_filtrados:
         cuota = Cuota.query.get(pago.cuota_id)
@@ -1803,6 +1810,7 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
             mapa_sede[sede]['total_recaudado'] += round(pago.valor or 0, 2)
             mapa_sede[sede]['interes_corriente_recaudado'] += round(pago.valor_aplicado_interes or 0, 2)
             mapa_sede[sede]['mora_recaudada'] += round(pago.valor_aplicado_mora or 0, 2)
+            mapa_sede[sede]['mora_causada'] += round(pago.mora_generada_al_pago or 0, 2)
 
     resumen_por_sede = []
     for sede in sedes_base:
@@ -2169,6 +2177,16 @@ def exportar_reporte_pdf():
     if 'user' not in session:
         return redirect('/login')
 
+    from reportlab.platypus import (
+        SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
+    )
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import landscape, letter
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    import os
+
     anio_actual = date.today().year
     anio_seleccionado = request.args.get('anio', type=int) or anio_actual
     sede_seleccionada = request.args.get('sede', default='TODAS', type=str).strip().upper()
@@ -2176,98 +2194,315 @@ def exportar_reporte_pdf():
     datos = construir_datos_reporte(anio_seleccionado, sede_seleccionada)
 
     output = BytesIO()
-    doc = SimpleDocTemplate(output, pagesize=landscape(letter))
+
+    doc = SimpleDocTemplate(
+        output,
+        pagesize=landscape(letter),
+        rightMargin=25,
+        leftMargin=25,
+        topMargin=25,
+        bottomMargin=25
+    )
+
     styles = getSampleStyleSheet()
+
+    azul = colors.HexColor("#0b2f4f")
+    dorado = colors.HexColor("#d6a21e")
+    gris_claro = colors.HexColor("#f4f7fb")
+    borde = colors.HexColor("#d9e2ec")
+    verde = colors.HexColor("#15803d")
+    rojo = colors.HexColor("#b91c1c")
+    naranja = colors.HexColor("#c76a00")
+
+    titulo_style = ParagraphStyle(
+        "TituloCRV",
+        parent=styles["Title"],
+        fontSize=22,
+        textColor=azul,
+        alignment=TA_CENTER,
+        spaceAfter=8
+    )
+
+    subtitulo_style = ParagraphStyle(
+        "SubtituloCRV",
+        parent=styles["Normal"],
+        fontSize=10,
+        textColor=colors.HexColor("#334155"),
+        alignment=TA_CENTER,
+        spaceAfter=12
+    )
+
+    seccion_style = ParagraphStyle(
+        "SeccionCRV",
+        parent=styles["Heading2"],
+        fontSize=14,
+        textColor=azul,
+        spaceBefore=12,
+        spaceAfter=8
+    )
+
+    normal_style = ParagraphStyle(
+        "NormalCRV",
+        parent=styles["Normal"],
+        fontSize=9,
+        textColor=colors.HexColor("#1f2937"),
+        alignment=TA_LEFT
+    )
+
     elementos = []
 
-    elementos.append(Paragraph(f"Reporte Financiero - Año {anio_seleccionado} - Sede {sede_seleccionada}", styles["Title"]))
-    elementos.append(Spacer(1, 12))
+    def agregar_encabezado():
+        logo_path = os.path.join(app.static_folder, "logo.png")
 
-    # Resumen general
-    elementos.append(Paragraph("Resumen General", styles["Heading2"]))
-    tabla_general = [
-        ["Concepto", "Valor"],
-        ["Total prestado", f"$ {int(round(datos['resumen_general']['total_prestado'])):,}".replace(",", ".")],
-        ["Total recaudado", f"$ {int(round(datos['resumen_general']['total_recaudado'])):,}".replace(",", ".")],
-        ["Saldo actual total", f"$ {int(round(datos['resumen_general']['saldo_actual_total'])):,}".replace(",", ".")],
-        ["Interés corriente causado", f"$ {int(round(datos['resumen_general']['interes_corriente_causado'])):,}".replace(",", ".")],
-        ["Interés corriente recaudado", f"$ {int(round(datos['resumen_general']['interes_corriente_recaudado'])):,}".replace(",", ".")],
-        ["Mora causada", f"$ {int(round(datos['resumen_general']['mora_causada'])):,}".replace(",", ".")],
-        ["Mora recaudada", f"$ {int(round(datos['resumen_general']['mora_recaudada'])):,}".replace(",", ".")],
-    ]
-    t1 = Table(tabla_general, repeatRows=1)
-    t1.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1F4E78')),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
-    ]))
-    elementos.append(t1)
-    elementos.append(Spacer(1, 18))
+        logo = ""
+        if os.path.exists(logo_path):
+            logo = Image(logo_path, width=95, height=58)
 
-    # Resumen por sede
-    elementos.append(Paragraph("Resumen por Sede", styles["Heading2"]))
-    tabla_sede = [[
-        "Sede", "Total prestado", "Total recaudado", "Saldo actual",
-        "Interés causado", "Interés recaudado", "Mora causada", "Mora recaudada"
-    ]]
-    for fila in datos["resumen_por_sede"]:
-        tabla_sede.append([
-            fila["sede"],
-            f"$ {int(round(fila['total_prestado'])):,}".replace(",", "."),
-            f"$ {int(round(fila['total_recaudado'])):,}".replace(",", "."),
-            f"$ {int(round(fila['saldo_actual'])):,}".replace(",", "."),
-            f"$ {int(round(fila['interes_corriente_causado'])):,}".replace(",", "."),
-            f"$ {int(round(fila['interes_corriente_recaudado'])):,}".replace(",", "."),
-            f"$ {int(round(fila['mora_causada'])):,}".replace(",", "."),
-            f"$ {int(round(fila['mora_recaudada'])):,}".replace(",", "."),
+        empresa = Paragraph("""
+            <b>CONSTRUCCIONES Y URBANIZACIONES S.A.S</b><br/>
+            NIT: 901.527.083-2<br/>
+            AV. AMBALÁ N° 27-136 - PISO 3<br/>
+            IBAGUÉ - TOLIMA<br/>
+            TELÉFONO: 311 414 5843
+        """, normal_style)
+
+        titulo = Paragraph("REPORTE FINANCIERO", titulo_style)
+        subtitulo = Paragraph(
+            f"Consolidado financiero - Año {anio_seleccionado} - Sede {sede_seleccionada}",
+            subtitulo_style
+        )
+
+        tabla_header = Table(
+            [[logo, [titulo, subtitulo], empresa]],
+            colWidths=[140, 360, 230]
+        )
+
+        tabla_header.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (0, 0), "LEFT"),
+            ("ALIGN", (1, 0), (1, 0), "CENTER"),
+            ("ALIGN", (2, 0), (2, 0), "RIGHT"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+            ("LINEBELOW", (0, 0), (-1, -1), 1, borde),
+        ]))
+
+        elementos.append(tabla_header)
+        elementos.append(Spacer(1, 14))
+
+    def card(titulo, valor, color_fondo):
+        return [
+            Paragraph(f"<font color='white'><b>{titulo}</b></font>", normal_style),
+            Paragraph(f"<font color='white' size='14'><b>{formato_cop(valor)}</b></font>", normal_style)
+        ]
+
+    def tabla_resumen_general():
+        r = datos["resumen_general"]
+
+        data = [
+            [
+                card("TOTAL PRESTADO", r["total_prestado"], azul),
+                card("TOTAL RECAUDADO", r["total_recaudado"], verde),
+                card("SALDO ACTUAL TOTAL", r["saldo_actual_total"], naranja),
+                card("INTERÉS CAUSADO", r["interes_corriente_causado"], colors.HexColor("#6d28d9")),
+            ],
+            [
+                card("INTERÉS RECAUDADO", r["interes_corriente_recaudado"], colors.HexColor("#0e7490")),
+                card("MORA CAUSADA", r["mora_causada"], rojo),
+                card("MORA RECAUDADA", r["mora_recaudada"], colors.HexColor("#1e293b")),
+                card("DIFERENCIA TOTAL", r["diferencia_total"], azul),
+            ]
+        ]
+
+        t = Table(data, colWidths=[180, 180, 180, 180], rowHeights=[65, 65])
+
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#1d4ed8")),
+            ("BACKGROUND", (1, 0), (1, 0), colors.HexColor("#15803d")),
+            ("BACKGROUND", (2, 0), (2, 0), colors.HexColor("#d97706")),
+            ("BACKGROUND", (3, 0), (3, 0), colors.HexColor("#6d28d9")),
+            ("BACKGROUND", (0, 1), (0, 1), colors.HexColor("#0e7490")),
+            ("BACKGROUND", (1, 1), (1, 1), colors.HexColor("#b91c1c")),
+            ("BACKGROUND", (2, 1), (2, 1), colors.HexColor("#1e293b")),
+            ("BACKGROUND", (3, 1), (3, 1), colors.HexColor("#0f172a")),
+            ("BOX", (0, 0), (-1, -1), 0.5, borde),
+            ("INNERGRID", (0, 0), (-1, -1), 8, colors.white),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 12),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+        ]))
+
+        elementos.append(Paragraph("Resumen general anual", seccion_style))
+        elementos.append(t)
+        elementos.append(Spacer(1, 14))
+
+    def tabla_normal(titulo, headers, filas, col_widths=None):
+        elementos.append(Paragraph(titulo, seccion_style))
+
+        data = [headers] + filas
+
+        if col_widths is None:
+            col_widths = [90] * len(headers)
+
+        t = Table(data, repeatRows=1, colWidths=col_widths)
+
+        estilo = [
+            ("BACKGROUND", (0, 0), (-1, 0), azul),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 8),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("GRID", (0, 0), (-1, -1), 0.4, borde),
+            ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+            ("FONTSIZE", (0, 1), (-1, -1), 7),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, gris_claro]),
+        ]
+
+        t.setStyle(TableStyle(estilo))
+        elementos.append(t)
+        elementos.append(Spacer(1, 12))
+
+    agregar_encabezado()
+    tabla_resumen_general()
+
+    filas_sede = []
+    for item in datos["resumen_por_sede"]:
+        filas_sede.append([
+            item["sede"],
+            formato_cop(item["total_prestado"]),
+            formato_cop(item["total_recaudado"]),
+            formato_cop(item["saldo_actual"]),
+            formato_cop(item["interes_corriente_causado"]),
+            formato_cop(item["interes_corriente_recaudado"]),
+            formato_cop(item["mora_causada"]),
+            formato_cop(item["mora_recaudada"]),
+            formato_cop(item["diferencia_total"]),
         ])
-    t2 = Table(tabla_sede, repeatRows=1)
-    t2.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1F4E78')),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('BACKGROUND', (0,1), (-1,-1), colors.beige),
-    ]))
-    elementos.append(t2)
-    elementos.append(Spacer(1, 18))
 
-    # Resumen mensual
-    elementos.append(Paragraph("Resumen Mensual", styles["Heading2"]))
-    tabla_mes = [[
-        "Mes", "Interés causado", "Interés recaudado",
-        "Mora causada", "Mora recaudada", "Total ingresos"
-    ]]
-    for fila in datos["resumen_mensual"]:
-        tabla_mes.append([
-            fila["mes"],
-            f"$ {int(round(fila['interes_corriente_causado'])):,}".replace(",", "."),
-            f"$ {int(round(fila['interes_corriente_recaudado'])):,}".replace(",", "."),
-            f"$ {int(round(fila['mora_causada'])):,}".replace(",", "."),
-            f"$ {int(round(fila['mora_recaudada'])):,}".replace(",", "."),
-            f"$ {int(round(fila['total_ingresos'])):,}".replace(",", "."),
+    tabla_normal(
+        "Resumen por sede",
+        [
+            "Sede", "Prestado", "Recaudado", "Saldo",
+            "Int. causado", "Int. recaudado",
+            "Mora causada", "Mora recaudada", "Dif. total"
+        ],
+        filas_sede,
+        [75, 85, 85, 85, 90, 90, 90, 90, 85]
+    )
+
+    elementos.append(PageBreak())
+    agregar_encabezado()
+
+    filas_mes = []
+    for item in datos["resumen_mensual"]:
+        filas_mes.append([
+            item["mes"],
+            formato_cop(item["interes_corriente_causado"]),
+            formato_cop(item["interes_corriente_recaudado"]),
+            formato_cop(item["mora_causada"]),
+            formato_cop(item["mora_recaudada"]),
+            formato_cop(item["diferencia_interes_corriente"]),
+            formato_cop(item["diferencia_mora"]),
+            formato_cop(item["total_ingresos"]),
         ])
-    t3 = Table(tabla_mes, repeatRows=1)
-    t3.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1F4E78')),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
-    ]))
-    elementos.append(t3)
+
+    tabla_normal(
+        "Resumen mensual",
+        [
+            "Mes", "Int. causado", "Int. recaudado",
+            "Mora causada", "Mora recaudada",
+            "Dif. interés", "Dif. mora", "Ingresos"
+        ],
+        filas_mes,
+        [90, 95, 95, 95, 95, 95, 95, 95]
+    )
+
+    elementos.append(PageBreak())
+    agregar_encabezado()
+
+    def filas_tabla_detalle(filas):
+        resultado = []
+        for f in filas:
+            resultado.append([
+                f["mes"],
+                formato_cop(f["IBAGUE"]),
+                formato_cop(f["GIRARDOT"]),
+                formato_cop(f["ESPINAL"]),
+                formato_cop(f["CRV"]),
+                formato_cop(f["TOTAL"]),
+            ])
+        return resultado
+
+    def agregar_tabla_detalle(titulo, filas, totales):
+        cuerpo = filas_tabla_detalle(filas)
+        cuerpo.append([
+            "TOTALES",
+            formato_cop(totales["IBAGUE"]),
+            formato_cop(totales["GIRARDOT"]),
+            formato_cop(totales["ESPINAL"]),
+            formato_cop(totales["CRV"]),
+            formato_cop(totales["TOTAL"]),
+        ])
+
+        tabla_normal(
+            titulo,
+            ["Mes", "IBAGUE", "GIRARDOT", "ESPINAL", "CRV", "TOTAL"],
+            cuerpo,
+            [110, 115, 115, 115, 115, 115]
+        )
+
+    agregar_tabla_detalle(
+        "Intereses corrientes causados",
+        datos["tabla_intereses_causados"],
+        datos["totales_intereses_causados"]
+    )
+
+    agregar_tabla_detalle(
+        "Intereses corrientes recaudados",
+        datos["tabla_intereses_recaudados"],
+        datos["totales_intereses_recaudados"]
+    )
+
+    elementos.append(PageBreak())
+    agregar_encabezado()
+
+    agregar_tabla_detalle(
+        "Mora causada",
+        datos["tabla_mora_causada"],
+        datos["totales_mora_causada"]
+    )
+
+    agregar_tabla_detalle(
+        "Mora recaudada",
+        datos["tabla_mora_recaudada"],
+        datos["totales_mora_recaudada"]
+    )
+
+    elementos.append(PageBreak())
+    agregar_encabezado()
+
+    agregar_tabla_detalle(
+        "Diferencia intereses corrientes",
+        datos["tabla_diferencia_intereses"],
+        datos["totales_diferencia_intereses"]
+    )
+
+    agregar_tabla_detalle(
+        "Diferencia mora",
+        datos["tabla_diferencia_mora"],
+        datos["totales_diferencia_mora"]
+    )
 
     doc.build(elementos)
     output.seek(0)
 
     nombre = f"reporte_financiero_{anio_seleccionado}_{sede_seleccionada}.pdf"
+
     return send_file(
         output,
         as_attachment=True,
         download_name=nombre,
-        mimetype='application/pdf'
+        mimetype="application/pdf"
     )
 
 @app.route('/dashboard_gerencial')
@@ -2461,23 +2696,18 @@ def ver_recibo_pago(pago_id):
     cuota = Cuota.query.get_or_404(pago.cuota_id)
     credito = Credito.query.get_or_404(cuota.credito_id)
 
-    saldo_pendiente_cuota = round(max((cuota.total_cobro or 0) - (pago.valor or 0), 0), 2)
-    saldo_pendiente_credito = round(credito.saldo_actual or 0, 2)
+    mora_aplicada = round(pago.valor_aplicado_mora or 0, 2)
 
-    mora_aplicada = round(
-        getattr(pago, 'aplicado_a_mora', 0)
-        or getattr(pago, 'valor_mora', 0)
-        or getattr(pago, 'mora_pagada', 0)
-        or 0,
-        2
-    )
+    if mora_aplicada <= 0:
+        mora_aplicada = round(pago.mora_generada_al_pago or 0, 2)
+
+    saldo_pendiente_credito = round(credito.saldo_actual or 0, 2)
 
     return render_template(
         'recibo_pago.html',
         pago=pago,
         cuota=cuota,
         credito=credito,
-        saldo_pendiente_cuota=saldo_pendiente_cuota,
         saldo_pendiente_credito=saldo_pendiente_credito,
         mora_aplicada=mora_aplicada
     )
