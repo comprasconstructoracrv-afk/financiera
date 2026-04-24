@@ -210,7 +210,7 @@
         .totales {
             margin-top: 12px;
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 10px;
             position: relative;
             z-index: 2;
@@ -232,6 +232,25 @@
 
         .total-card .valor-verde {
             color: #166534;
+        }
+
+        .total-card .valor-rojo {
+            color: #dc2626;
+        }
+
+        .total-amarillo {
+            background: #fffdf7;
+            border: 1px solid #efe3b0;
+        }
+
+        .total-rojo {
+            background: #fff1f2;
+            border: 1px solid #fecdd3;
+        }
+
+        .total-verde {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
         }
 
         .mensaje {
@@ -553,20 +572,17 @@
             </div>
 
             <div class="totales">
-                <div class="total-card">
-                    {% if pago.tipo_pago == 'LIQUIDACION_TOTAL' %}
-                        Saldo liquidado:
-                        <span class="valor-dorado">{{ pago.total_exigible_al_pago | cop }}</span>
-                    {% elif pago.observacion == 'ABONO A CAPITAL' %}
-                        Abono aplicado a capital:
-                        <span class="valor-dorado">{{ pago.valor | cop }}</span>
-                    {% else %}
-                        Saldo pendiente:
-                        <span class="valor-dorado">{{ saldo_pendiente_cuota | cop }}</span>
-                    {% endif %}
+                <div class="total-card total-amarillo">
+                    Saldo pendiente del crédito:
+                    <span class="valor-dorado">{{ saldo_pendiente_credito | cop }}</span>
                 </div>
 
-                <div class="total-card">
+                <div class="total-card total-rojo">
+                    Mora aplicada:
+                    <span class="valor-rojo">{{ mora_aplicada | cop }}</span>
+                </div>
+
+                <div class="total-card total-verde">
                     Total recibido hoy:
                     <span class="valor-verde">{{ pago.valor | cop }}</span>
                 </div>

@@ -2462,13 +2462,24 @@ def ver_recibo_pago(pago_id):
     credito = Credito.query.get_or_404(cuota.credito_id)
 
     saldo_pendiente_cuota = round(max((cuota.total_cobro or 0) - (pago.valor or 0), 0), 2)
+    saldo_pendiente_credito = round(credito.saldo_actual or 0, 2)
+
+    mora_aplicada = round(
+        getattr(pago, 'aplicado_a_mora', 0)
+        or getattr(pago, 'valor_mora', 0)
+        or getattr(pago, 'mora_pagada', 0)
+        or 0,
+        2
+    )
 
     return render_template(
         'recibo_pago.html',
         pago=pago,
         cuota=cuota,
         credito=credito,
-        saldo_pendiente_cuota=saldo_pendiente_cuota
+        saldo_pendiente_cuota=saldo_pendiente_cuota,
+        saldo_pendiente_credito=saldo_pendiente_credito,
+        mora_aplicada=mora_aplicada
     )
 
 @app.route('/ver_recibo_deuda_fecha/<int:credito_id>')
