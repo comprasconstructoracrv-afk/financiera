@@ -314,7 +314,7 @@
 
                             <div class="campo">
                                 <label>Cédula</label>
-                                <input type="text" name="cedula_cliente">
+                                <input type="text" name="cedula_cliente" id="cedula_cliente" inputmode="numeric">
                             </div>
 
                             <div class="campo">
@@ -437,5 +437,21 @@
             </div>
         </div>
     </div>
+
+    <script>
+    function formatearCedula(valor) {
+        valor = valor.replace(/\D/g, '');
+        return valor.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+
+    const cedulaInput = document.getElementById('cedula_cliente');
+
+    if (cedulaInput) {
+        cedulaInput.addEventListener('input', function () {
+            this.value = formatearCedula(this.value);
+        });
+    }
+    </script>
+
 </body>
 </html>
