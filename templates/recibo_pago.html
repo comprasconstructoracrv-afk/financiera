@@ -515,14 +515,13 @@
                 </div>
 
                 <div class="card">
-                    <h3>Datos del crédito</h3>
-                    <p><strong>Cliente:</strong> {{ cliente.nombre }}</p>
-                    <p><strong>Cédula:</strong> {{ cliente.cedula }}</p>
-                    <div class="dato"><strong>Sede:</strong> {{ credito.sede }}</div>
-                    <div class="dato"><strong>Tipo:</strong> CRÉDITO</div>
-                    <div class="dato"><strong>Cuenta / Medio:</strong> {{ pago.medio_pago }}</div>
-                    <div class="dato"><strong>Observación:</strong> {{ pago.observacion or 'Pago registrado en el sistema financiero' }}</div>
-                    
+                    <h3>Datos del cliente</h3>
+
+                        <div class="dato"><strong>Nombre:</strong> {{ credito.cliente }}</div>
+                        <div class="dato"><strong>Cédula:</strong> {{ credito.cedula_cliente }}</div>
+                        <div class="dato"><strong>Dirección:</strong> {{ credito.direccion_cliente }}</div>
+                        <div class="dato"><strong>Celular:</strong> {{ credito.telefono_1 }}</div>
+
                 </div>
             </div>
 
