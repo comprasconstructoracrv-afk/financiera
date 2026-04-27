@@ -2817,6 +2817,7 @@ def ver_recibo_pago(pago_id):
     pago = Pago.query.get_or_404(pago_id)
     cuota = Cuota.query.get_or_404(pago.cuota_id)
     credito = Credito.query.get_or_404(cuota.credito_id)
+    cliente = credito.cliente
 
     mora_aplicada = round(pago.valor_aplicado_mora or 0, 2)
 
@@ -2840,6 +2841,7 @@ def ver_recibo_pago(pago_id):
         pago=pago,
         cuota=cuota,
         credito=credito,
+        cliente=cliente,
         saldo_pendiente_credito=saldo_pendiente_credito,
         mora_aplicada=mora_aplicada
     )
