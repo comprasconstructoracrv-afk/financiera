@@ -3,137 +3,213 @@
 <head>
     <meta charset="UTF-8">
     <title>Abono a capital</title>
+
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f4f6f9;
-            padding: 30px;
-        }
-        .contenedor {
-            max-width: 750px;
-            margin: auto;
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.08);
-        }
-        .dato {
-            background: #f8f9fa;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
-        .alerta {
-            background: #fff3cd;
-            border: 1px solid #ffe69c;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-weight: bold;
-        }
-        label {
-            display: block;
-            margin-top: 15px;
-            margin-bottom: 8px;
-            font-weight: bold;
-        }
-        input, select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
+        * {
             box-sizing: border-box;
         }
-        button, a {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 10px 16px;
-            border-radius: 8px;
-            text-decoration: none;
-            border: none;
-            cursor: pointer;
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #eef3f8;
+            margin: 0;
+            padding: 40px 20px;
+            color: #0f172a;
         }
-        button {
-            background: #198754;
-            color: white;
+
+        .contenedor {
+            max-width: 760px;
+            margin: auto;
+            background: white;
+            padding: 34px;
+            border-radius: 18px;
+            box-shadow: 0 12px 35px rgba(15, 23, 42, 0.12);
         }
-        a {
-            background: #6c757d;
-            color: white;
-            margin-left: 10px;
+
+        h1 {
+            margin: 0 0 12px 0;
+            font-size: 34px;
+            color: #0b2f4f;
+        }
+
+        .subtitulo {
+            margin: 0 0 22px 0;
+            color: #334155;
+            font-size: 16px;
         }
 
         .grid-resumen {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-bottom: 26px;
         }
 
         .card-info {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 12px;
-            border: 1px solid #e0e0e0;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 16px;
+            min-height: 92px;
         }
 
         .card-info span {
+            display: block;
+            color: #64748b;
             font-size: 12px;
-            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 8px;
         }
 
         .card-info strong {
             display: block;
             font-size: 18px;
-            margin-top: 5px;
+            line-height: 1.25;
         }
 
-        .alerta {
-            border: 1px solid #dc3545;
-            color: #dc3545;
+        .card-alerta {
+            border-color: #ef4444;
+            background: #fff5f5;
+            color: #dc2626;
         }
 
-        .ok {
-            border: 1px solid #198754;
-            color: #198754;
+        .card-ok {
+            border-color: #22c55e;
+            background: #f0fdf4;
+            color: #15803d;
         }
 
         .mensaje-error {
-            background: #ffe5e5;
-            border: 1px solid #ffb3b3;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            color: #b30000;
+            background: #fff1f2;
+            border: 1px solid #fecdd3;
+            color: #be123c;
+            padding: 14px 16px;
+            border-radius: 12px;
             font-weight: bold;
+            margin-bottom: 24px;
         }
 
         .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            gap: 18px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        input, select {
+            width: 100%;
+            height: 44px;
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            font-size: 15px;
+            outline: none;
+        }
+
+        input:focus, select:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+        }
+
+        .campo-full {
+            margin-top: 18px;
         }
 
         .acciones {
-            margin-top: 20px;
+            display: flex;
+            gap: 12px;
+            margin-top: 26px;
+            align-items: center;
         }
 
-        .btn-verde {
-            background: #198754;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 8px;
+        button, .btn-gris {
             border: none;
+            border-radius: 12px;
+            padding: 12px 18px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #198754, #157347);
+            color: white;
+            box-shadow: 0 8px 18px rgba(25, 135, 84, 0.22);
         }
 
         .btn-gris {
-            background: #6c757d;
+            background: linear-gradient(135deg, #6c757d, #495057);
             color: white;
-            padding: 10px 15px;
-            border-radius: 8px;
-            text-decoration: none;
-            margin-left: 10px;
+            box-shadow: 0 8px 18px rgba(73, 80, 87, 0.18);
+        }
+
+        .historial-box {
+            margin-top: 34px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 24px;
+        }
+
+        .historial-box h2 {
+            margin: 0 0 14px 0;
+            font-size: 22px;
+            color: #0b2f4f;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            overflow: hidden;
+            border-radius: 12px;
+        }
+
+        th {
+            background: #0b2f4f;
+            color: white;
+            padding: 12px;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        tr:nth-child(even) td {
+            background: #f8fafc;
+        }
+
+        .sin-historial {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            padding: 16px;
+            border-radius: 12px;
+            color: #64748b;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        @media (max-width: 760px) {
+            .grid-resumen,
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .contenedor {
+                padding: 24px;
+            }
         }
     </style>
 
@@ -152,53 +228,58 @@
                 return;
             }
 
-            let numero = parseInt(valor, 10);
-            input.value = "$ " + numero.toLocaleString("es-CO");
+            input.value = "$ " + Number(valor).toLocaleString("es-CO");
+        }
+
+        function limpiarValorAntesDeEnviar() {
+            const input = document.getElementById("valor_abono");
+            if (input) {
+                input.value = input.value.replace(/\D/g, "");
+            }
         }
     </script>
 </head>
+
 <body>
 <div class="contenedor">
 
     <h1>Abono a capital</h1>
-    <p>Registra un abono directo al capital del crédito.</p>
+    <p class="subtitulo">Registra un abono directo al capital del crédito.</p>
 
     <div class="grid-resumen">
-
         <div class="card-info">
-            <span>CLIENTE</span>
+            <span>Cliente</span>
             <strong>{{ credito.cliente }}</strong>
         </div>
 
         <div class="card-info">
-            <span>SALDO ACTUAL</span>
+            <span>Saldo actual</span>
             <strong>{{ credito.saldo_actual | cop }}</strong>
         </div>
 
         {% if deuda_total_fecha > 0 %}
-        <div class="card-info alerta">
-            <span>ESTADO</span>
-            <strong>TIENE DEUDA PENDIENTE</strong>
+        <div class="card-info card-alerta">
+            <span>Estado</span>
+            <strong>Tiene deuda pendiente</strong>
         </div>
         {% else %}
-        <div class="card-info ok">
-            <span>ESTADO</span>
-            <strong>CRÉDITO AL DÍA</strong>
+        <div class="card-info card-ok">
+            <span>Estado</span>
+            <strong>Crédito al día</strong>
         </div>
         {% endif %}
-
     </div>
 
     {% if deuda_total_fecha > 0 %}
         <div class="mensaje-error">
-            No puedes hacer abono a capital porque el crédito tiene deuda exigible por {{ deuda_total_fecha | cop }}.
+            El crédito tiene deuda exigible actualmente por {{ deuda_total_fecha | cop }}.
+            Si el abono corresponde a una fecha anterior al vencimiento, regístralo con esa fecha.
         </div>
     {% endif %}
 
-    <form method="POST">
+    <form method="POST" onsubmit="limpiarValorAntesDeEnviar()">
 
         <div class="form-grid">
-
             <div>
                 <label>Fecha de pago</label>
                 <input type="date" name="fecha_pago" required>
@@ -206,28 +287,60 @@
 
             <div>
                 <label>Medio de pago</label>
-                <select name="medio_pago" required>
+                <select name="medio_pago" id="medio_pago" onchange="mostrarOtroMedio()" required>
                     <option value="">Seleccione</option>
                     <option value="Bancolombia">Bancolombia</option>
                     <option value="Efectivo">Efectivo</option>
                     <option value="OTRO">Otro</option>
                 </select>
             </div>
-
         </div>
 
-        <label>Valor a abonar</label>
-        <input type="text" name="valor" class="input-moneda" required>
+        <div id="otro_medio_box" class="campo-full" style="display:none;">
+            <label>Escriba el otro medio de pago</label>
+            <input type="text" name="medio_pago_otro">
+        </div>
+
+        <div class="campo-full">
+            <label>Valor a abonar</label>
+            <input type="text" name="valor" id="valor_abono" inputmode="numeric" oninput="formatearMoneda(this)" required>
+        </div>
 
         <div class="acciones">
-            <button type="submit" class="btn-verde" {% if deuda_total_fecha > 0 %}disabled{% endif %}>
-                Registrar abono
-            </button>
-
+            <button type="submit">Registrar abono</button>
             <a href="/ver_cuotas/{{ credito.id }}" class="btn-gris">Volver</a>
         </div>
 
     </form>
+
+    <div class="historial-box">
+        <h2>Historial de abonos a capital</h2>
+
+        {% if abonos_capital %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Valor abonado</th>
+                        <th>Medio de pago</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for abono in abonos_capital %}
+                    <tr>
+                        <td>{{ abono.fecha.strftime('%d/%m/%Y') if abono.fecha else '' }}</td>
+                        <td><strong>{{ abono.valor_aplicado_prepago_capital | cop }}</strong></td>
+                        <td>{{ abono.medio_pago }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="sin-historial">
+                Este crédito todavía no tiene abonos a capital registrados.
+            </div>
+        {% endif %}
+    </div>
 
 </div>
 </body>

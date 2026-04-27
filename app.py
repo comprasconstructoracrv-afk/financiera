@@ -1307,15 +1307,29 @@ def abono_capital(credito_id):
 
     credito = Credito.query.get_or_404(credito_id)
 
-    actualizar_mora_credito(credito, datetime.utcnow().date())
+    actualizar_mora_credito(credito, date.today())
     db.session.commit()
+
+    cuotas_credito = Cuota.query.filter_by(
+        credito_id=credito.id
+    ).order_by(Cuota.numero.asc()).all()
+
+    cuotas_ids = [cuota.id for cuota in cuotas_credito]
+
+    abonos_capital = []
+    if cuotas_ids:
+        abonos_capital = Pago.query.filter(
+            Pago.cuota_id.in_(cuotas_ids),
+            Pago.observacion == 'ABONO A CAPITAL',
+            Pago.valor_aplicado_prepago_capital > 0
+        ).order_by(Pago.fecha.desc()).all()
 
     cuotas_activas = Cuota.query.filter(
         Cuota.credito_id == credito.id,
         Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
     ).order_by(Cuota.numero).all()
 
-    hoy = datetime.utcnow().date()
+    hoy = date.today()
     cuotas_exigibles_hoy = [
         cuota for cuota in cuotas_activas
         if (cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago) <= hoy
@@ -1328,6 +1342,8 @@ def abono_capital(credito_id):
 
     if request.method == 'POST':
         fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d')
+        fecha_pago_date = fecha_pago.date()
+
         valor_pago = limpiar_valor_moneda(request.form['valor'])
         medio_pago = request.form['medio_pago']
 
@@ -1337,51 +1353,82 @@ def abono_capital(credito_id):
                 return "Debes escribir el otro medio de pago"
             medio_pago = medio_pago_otro
 
-        if deuda_total_fecha > 0:
-            return "No se puede hacer abono a capital mientras existan cuotas exigibles o mora pendiente"
-
         if valor_pago <= 0:
             return "El abono a capital debe ser mayor que cero"
 
         if valor_pago > credito.saldo_actual:
             return "El abono a capital no puede ser mayor al saldo actual del crédito"
 
+        # Validar deuda según la fecha real del abono
+        actualizar_mora_credito(credito, fecha_pago_date)
+        db.session.flush()
+
+        cuotas_en_fecha = Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
+        ).order_by(Cuota.numero).all()
+
+        cuotas_exigibles_fecha = [
+            cuota for cuota in cuotas_en_fecha
+            if (cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago) <= fecha_pago_date
+        ]
+
+        deuda_en_fecha_abono = round(
+            sum((cuota.saldo_pendiente or 0) + (cuota.interes_mora or 0) for cuota in cuotas_exigibles_fecha),
+            2
+        )
+
+        if deuda_en_fecha_abono > 0:
+            db.session.rollback()
+            return f"No se puede hacer abono a capital porque en la fecha seleccionada existía deuda exigible por {formato_cop(deuda_en_fecha_abono)}"
+
         credito.saldo_actual = round(credito.saldo_actual - valor_pago, 2)
 
         if credito.saldo_actual < 0:
             credito.saldo_actual = 0
 
-        cuota_referencia = Cuota.query.filter(
-            Cuota.credito_id == credito.id,
-            Cuota.estado == 'PENDIENTE'
-        ).order_by(Cuota.numero).first()
+        cuota_referencia = None
 
-        if cuota_referencia:
-            recalcular_cuotas_pendientes(
-                credito=credito,
-                cuota_actual_numero=cuota_referencia.numero - 1,
-                fecha_base=sumar_meses(cuota_referencia.fecha_pago, -1)
-            )
+        for cuota in cuotas_en_fecha:
+            fecha_cuota = cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago
 
-            pago = Pago(
-                cuota_id=cuota_referencia.id,
-                fecha=fecha_pago,
-                valor=valor_pago,
-                medio_pago=medio_pago,
-                valor_aplicado_prepago_capital=valor_pago,
-                observacion='ABONO A CAPITAL'
-            )
-            db.session.add(pago)
+            if fecha_cuota > fecha_pago_date and cuota.estado in ['PENDIENTE', 'EN MORA', 'ABONO']:
+                cuota_referencia = cuota
+                break
 
-            db.session.commit()
-            return redirect(url_for('ver_recibo_pago', pago_id=pago.id))
+        if not cuota_referencia:
+            db.session.rollback()
+            return "No se encontró una cuota futura para aplicar el abono a capital"
+
+        recalcular_cuotas_pendientes(
+            credito=credito,
+            cuota_actual_numero=cuota_referencia.numero - 1,
+            fecha_base=sumar_meses(cuota_referencia.fecha_pago, -1)
+        )
+
+        pago = Pago(
+            cuota_id=cuota_referencia.id,
+            fecha=fecha_pago,
+            valor=valor_pago,
+            medio_pago=medio_pago,
+            valor_aplicado_prepago_capital=valor_pago,
+            observacion='ABONO A CAPITAL',
+            tipo_pago='ABONO_CAPITAL'
+        )
+
+        db.session.add(pago)
+
+        actualizar_mora_credito(credito, date.today())
+
+        db.session.commit()
+        return redirect(url_for('ver_recibo_pago', pago_id=pago.id))
 
     return render_template(
         'abono_capital.html',
         credito=credito,
-        deuda_total_fecha=deuda_total_fecha
+        deuda_total_fecha=deuda_total_fecha,
+        abonos_capital=abonos_capital
     )
-
 
 @app.route('/configuracion_tasa', methods=['GET', 'POST'])
 def configuracion_tasa():
@@ -2776,7 +2823,17 @@ def ver_recibo_pago(pago_id):
     if mora_aplicada <= 0:
         mora_aplicada = round(pago.mora_generada_al_pago or 0, 2)
 
-    saldo_pendiente_credito = round(credito.saldo_actual or 0, 2)
+    if pago.tipo_pago == 'LIQUIDACION_TOTAL':
+        saldo_pendiente_credito = 0
+
+    elif pago.observacion == 'ABONO A CAPITAL':
+        saldo_pendiente_credito = round((credito.saldo_actual or 0), 2)
+
+    elif cuota.estado in ['PAGADA', 'LIQUIDADA'] or pago.valor_aplicado_capital > 0:
+        saldo_pendiente_credito = round((cuota.saldo_restante or 0), 2)
+
+    else:
+        saldo_pendiente_credito = round((credito.saldo_actual or 0), 2)
 
     return render_template(
         'recibo_pago.html',
