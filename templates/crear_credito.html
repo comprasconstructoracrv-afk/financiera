@@ -396,7 +396,7 @@
 
                                 <div class="campo">
                                     <label>Identificación del codeudor</label>
-                                    <input type="text" name="codeudor_identificacion">
+                                    <input type="text" name="codeudor_identificacion" id="codeudor_identificacion">
                                 </div>
 
                                 <div class="campo">
@@ -436,6 +436,14 @@
 
     if (cedulaInput) {
         cedulaInput.addEventListener('input', function () {
+            this.value = formatearCedula(this.value);
+        });
+    }
+
+    const cedulaCodeudor = document.getElementById('codeudor_identificacion');
+
+    if (cedulaCodeudor) {
+        cedulaCodeudor.addEventListener('input', function () {
             this.value = formatearCedula(this.value);
         });
     }
