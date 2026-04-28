@@ -37,6 +37,10 @@ class Credito(db.Model):
     interes = db.Column(db.Float, nullable=False)
     cuotas = db.Column(db.Integer, nullable=False)
     cuota_mensual = db.Column(db.Float)
+        # Tipo de crédito / amortización
+    tipo_cuota = db.Column(db.String(20), nullable=False, default='FIJA')  
+    tipo_interes = db.Column(db.String(20), nullable=False, default='FIJO')
+    permite_inyeccion_capital = db.Column(db.Boolean, nullable=False, default=False)
     tasa_mora_anual = db.Column(db.Float, nullable=False, default=0)
     tasa_mora_mensual = db.Column(db.Float, nullable=False, default=0)
     tasa_mora_diaria = db.Column(db.Float, nullable=False, default=0)
@@ -109,6 +113,27 @@ class TasaPeriodo(db.Model):
     tasa_anual = db.Column(db.Float, nullable=False)
     tasa_mensual = db.Column(db.Float, nullable=False)
     tasa_diaria = db.Column(db.Float, nullable=False)
+
+class TasaInteresVariable(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint('anio', name='uq_tasa_interes_variable_anio'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    anio = db.Column(db.Integer, nullable=False)
+    tasa_mensual = db.Column(db.Float, nullable=False)
+    fecha_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class InyeccionCapital(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    credito_id = db.Column(db.Integer, db.ForeignKey('credito.id'), nullable=False)
+    numero_cuota = db.Column(db.Integer, nullable=False)
+    fecha = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    valor = db.Column(db.Float, nullable=False)
+    observacion = db.Column(db.String(255), nullable=True)
+
+    credito = db.relationship('Credito', backref='inyecciones_capital')
 
 class Sede(db.Model):
     id = db.Column(db.Integer, primary_key=True)

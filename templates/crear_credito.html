@@ -361,6 +361,30 @@
                                 <input type="number" name="cuotas" required>
                             </div>
 
+                            <div class="form-group">
+                                <label>Tipo de cuota</label>
+                                <select name="tipo_cuota" required>
+                                    <option value="FIJA">Cuota fija</option>
+                                    <option value="VARIABLE">Cuota variable</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Tipo de interés</label>
+                                <select name="tipo_interes" required>
+                                    <option value="FIJO">Interés fijo</option>
+                                    <option value="VARIABLE">Interés variable</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>¿Permite inyección de capital?</label>
+                                <select name="permite_inyeccion_capital">
+                                    <option value="NO">No</option>
+                                    <option value="SI">Sí</option>
+                                </select>
+                            </div>
+
                             <div class="campo campo-completo">
                                 <label>Sede</label>
                             <select name="sede" required>

@@ -333,46 +333,53 @@
             margin-top: 20px;
         }
 
-        /* BOTÓN BASE */
         .btn-dash {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 20px;
-            border-radius: 12px;
+            padding: 10px 18px;
+            border-radius: 10px;
             font-weight: 600;
-            text-decoration: none;
             color: white;
-            font-size: 14px;
+            text-decoration: none;
+            display: inline-block;
             transition: all 0.25s ease;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            border: 1px solid rgba(255,255,255,0.2);
         }
 
         /* EFECTO HOVER */
         .btn-dash:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 18px rgba(0,0,0,0.15);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.25);
         }
 
         /* COLORES */
+        /* AZUL */
         .btn-dash.azul {
-            background: linear-gradient(135deg, #1677ff, #0d47a1);
+            background: linear-gradient(135deg, #3b82f6, #1e3a8a);
         }
 
+        /* NARANJA */
         .btn-dash.naranja {
-            background: linear-gradient(135deg, #f59e0b, #d97706);
+            background: linear-gradient(135deg, #f59e0b, #b45309);
         }
 
+        /* VERDE */
         .btn-dash.verde {
-            background: linear-gradient(135deg, #16a34a, #166534);
+            background: linear-gradient(135deg, #22c55e, #166534);
         }
 
-        .btn-dash.rojo {
-            background: linear-gradient(135deg, #ef4444, #b91c1c);
-        }
-
+        /* MORADO */
         .btn-dash.morado {
-            background: linear-gradient(135deg, #7c3aed, #5b21b6);
+            background: linear-gradient(135deg, #a855f7, #581c87);
+        }
+
+        /* INDIGO (tasa interés) */
+        .btn-dash.indigo {
+            background: linear-gradient(135deg, #6366f1, #1e1b4b);
+        }
+
+        /* ROJO */
+        .btn-dash.rojo {
+            background: linear-gradient(135deg, #ef4444, #7f1d1d);
         }
     </style>
 </head>
@@ -385,23 +392,20 @@
                 <p>Panel general de cartera por sede</p>
 
                 <div class="acciones-dashboard">
-                    <a href="/crear_credito" class="btn-dash azul">
-                        Crear crédito
-                    </a>
+                    <a href="/crear_credito" class="btn-dash azul">Crear crédito</a>
 
-                    <a href="/paz_y_salvo" class="btn-dash naranja">
-                        Paz y salvo
-                    </a>
+                    <a href="/paz_y_salvo" class="btn-dash naranja">Paz y salvo</a>
 
-                    <a href="/configuracion_tasa" class="btn-dash verde">
-                        Configurar tasa mora
+                    <a href="/configuracion_tasa" class="btn-dash verde">Configurar tasa mora</a>
+
+                    <a href="/configurar_tasa_interes" class="btn-dash indigo">
+                        Configurar tasa interés
                     </a>
 
                     <a href="/agregar_sede" class="btn-dash morado">Añadir sede</a>
 
-                    <a href="/logout" class="btn-dash rojo">
-                        Cerrar sesión
-                    </a>
+
+                    <a href="/logout" class="btn-dash rojo">Cerrar sesión</a>
                 </div>
             </div>
 

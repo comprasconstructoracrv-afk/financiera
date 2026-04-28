@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>Cuotas del crédito</title>
 
-
 <style>
     * {
         box-sizing: border-box;
@@ -120,25 +119,6 @@
         opacity: 0.97;
     }
 
-    /* BOTÓN VOLVER */
-    .btn-volver {
-        background: linear-gradient(135deg, #6c757d, #495057);
-    }
-
-    /* LIQUIDAR (ROJO MÁS PROFESIONAL) */
-    .btn-liquidar {
-        background: linear-gradient(135deg, #e03131, #c92a2a);
-    }
-
-    /* PAGAR DEUDA */
-    .btn-pagar {
-        background: linear-gradient(135deg, #1677ff, #0d6efd);
-    }
-
-    /* ABONO CAPITAL */
-    .btn-abono {
-        background: linear-gradient(135deg, #198754, #157347);
-    }
     .grid-resumen {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -627,7 +607,59 @@
     .btn-green { background: linear-gradient(135deg, #16a34a, #166534); }
     .btn-cyan { background: linear-gradient(135deg, #06b6d4, #0e7490); }
 
+    .btn-accion {
+        padding: 10px 16px;
+        border-radius: 10px;
+        font-weight: 600;
+        color: white;
+        text-decoration: none;
+        display: inline-block;
+        transition: all 0.25s ease;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        border: none;
+    }
+
+    /* EFECTO HOVER */
+    .btn-accion:hover {
+        transform: translateY(-2px) scale(1.03);
+        box-shadow: 0 8px 18px rgba(0,0,0,0.3);
+    }
+
+    /* ===== BOTONES CON DEGRADADO ===== */
+
+    .btn-volver {
+        background: linear-gradient(135deg, #9ca3af, #374151);
+    }
+
+    .btn-liquidar {
+        background: linear-gradient(135deg, #ef4444, #991b1b);
+    }
+
+    .btn-pagar {
+        background: linear-gradient(135deg, #3b82f6, #1e40af);
+    }
+
+    .btn-abono {
+        background: linear-gradient(135deg, #22c55e, #166534);
+    }
+
+    /* 🔥 ESTE ES EL IMPORTANTE (inyección diferente) */
+    .btn-inyeccion {
+        background: linear-gradient(135deg, #f59e0b, #92400e); /* NARANJA/DORADO */
+    }
+
+    /* simulador */
+    .btn-simulador {
+        background: linear-gradient(135deg, #06b6d4, #155e75);
+    }
+
+    /* plan pagos */
+    .btn-plan {
+        background: linear-gradient(135deg, #6366f1, #1e1b4b);
+    }
+
 </style>
+
 </head>
 <body>
 <div class="contenedor">
@@ -650,25 +682,19 @@
     <div class="barra-superior">
         <div class="barra-botones">
             
-            <a href="/ver_creditos/{{ credito.sede }}" class="btn-accion btn-volver">
-                Volver a créditos
-            </a>
+            <a href="/ver_creditos/{{ credito.sede }}" class="btn-accion btn-volver">Volver a créditos</a>
 
-            <a href="/liquidar_credito/{{ credito.id }}" class="btn-accion btn-liquidar">
-                Liquidar crédito
-            </a>
+            <a href="/liquidar_credito/{{ credito.id }}" class="btn-accion btn-liquidar">Liquidar crédito</a>
 
-            <a href="/pagar_deuda_fecha/{{ credito.id }}" class="btn-accion btn-pagar">
-                Pagar deuda a la fecha
-            </a>
+            <a href="/pagar_deuda_fecha/{{ credito.id }}" class="btn-accion btn-pagar">Pagar deuda a la fecha</a>
 
-            <a href="/abono_capital/{{ credito.id }}" class="btn-accion btn-abono">
-                Abono a capital
-            </a>
+            <a href="/abono_capital/{{ credito.id }}" class="btn-accion btn-abono">Abono a capital</a>
 
-            <a href="{{ url_for('plan_pagos_credito', credito_id=credito.id) }}" target="_blank" class="btn-accion btn-plan">
-                Imprimir plan de pagos
-            </a>
+            <a href="/inyeccion_capital/{{ credito.id }}" class="btn-accion btn-inyeccion">Inyección de capital</a>
+
+            <a href="/simular_inyeccion/{{ credito.id }}" class="btn-accion btn-simulador">Simulador inyección</a>
+
+            <a href="{{ url_for('plan_pagos_credito', credito_id=credito.id) }}" class="btn-accion btn-plan">Imprimir plan de pagos</a>
 
         </div>
     </div>
@@ -841,6 +867,9 @@
                 <tr>
                     <th>N° Cuota</th>
                     <th>Fecha cuota</th>
+                    {% if credito.tipo_cuota == 'VARIABLE' and credito.permite_inyeccion_capital %}
+                        <th>Adición capital</th>
+                    {% endif %}
                     <th>Saldo inicial</th>
                     <th>Valor cuota</th>
                     <th>Capital</th>
@@ -869,6 +898,18 @@
                 >
                     <td>{{ cuota.numero }}</td>
                     <td>{{ cuota.fecha_pago.strftime('%d/%m/%Y') }}</td>
+                    {% if credito.tipo_cuota == 'VARIABLE' and credito.permite_inyeccion_capital %}
+                    <td>
+                        {% set inyeccion = cuota.credito.inyecciones_capital 
+                            | selectattr("numero_cuota", "equalto", cuota.numero) 
+                            | list %}
+                        {% if inyeccion %}
+                            {{ inyeccion[0].valor | cop }}
+                        {% else %}
+                            $ 0
+                        {% endif %}
+                    </td>
+                    {% endif %}
                     <td class="col-moneda">{{ cuota.saldo_inicial | cop }}</td>
                     <td class="col-moneda">{{ cuota.valor_cuota | cop }}</td>
                     <td class="col-moneda">{{ cuota.capital | cop }}</td>

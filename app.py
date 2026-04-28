@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, session, flash, url_for, send_file
-from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo, Sede
+from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo, Sede, TasaInteresVariable, InyeccionCapital
 from datetime import datetime, date, timedelta
 import calendar
 import os
@@ -253,6 +253,14 @@ def obtener_tasa_periodo(anio, mes):
         return tasa_periodo
 
     return ConfiguracionTasa.query.first()
+
+def obtener_tasa_interes_variable(anio, tasa_inicial):
+    tasa = TasaInteresVariable.query.filter_by(anio=anio).first()
+
+    if tasa:
+        return tasa.tasa_mensual
+
+    return tasa_inicial
 
 
 def actualizar_mora_credito(credito, fecha_corte=None):
@@ -575,6 +583,66 @@ def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
         )
         db.session.add(nueva_cuota)
 
+def generar_cuotas_variables(credito_id, monto, interes_inicial, cuotas, fecha_base):
+    saldo = round(monto, 2)
+    dia_original = fecha_base.day
+
+    for n in range(cuotas):
+        numero_cuota = n + 1
+        fecha_pago = sumar_meses(fecha_base, n, dia_fijo=dia_original)
+
+        credito = Credito.query.get(credito_id)
+
+        tasa_mes = obtener_tasa_interes_variable(
+            fecha_pago.year,
+            interes_inicial
+        )
+
+        inyecciones = InyeccionCapital.query.filter_by(
+            credito_id=credito_id,
+            numero_cuota=numero_cuota
+        ).all()
+
+        adicion_capital = round(sum(i.valor or 0 for i in inyecciones), 2)
+
+        saldo_inicial = round(saldo + adicion_capital, 2)
+
+        interes_mes = round(saldo_inicial * (tasa_mes / 100), 2)
+
+        capital_base = round(saldo_inicial / max(cuotas - n, 1), 2)
+
+        valor_cuota = round(capital_base + interes_mes, 2)
+
+        saldo = round(saldo_inicial - capital_base, 2)
+
+        if saldo < 0:
+            capital_base = round(capital_base + saldo, 2)
+            saldo = 0
+
+        nueva_cuota = Cuota(
+            credito_id=credito_id,
+            numero=numero_cuota,
+            fecha_pago=fecha_pago,
+            valor_cuota=valor_cuota,
+            saldo_inicial=saldo_inicial,
+            capital=capital_base,
+            interes=interes_mes,
+            saldo_restante=saldo,
+            saldo_pendiente=valor_cuota,
+            tasa_mora_mensual_cuota=0,
+            porcentaje_mora_aplicado=0,
+            dias_mora=0,
+            interes_mora=0,
+            total_cobro=valor_cuota,
+            estado='PENDIENTE'
+        )
+
+        db.session.add(nueva_cuota)
+
+    if credito:
+        credito.cuota_mensual = 0
+        credito.saldo_actual = round(saldo, 2)
+
 def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
     ...
     return {
@@ -804,6 +872,10 @@ def crear_credito():
             cuotas = int(request.form['cuotas'])
             fecha_credito = datetime.strptime(request.form['fecha_credito'], '%Y-%m-%d')
 
+            tipo_cuota = request.form.get('tipo_cuota', 'FIJA')
+            tipo_interes = request.form.get('tipo_interes', 'FIJO')
+            permite_inyeccion = request.form.get('permite_inyeccion_capital', '').strip().upper() in ['SI', 'SÍ']
+
             tiene_codeudor = request.form.get('tiene_codeudor') == 'SI'
 
             codeudor_nombre = request.form.get('codeudor_nombre', '').strip() if tiene_codeudor else None
@@ -850,13 +922,31 @@ def crear_credito():
                 tasa_mora_anual=config_tasa.tasa_anual,
                 tasa_mora_mensual=config_tasa.tasa_mensual,
                 tasa_mora_diaria=config_tasa.tasa_diaria,
-                fecha_creacion=fecha_credito
+                fecha_creacion=fecha_credito,
+                tipo_cuota=tipo_cuota,
+                tipo_interes=tipo_interes,
+                permite_inyeccion_capital=permite_inyeccion
             )
 
             db.session.add(nuevo)
             db.session.commit()
 
-            generar_cuotas(nuevo.id, monto_financiado, interes, cuotas, fecha_credito)
+            if tipo_cuota == 'VARIABLE':
+                generar_cuotas_variables(
+                    nuevo.id,
+                    monto_financiado,
+                    interes,
+                    cuotas,
+                    fecha_credito
+                )
+            else:
+                generar_cuotas(
+                    nuevo.id,
+                    monto_financiado,
+                    interes,
+                    cuotas,
+                    fecha_credito
+                )
             db.session.commit()
 
             flash("Crédito creado correctamente", "success")
@@ -944,7 +1034,7 @@ def ver_creditos(sede):
     resumen_creditos = []
 
     for credito in creditos:
-        actualizar_mora_credito(credito, hoy)
+        # actualizar_mora_credito(credito, hoy)
 
         cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
 
@@ -3584,6 +3674,241 @@ def agregar_sede():
             flash(f'Error al agregar sede: {str(e)}', 'error')
 
     return render_template('agregar_sede.html')
+
+@app.route('/configurar_tasa_interes', methods=['GET', 'POST'])
+def configurar_tasa_interes():
+    if request.method == 'POST':
+        anio = int(request.form.get('anio'))
+        tasa = float(request.form.get('tasa'))
+
+        existente = TasaInteresVariable.query.filter_by(anio=anio).first()
+
+        if existente:
+            existente.tasa_mensual = tasa
+        else:
+            nueva = TasaInteresVariable(
+                anio=anio,
+                tasa_mensual=tasa
+            )
+            db.session.add(nueva)
+
+        db.session.commit()
+        flash("Tasa guardada correctamente", "success")
+
+    tasas = TasaInteresVariable.query.order_by(TasaInteresVariable.anio).all()
+
+    return render_template('configurar_tasa_interes.html', tasas=tasas)
+
+@app.route('/inyeccion_capital/<int:credito_id>', methods=['GET', 'POST'])
+def inyeccion_capital(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    if credito.tipo_cuota != 'VARIABLE':
+        flash("Este crédito no es de cuota variable.", "error")
+        return redirect(url_for('ver_cuotas', credito_id=credito.id))
+
+    if not credito.permite_inyeccion_capital:
+        flash("Este crédito no permite inyección de capital.", "error")
+        return redirect(url_for('ver_cuotas', credito_id=credito.id))
+
+    if request.method == 'POST':
+        numero_cuota = int(request.form['numero_cuota'])
+        fecha = datetime.strptime(request.form['fecha'], '%Y-%m-%d')
+        valor = limpiar_valor_moneda(request.form['valor'])
+        observacion = request.form.get('observacion', '').strip()
+
+        # No permitir recalcular cuotas futuras que ya tengan pagos
+        cuotas_futuras_ids = [
+            c.id for c in Cuota.query.filter(
+                Cuota.credito_id == credito.id,
+                Cuota.numero >= numero_cuota
+            ).all()
+        ]
+
+        if cuotas_futuras_ids:
+            pagos_futuros = Pago.query.filter(Pago.cuota_id.in_(cuotas_futuras_ids)).count()
+
+            if pagos_futuros > 0:
+                flash(
+                    "No se puede aplicar esta inyección porque existen pagos registrados "
+                    "en la cuota seleccionada o en cuotas posteriores.",
+                    "error"
+                )
+                return redirect(url_for('ver_cuotas', credito_id=credito.id))
+
+        nueva = InyeccionCapital(
+            credito_id=credito.id,
+            numero_cuota=numero_cuota,
+            fecha=fecha,
+            valor=valor,
+            observacion=observacion
+        )
+
+        db.session.add(nueva)
+        db.session.commit()
+
+        # Tomar saldo desde la cuota anterior para NO tocar historia ya pagada
+        cuota_anterior = Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.numero < numero_cuota
+        ).order_by(Cuota.numero.desc()).first()
+
+        if cuota_anterior:
+            saldo = cuota_anterior.saldo_restante
+        else:
+            saldo = credito.monto_financiado
+
+        # Borrar solo cuotas desde la inyección hacia adelante
+        Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.numero >= numero_cuota
+        ).delete()
+        db.session.commit()
+
+        dia_original = credito.fecha_creacion.day
+
+        for numero in range(numero_cuota, credito.cuotas + 1):
+            fecha_pago = sumar_meses(
+                credito.fecha_creacion,
+                numero - 1,
+                dia_fijo=dia_original
+            )
+
+            tasa_mes = obtener_tasa_interes_variable(
+                fecha_pago.year,
+                credito.interes
+            )
+
+            inyecciones = InyeccionCapital.query.filter_by(
+                credito_id=credito.id,
+                numero_cuota=numero
+            ).all()
+
+            adicion_capital = round(sum(i.valor or 0 for i in inyecciones), 2)
+
+            saldo_inicial = round(saldo + adicion_capital, 2)
+
+            interes_mes = round(saldo_inicial * (tasa_mes / 100), 2)
+
+            cuotas_restantes = credito.cuotas - numero + 1
+            capital = round(saldo_inicial / max(cuotas_restantes, 1), 2)
+
+            valor_cuota = round(capital + interes_mes, 2)
+
+            saldo = round(saldo_inicial - capital, 2)
+
+            if saldo < 0:
+                capital = round(capital + saldo, 2)
+                saldo = 0
+
+            nueva_cuota = Cuota(
+                credito_id=credito.id,
+                numero=numero,
+                fecha_pago=fecha_pago,
+                valor_cuota=valor_cuota,
+                saldo_inicial=saldo_inicial,
+                capital=capital,
+                interes=interes_mes,
+                saldo_restante=saldo,
+                saldo_pendiente=valor_cuota,
+                tasa_mora_mensual_cuota=0,
+                porcentaje_mora_aplicado=0,
+                dias_mora=0,
+                interes_mora=0,
+                total_cobro=valor_cuota,
+                estado='PENDIENTE'
+            )
+
+            db.session.add(nueva_cuota)
+
+        db.session.commit()
+
+        flash("Inyección de capital aplicada correctamente.", "success")
+        return redirect(url_for('ver_cuotas', credito_id=credito.id))
+
+    inyecciones = InyeccionCapital.query.filter_by(
+        credito_id=credito.id
+    ).order_by(InyeccionCapital.numero_cuota.asc()).all()
+
+    return render_template(
+        'inyeccion_capital.html',
+        credito=credito,
+        inyecciones=inyecciones
+    )
+
+@app.route('/simular_inyeccion/<int:credito_id>', methods=['GET', 'POST'])
+def simular_inyeccion(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    cuotas_simuladas = []
+
+    if request.method == 'POST':
+        numero_cuota = int(request.form['numero_cuota'])
+        fecha = datetime.strptime(request.form['fecha'], '%Y-%m-%d')
+        valor = limpiar_valor_moneda(request.form['valor'])
+
+        # Buscar saldo base
+        cuota_anterior = Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.numero < numero_cuota
+        ).order_by(Cuota.numero.desc()).first()
+
+        if cuota_anterior:
+            saldo = cuota_anterior.saldo_restante
+        else:
+            saldo = credito.monto_financiado
+
+        dia_original = credito.fecha_creacion.day
+
+        for numero in range(numero_cuota, credito.cuotas + 1):
+
+            fecha_pago = sumar_meses(
+                credito.fecha_creacion,
+                numero - 1,
+                dia_fijo=dia_original
+            )
+
+            tasa_mes = obtener_tasa_interes_variable(
+                fecha_pago.year,
+                credito.interes
+            )
+
+            # Inyección SOLO en la cuota elegida
+            adicion_capital = valor if numero == numero_cuota else 0
+
+            saldo_inicial = round(saldo + adicion_capital, 2)
+
+            interes_mes = round(saldo_inicial * (tasa_mes / 100), 2)
+
+            cuotas_restantes = credito.cuotas - numero + 1
+            capital = round(saldo_inicial / max(cuotas_restantes, 1), 2)
+
+            valor_cuota = round(capital + interes_mes, 2)
+
+            saldo = round(saldo_inicial - capital, 2)
+
+            cuotas_simuladas.append({
+                'numero': numero,
+                'fecha': fecha_pago,
+                'saldo_inicial': saldo_inicial,
+                'adicion': adicion_capital,
+                'interes': interes_mes,
+                'capital': capital,
+                'cuota': valor_cuota,
+                'saldo_final': saldo
+            })
+
+    return render_template(
+        'simular_inyeccion.html',
+        credito=credito,
+        cuotas=cuotas_simuladas
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)

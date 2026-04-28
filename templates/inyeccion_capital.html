@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Inyección de capital</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #eef2f7, #dfe9f3);
+            padding: 40px 20px;
+            color: #102a43;
+        }
+
+        .contenedor {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            border-radius: 24px;
+            padding: 34px;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 38px;
+            color: #102a43;
+        }
+
+        .subtitulo {
+            margin: 10px 0 28px 0;
+            color: #52606d;
+            font-size: 16px;
+        }
+
+        .grid-resumen {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 26px;
+        }
+
+        .card-info {
+            background: #f8fafc;
+            border: 1px solid #dbe2ea;
+            border-radius: 16px;
+            padding: 18px;
+        }
+
+        .card-info span {
+            display: block;
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: 0.4px;
+        }
+
+        .card-info strong {
+            font-size: 19px;
+            color: #0f172a;
+            line-height: 1.35;
+        }
+
+        .alerta {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            color: #9a3412;
+            border-radius: 16px;
+            padding: 16px 18px;
+            font-weight: bold;
+            margin-bottom: 26px;
+        }
+
+        form {
+            margin-top: 10px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+
+        .campo-completo {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #0f172a;
+        }
+
+        input {
+            width: 100%;
+            padding: 13px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.15);
+        }
+
+        .acciones {
+            margin-top: 26px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            padding: 0 20px;
+            border-radius: 14px;
+            border: none;
+            text-decoration: none;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 10px 22px rgba(15, 23, 42, 0.16);
+            transition: 0.25s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 30px rgba(15, 23, 42, 0.24);
+        }
+
+        .btn-guardar {
+            background: linear-gradient(135deg, #f59e0b, #92400e);
+        }
+
+        .btn-volver {
+            background: linear-gradient(135deg, #6b7280, #374151);
+        }
+
+        .separador {
+            margin: 34px 0 24px 0;
+            border: none;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        h2 {
+            margin: 0 0 18px 0;
+            font-size: 26px;
+            color: #102a43;
+        }
+
+        .tabla-wrapper {
+            overflow-x: auto;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 700px;
+        }
+
+        th {
+            background: #fff7ed;
+            color: #7c2d12;
+            padding: 13px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        td {
+            padding: 13px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .valor {
+            font-weight: bold;
+            color: #166534;
+        }
+
+        .vacio {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 14px;
+            padding: 22px;
+            text-align: center;
+            color: #64748b;
+            font-weight: bold;
+        }
+
+        @media (max-width: 700px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 32px;
+            }
+
+            .contenedor {
+                padding: 24px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="contenedor">
+
+    <h1>Inyección de capital</h1>
+    <p class="subtitulo">Registra desembolsos adicionales de capital para créditos variables por etapas de obra.</p>
+
+    <div class="grid-resumen">
+        <div class="card-info">
+            <span>Cliente</span>
+            <strong>{{ credito.cliente }}</strong>
+        </div>
+
+        <div class="card-info">
+            <span>Pagaré</span>
+            <strong>{{ credito.numero_pagare }}</strong>
+        </div>
+
+        <div class="card-info">
+            <span>Tipo de crédito</span>
+            <strong>{{ credito.tipo_cuota }}</strong>
+        </div>
+    </div>
+
+    <div class="alerta">
+        Esta operación recalcula las cuotas desde la cuota seleccionada hacia adelante. Las cuotas anteriores no se modifican.
+    </div>
+
+    <form method="POST">
+        <div class="form-grid">
+
+            <div>
+                <label>Número de cuota donde entra el capital</label>
+                <input type="number" name="numero_cuota" min="1" max="{{ credito.cuotas }}" required>
+            </div>
+
+            <div>
+                <label>Fecha</label>
+                <input type="date" name="fecha" required>
+            </div>
+
+            <div class="campo-completo">
+                <label>Valor de la inyección</label>
+                <input type="text" name="valor" required placeholder="Ej: 95.900.000">
+            </div>
+
+            <div class="campo-completo">
+                <label>Observación</label>
+                <input type="text" name="observacion" placeholder="Ej: Desembolso etapa 2 de obra">
+            </div>
+
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="btn btn-guardar">Guardar inyección</button>
+            <a href="/ver_cuotas/{{ credito.id }}" class="btn btn-volver">Volver</a>
+        </div>
+    </form>
+
+    <hr class="separador">
+
+    <h2>Inyecciones registradas</h2>
+
+    {% if inyecciones %}
+    <div class="tabla-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Cuota</th>
+                    <th>Fecha</th>
+                    <th>Valor</th>
+                    <th>Observación</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in inyecciones %}
+                <tr>
+                    <td>{{ item.numero_cuota }}</td>
+                    <td>{{ item.fecha.strftime('%d/%m/%Y') if item.fecha else '' }}</td>
+                    <td class="valor">{{ item.valor | cop }}</td>
+                    <td>{{ item.observacion or 'Sin observación' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <div class="vacio">
+            Este crédito todavía no tiene inyecciones de capital registradas.
+        </div>
+    {% endif %}
+
+</div>
+
+</body>
+</html>

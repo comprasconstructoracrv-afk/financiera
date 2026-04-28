@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Simulación de inyección</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        @page {
+            size: landscape;
+            margin: 10mm;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #eef2f7;
+            color: #102a43;
+            padding: 24px;
+        }
+
+        .contenedor {
+            max-width: 1250px;
+            margin: auto;
+        }
+
+        .barra-acciones {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 0 18px;
+            border-radius: 12px;
+            border: none;
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
+        }
+
+        .btn-imprimir {
+            background: linear-gradient(135deg, #1677ff, #0d47a1);
+        }
+
+        .btn-volver {
+            background: linear-gradient(135deg, #6c757d, #495057);
+        }
+
+        .documento {
+            background: white;
+            border-radius: 22px;
+            padding: 28px 30px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 1px solid #dbe2ea;
+            padding-bottom: 18px;
+            margin-bottom: 22px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 34px;
+            color: #102a43;
+        }
+
+        .header p {
+            margin: 8px 0 0 0;
+            color: #52606d;
+        }
+
+        .logo-box {
+            text-align: right;
+        }
+
+        .logo-box img {
+            max-height: 90px;
+            width: auto;
+        }
+
+        .nit {
+            margin-top: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #c79a22;
+        }
+
+        .bloque {
+            background: #f8fafc;
+            border: 1px solid #dbe2ea;
+            border-radius: 18px;
+            padding: 18px;
+            margin-bottom: 22px;
+        }
+
+        .bloque h2 {
+            margin: 0 0 14px 0;
+            font-size: 22px;
+            color: #102a43;
+        }
+
+        .grid-datos {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .dato {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 12px;
+        }
+
+        .dato .label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #6b7280;
+            margin-bottom: 6px;
+        }
+
+        .dato .valor {
+            font-size: 16px;
+            font-weight: bold;
+            color: #111827;
+            line-height: 1.35;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 14px;
+            align-items: end;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 7px;
+            color: #243b53;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #0ea5e9;
+            box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.14);
+        }
+
+        .btn-simular {
+            background: linear-gradient(135deg, #06b6d4, #155e75);
+        }
+
+        .tabla-wrapper {
+            overflow-x: auto;
+            border-radius: 14px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1100px;
+            background: white;
+        }
+
+        th, td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        th {
+            background: #eaf2ff;
+            color: #102a43;
+            font-weight: bold;
+        }
+
+        tr:hover td {
+            background: #f8fbff;
+        }
+
+        .adicion {
+            color: #16a34a;
+            font-weight: bold;
+        }
+
+        .total-simulado {
+            margin-top: 18px;
+            background: #ecfeff;
+            border: 1px solid #a5f3fc;
+            color: #155e75;
+            padding: 14px 16px;
+            border-radius: 14px;
+            font-weight: bold;
+        }
+
+        .vacio {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 14px;
+            padding: 22px;
+            color: #64748b;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .nota {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            color: #9a3412;
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .barra-acciones,
+            .bloque-formulario {
+                display: none !important;
+            }
+
+            .contenedor,
+            .documento {
+                max-width: 100%;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+                border-radius: 0;
+            }
+
+            .header {
+                margin-bottom: 10px;
+            }
+
+            th, td {
+                font-size: 10px;
+                padding: 5px;
+            }
+
+            table {
+                min-width: 0;
+                table-layout: fixed;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .grid-datos {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 14px;
+            }
+
+            .logo-box {
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+
+<body>
+<div class="contenedor">
+
+    <div class="barra-acciones">
+        <button onclick="window.print()" class="btn btn-imprimir">Imprimir</button>
+        <a href="/ver_cuotas/{{ credito.id }}" class="btn btn-volver">Volver</a>
+    </div>
+
+    <div class="documento">
+
+        <div class="header">
+            <div>
+                <h1>Simulación de inyección</h1>
+                <p>Proyección de tabla de amortización sin modificar el crédito real.</p>
+            </div>
+
+            <div class="logo-box">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
+                <div class="nit">NIT 901.527.083-2</div>
+            </div>
+        </div>
+
+        <div class="bloque">
+            <h2>Datos del crédito</h2>
+
+            <div class="grid-datos">
+                <div class="dato">
+                    <div class="label">Cliente</div>
+                    <div class="valor">{{ credito.cliente }}</div>
+                </div>
+
+                <div class="dato">
+                    <div class="label">Pagaré</div>
+                    <div class="valor">{{ credito.numero_pagare }}</div>
+                </div>
+
+                <div class="dato">
+                    <div class="label">Sede</div>
+                    <div class="valor">{{ credito.sede }}</div>
+                </div>
+
+                <div class="dato">
+                    <div class="label">Tipo crédito</div>
+                    <div class="valor">{{ credito.tipo_cuota }}</div>
+                </div>
+
+                <div class="dato">
+                    <div class="label">Monto financiado</div>
+                    <div class="valor">{{ credito.monto_financiado | cop }}</div>
+                </div>
+
+                <div class="dato">
+                    <div class="label">Saldo actual</div>
+                    <div class="valor">{{ credito.saldo_actual | cop }}</div>
+                </div>
+
+                <div class="dato">
+                    <div class="label">Interés inicial</div>
+                    <div class="valor">{{ credito.interes }} %</div>
+                </div>
+
+                <div class="dato">
+                    <div class="label">Cuotas</div>
+                    <div class="valor">{{ credito.cuotas }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bloque bloque-formulario">
+            <h2>Parámetros de simulación</h2>
+
+            <div class="nota">
+                Esta simulación no guarda cambios. Solo muestra cómo quedaría la tabla si se aplicara la inyección.
+            </div>
+
+            <form method="POST">
+                <div class="form-grid">
+                    <div>
+                        <label>Cuota</label>
+                        <input type="number" name="numero_cuota" required value="{{ request.form.get('numero_cuota', '') }}">
+                    </div>
+
+                    <div>
+                        <label>Fecha</label>
+                        <input type="date" name="fecha" required value="{{ request.form.get('fecha', '') }}">
+                    </div>
+
+                    <div>
+                        <label>Valor</label>
+                        <input type="text" name="valor" required value="{{ request.form.get('valor', '') }}" placeholder="Ej: 95.900.000">
+                    </div>
+
+                    <div>
+                        <button type="submit" class="btn btn-simular">Simular</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        {% if cuotas %}
+        <div class="bloque">
+            <h2>Tabla simulada</h2>
+
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Fecha</th>
+                            <th>Saldo inicial</th>
+                            <th>Adición capital</th>
+                            <th>Interés</th>
+                            <th>Capital</th>
+                            <th>Valor cuota</th>
+                            <th>Saldo final</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in cuotas %}
+                        <tr>
+                            <td>{{ c.numero }}</td>
+                            <td>{{ c.fecha.strftime('%d/%m/%Y') }}</td>
+                            <td>{{ c.saldo_inicial | cop }}</td>
+                            <td class="adicion">
+                                {% if c.adicion > 0 %}
+                                    + {{ c.adicion | cop }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td>{{ c.interes | cop }}</td>
+                            <td>{{ c.capital | cop }}</td>
+                            <td><strong>{{ c.cuota | cop }}</strong></td>
+                            <td>{{ c.saldo_final | cop }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="total-simulado">
+                Esta es una simulación informativa. Para aplicarla al crédito real, use el módulo “Inyección de capital”.
+            </div>
+        </div>
+        {% else %}
+        <div class="vacio">
+            Ingresa los datos de la inyección y presiona “Simular” para ver la proyección.
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+</body>
+</html>
