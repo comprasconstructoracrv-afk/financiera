@@ -417,15 +417,27 @@
                 </tr>
                 <tr>
                     <td>Cuotas</td>
-                    <td>{{ credito.cuotas }} cuotas de $ {{ "{:,.0f}".format(cuota_mensual).replace(",", ".") }}</td>
+                    <td>
+                        {% if credito.tipo_cuota == 'VARIABLE' %}
+                            {{ credito.cuotas }} cuotas de valor variable
+                        {% else %}
+                            {{ credito.cuotas }} cuotas de $ {{ "{:,.0f}".format(cuota_mensual).replace(",", ".") }}
+                        {% endif %}
+                    </td>
                 </tr>
                 <tr>
                     <td>Frecuencia</td>
                     <td>Mensual</td>
                 </tr>
                 <tr>
-                    <td>Tasa</td>
-                    <td>{{ interes_mensual }} %</td>
+                    <td>Tasa de interés</td>
+                    <td>
+                        {% if credito.tipo_interes == 'VARIABLE' %}
+                            Variable
+                        {% else %}
+                            {{ interes_mensual }} %
+                        {% endif %}
+                    </td>
                 </tr>
                 <tr>
                     <td>Sede</td>

@@ -262,7 +262,7 @@
 
             <div class="campo-completo">
                 <label>Valor de la inyección</label>
-                <input type="text" name="valor" required placeholder="Ej: 95.900.000">
+                <input type="text" name="valor" class="input-moneda" required placeholder="$ 95.900.000">
             </div>
 
             <div class="campo-completo">
@@ -312,6 +312,34 @@
     {% endif %}
 
 </div>
+<script>
+function soloDigitos(valor) {
+    return valor.replace(/\D/g, '');
+}
 
+function formatearCOP(valor) {
+    if (!valor) return '';
+    return '$ ' + Number(valor).toLocaleString('es-CO');
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const camposMoneda = document.querySelectorAll('.input-moneda');
+
+    camposMoneda.forEach(input => {
+        input.addEventListener('input', function () {
+            const limpio = soloDigitos(this.value);
+            this.value = limpio ? formatearCOP(limpio) : '';
+        });
+    });
+
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', function () {
+            camposMoneda.forEach(input => {
+                input.value = soloDigitos(input.value);
+            });
+        });
+    });
+});
+</script>
 </body>
 </html>

@@ -3910,5 +3910,20 @@ def simular_inyeccion(credito_id):
         cuotas=cuotas_simuladas
     )
 
+@app.route('/fix_db')
+def fix_db():
+    from models import db
+
+    try:
+        db.session.execute(db.text("ALTER TABLE credito ADD COLUMN tipo_cuota VARCHAR(20) DEFAULT 'FIJA'"))
+        db.session.execute(db.text("ALTER TABLE credito ADD COLUMN tipo_interes VARCHAR(20) DEFAULT 'FIJO'"))
+        db.session.execute(db.text("ALTER TABLE credito ADD COLUMN permite_inyeccion_capital BOOLEAN DEFAULT FALSE"))
+        db.session.execute(db.text("ALTER TABLE credito ADD COLUMN ultima_actualizacion_mora DATE"))
+        db.session.commit()
+        return "Columnas creadas correctamente"
+    except Exception as e:
+        return f"Error: {str(e)}"
+
 if __name__ == "__main__":
     app.run(debug=True)
+
