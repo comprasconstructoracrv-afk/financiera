@@ -4215,6 +4215,22 @@ def historial_reversiones(credito_id):
         pagos_reversados=pagos_reversados
     )
 
+@app.route('/fix_db')
+def fix_db():
+    try:
+        from sqlalchemy import text
+
+        db.session.execute(text("ALTER TABLE pago ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT TRUE"))
+        db.session.execute(text("ALTER TABLE pago ADD COLUMN IF NOT EXISTS reversado BOOLEAN DEFAULT FALSE"))
+        db.session.execute(text("ALTER TABLE pago ADD COLUMN IF NOT EXISTS motivo_reversion VARCHAR(255)"))
+        db.session.execute(text("ALTER TABLE pago ADD COLUMN IF NOT EXISTS fecha_reversion TIMESTAMP"))
+
+        db.session.commit()
+        return "Columnas creadas correctamente"
+
+    except Exception as e:
+        return f"Error: {str(e)}"
+
 if __name__ == "__main__":
     app.run(debug=True)
 
