@@ -4227,7 +4227,7 @@ def fix_db():
 
         db.session.commit()
         return "Columnas creadas correctamente"
-
+        
     except Exception as e:
         return f"Error: {str(e)}"
 
