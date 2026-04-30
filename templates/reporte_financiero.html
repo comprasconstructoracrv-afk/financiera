@@ -465,6 +465,21 @@
             font-size: 14px;
             font-weight: 600;
         }
+
+        .fila-total-acumulado td {
+            background: #fef08a !important;
+            color: #111827;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        #reporte-acumulado table th,
+        .seccion table th {
+            background: #06d6d6;
+            color: #111827;
+            font-size: 15px;
+            text-transform: uppercase;
+        }
     </style>
 </head>
 <body>
@@ -578,6 +593,43 @@
                     <div class="label">Diferencia total</div>
                     <div class="valor">{{ resumen_general.diferencia_total | cop }}</div>
                 </div>
+            </div>
+        </div>
+
+        <div class="seccion">
+            <h2>Reporte acumulado histórico</h2>
+            <p class="subtitulo-seccion">
+                Consolidado general desde el primer crédito registrado hasta la fecha actual.
+            </p>
+
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Razón social / Sede</th>
+                            <th>Total préstamo</th>
+                            <th>Lo pagado</th>
+                            <th>Lo que deben</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in reporte_acumulado %}
+                        <tr>
+                            <td><strong>{{ fila.sede }}</strong></td>
+                            <td>{{ fila.total_prestamo | cop }}</td>
+                            <td>{{ fila.total_pagado | cop }}</td>
+                            <td>{{ fila.total_deben | cop }}</td>
+                        </tr>
+                        {% endfor %}
+
+                        <tr class="fila-total-acumulado">
+                            <td><strong>TOTALES</strong></td>
+                            <td><strong>{{ total_prestamo_acumulado | cop }}</strong></td>
+                            <td><strong>{{ total_pagado_acumulado | cop }}</strong></td>
+                            <td><strong>{{ total_deben_acumulado | cop }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 

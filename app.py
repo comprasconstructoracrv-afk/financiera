@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, session, flash, url_for, send_file
-from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo, Sede, TasaInteresVariable, InyeccionCapital
+from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo, Sede, TasaInteresVariable, InyeccionCapital, CambioTasaInteresCredito
 from datetime import datetime, date, timedelta
 import calendar
 import os
@@ -284,10 +284,17 @@ def actualizar_mora_credito(credito, fecha_corte=None):
             cuota.total_cobro = 0
             continue
 
-        saldo_pendiente = round(cuota.saldo_pendiente or 0, 2)
-        interes_mora_actual = round(cuota.interes_mora or 0, 2)
+        pagos_activos = Pago.query.filter_by(
+            cuota_id=cuota.id,
+            activo=True
+        ).all()
 
-        if saldo_pendiente <= 1 and interes_mora_actual <= 1:
+        total_pagado_activo = round(sum(p.valor or 0 for p in pagos_activos), 2)
+
+        valor_cuota = round(cuota.valor_cuota or 0, 2)
+        saldo_base = round(valor_cuota - total_pagado_activo, 2)
+
+        if saldo_base <= 1:
             cuota.saldo_pendiente = 0
             cuota.dias_mora = 0
             cuota.interes_mora = 0
@@ -295,7 +302,7 @@ def actualizar_mora_credito(credito, fecha_corte=None):
             cuota.estado = 'PAGADA'
             continue
 
-        saldo_base = saldo_pendiente
+        cuota.saldo_pendiente = saldo_base
 
         tasa = obtener_tasa_periodo(fecha_vencimiento.year, fecha_vencimiento.month)
         tasa_mensual = tasa.tasa_mensual if tasa else 0
@@ -304,7 +311,7 @@ def actualizar_mora_credito(credito, fecha_corte=None):
         cuota.tasa_mora_mensual_cuota = tasa_mensual
         cuota.porcentaje_mora_aplicado = tasa_mensual
 
-        if fecha_corte > fecha_vencimiento and saldo_base > 0:
+        if fecha_corte > fecha_vencimiento:
             dias_mora = (fecha_corte - fecha_vencimiento).days
             interes_mora = saldo_base * tasa_diaria * dias_mora
 
@@ -315,12 +322,10 @@ def actualizar_mora_credito(credito, fecha_corte=None):
         else:
             cuota.dias_mora = 0
             cuota.interes_mora = 0
-            cuota.total_cobro = round(saldo_base, 2)
+            cuota.total_cobro = saldo_base
 
-            if saldo_base <= 1:
-                cuota.saldo_pendiente = 0
-                cuota.total_cobro = 0
-                cuota.estado = 'PAGADA'
+            if total_pagado_activo > 0:
+                cuota.estado = 'ABONO'
             else:
                 cuota.estado = 'PENDIENTE'
 
@@ -378,6 +383,71 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
             tasa_periodo.tasa_mensual if tasa_periodo else config_tasa.tasa_mensual
         )
         cuota.porcentaje_mora_aplicado = cuota.tasa_mora_mensual_cuota
+
+def obtener_tasa_credito_en_cuota(credito, numero_cuota, fecha_pago):
+    cambio = CambioTasaInteresCredito.query.filter(
+        CambioTasaInteresCredito.credito_id == credito.id,
+        CambioTasaInteresCredito.numero_cuota <= numero_cuota
+    ).order_by(CambioTasaInteresCredito.numero_cuota.desc()).first()
+
+    if cambio:
+        return cambio.tasa_nueva
+
+    return credito.interes or 0
+
+
+def recalcular_cuotas_variables_pendientes(credito, cuota_actual_numero, fecha_base):
+    cuotas_futuras = Cuota.query.filter(
+        Cuota.credito_id == credito.id,
+        Cuota.numero > cuota_actual_numero
+    ).order_by(Cuota.numero.asc()).all()
+
+    if not cuotas_futuras:
+        return
+
+    saldo = round(credito.saldo_actual or 0, 2)
+    dia_original = credito.fecha_creacion.day
+
+    for cuota in cuotas_futuras:
+        cuotas_restantes = credito.cuotas - cuota.numero + 1
+
+        if cuotas_restantes <= 0:
+            break
+
+        fecha_pago = sumar_meses(
+            credito.fecha_creacion,
+            cuota.numero - 1,
+            dia_fijo=dia_original
+        )
+
+        tasa_mes = obtener_tasa_credito_en_cuota(
+            credito,
+            cuota.numero,
+            fecha_pago
+        )
+
+        saldo_inicial = round(saldo, 2)
+        interes_mes = round(saldo_inicial * (tasa_mes / 100), 2)
+        capital = round(saldo_inicial / cuotas_restantes, 2)
+        valor_cuota = round(capital + interes_mes, 2)
+        saldo = round(saldo_inicial - capital, 2)
+
+        if saldo < 0:
+            capital = round(capital + saldo, 2)
+            saldo = 0
+            valor_cuota = round(capital + interes_mes, 2)
+
+        cuota.fecha_pago = fecha_pago
+        cuota.saldo_inicial = saldo_inicial
+        cuota.valor_cuota = valor_cuota
+        cuota.capital = capital
+        cuota.interes = interes_mes
+        cuota.saldo_restante = saldo
+        cuota.saldo_pendiente = valor_cuota
+        cuota.dias_mora = 0
+        cuota.interes_mora = 0
+        cuota.total_cobro = valor_cuota
+        cuota.estado = 'PENDIENTE'
 
 
 def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
@@ -1275,11 +1345,18 @@ def pagar_cuota(cuota_id):
 
         # Recalcular cuotas SOLO si sí hubo abono extra a capital real
         if hubo_abono_extra_capital:
-            recalcular_cuotas_pendientes(
-                credito=credito,
-                cuota_actual_numero=cuota.numero,
-                fecha_base=cuota.fecha_pago
-            )
+            if credito.tipo_cuota == 'VARIABLE':
+                recalcular_cuotas_variables_pendientes(
+                    credito=credito,
+                    cuota_actual_numero=cuota.numero,
+                    fecha_base=cuota.fecha_pago
+                )
+            else:
+                recalcular_cuotas_pendientes(
+                    credito=credito,
+                    cuota_actual_numero=cuota.numero,
+                    fecha_base=cuota.fecha_pago
+                )
 
         # Normalizar estado final
         if cuota.saldo_pendiente <= 0 and cuota.interes_mora <= 0:
@@ -2241,13 +2318,49 @@ def reporte_financiero():
 
     datos = construir_datos_reporte(anio_seleccionado, sede_seleccionada)
 
+    # =========================
+    # REPORTE ACUMULADO GENERAL
+    # =========================
+    creditos_acumulados = Credito.query.all()
+
+    acumulado_por_sede = {}
+
+    for credito in creditos_acumulados:
+        sede = credito.sede or "SIN SEDE"
+
+        if sede not in acumulado_por_sede:
+            acumulado_por_sede[sede] = {
+                "sede": sede,
+                "total_prestamo": 0,
+                "total_pagado": 0,
+                "total_deben": 0
+            }
+
+        total_prestamo = credito.monto_financiado or 0
+        total_deben = credito.saldo_actual or 0
+        total_pagado = total_prestamo - total_deben
+
+        acumulado_por_sede[sede]["total_prestamo"] += total_prestamo
+        acumulado_por_sede[sede]["total_pagado"] += total_pagado
+        acumulado_por_sede[sede]["total_deben"] += total_deben
+
+    reporte_acumulado = list(acumulado_por_sede.values())
+
+    total_prestamo_acumulado = sum(f["total_prestamo"] for f in reporte_acumulado)
+    total_pagado_acumulado = sum(f["total_pagado"] for f in reporte_acumulado)
+    total_deben_acumulado = sum(f["total_deben"] for f in reporte_acumulado)
+
     return render_template(
         'reporte_financiero.html',
         anio_actual=anio_actual,
         anio_seleccionado=anio_seleccionado,
-        anios_disponibles=list(range(2024, anio_actual + 2)),
+        anios_disponibles=list(range(2022, anio_actual + 2)),
         sede_seleccionada=sede_seleccionada,
         sedes_disponibles=['TODAS', 'IBAGUE', 'ESPINAL', 'GIRARDOT', 'CRV'],
+        reporte_acumulado=reporte_acumulado,
+        total_prestamo_acumulado=total_prestamo_acumulado,
+        total_pagado_acumulado=total_pagado_acumulado,
+        total_deben_acumulado=total_deben_acumulado,
         **datos
     )
 
@@ -3513,6 +3626,12 @@ def eliminar_credito(credito_id):
     sede = credito.sede
     origen = request.form.get('origen', 'activos')
 
+    # Borrar inyecciones de capital del crédito
+    InyeccionCapital.query.filter_by(credito_id=credito.id).delete()
+
+    # Borrar cambios de tasa del crédito
+    CambioTasaInteresCredito.query.filter_by(credito_id=credito.id).delete()
+
     try:
         db.session.delete(credito)
         db.session.commit()
@@ -3674,30 +3793,6 @@ def agregar_sede():
             flash(f'Error al agregar sede: {str(e)}', 'error')
 
     return render_template('agregar_sede.html')
-
-@app.route('/configurar_tasa_interes', methods=['GET', 'POST'])
-def configurar_tasa_interes():
-    if request.method == 'POST':
-        anio = int(request.form.get('anio'))
-        tasa = float(request.form.get('tasa'))
-
-        existente = TasaInteresVariable.query.filter_by(anio=anio).first()
-
-        if existente:
-            existente.tasa_mensual = tasa
-        else:
-            nueva = TasaInteresVariable(
-                anio=anio,
-                tasa_mensual=tasa
-            )
-            db.session.add(nueva)
-
-        db.session.commit()
-        flash("Tasa guardada correctamente", "success")
-
-    tasas = TasaInteresVariable.query.order_by(TasaInteresVariable.anio).all()
-
-    return render_template('configurar_tasa_interes.html', tasas=tasas)
 
 @app.route('/inyeccion_capital/<int:credito_id>', methods=['GET', 'POST'])
 def inyeccion_capital(credito_id):
@@ -3910,19 +4005,215 @@ def simular_inyeccion(credito_id):
         cuotas=cuotas_simuladas
     )
 
-@app.route('/fix_db')
-def fix_db():
-    from models import db
+@app.route('/cambiar_tasa_interes_credito/<int:credito_id>', methods=['GET', 'POST'])
+def cambiar_tasa_interes_credito(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
 
-    try:
-        db.session.execute(db.text("ALTER TABLE credito ADD COLUMN tipo_cuota VARCHAR(20) DEFAULT 'FIJA'"))
-        db.session.execute(db.text("ALTER TABLE credito ADD COLUMN tipo_interes VARCHAR(20) DEFAULT 'FIJO'"))
-        db.session.execute(db.text("ALTER TABLE credito ADD COLUMN permite_inyeccion_capital BOOLEAN DEFAULT FALSE"))
-        db.session.execute(db.text("ALTER TABLE credito ADD COLUMN ultima_actualizacion_mora DATE"))
+    credito = Credito.query.get_or_404(credito_id)
+
+    if credito.tipo_cuota != 'VARIABLE' or credito.tipo_interes != 'VARIABLE':
+        flash("Este crédito no permite cambio de tasa variable.", "error")
+        return redirect(url_for('ver_cuotas', credito_id=credito.id))
+
+    if request.method == 'POST':
+        numero_cuota = int(request.form['numero_cuota'])
+        fecha_cambio = datetime.strptime(request.form['fecha_cambio'], '%Y-%m-%d')
+        tasa_nueva = float(request.form['tasa_nueva'])
+        observacion = request.form.get('observacion', '').strip()
+
+        cuotas_futuras_ids = [
+            c.id for c in Cuota.query.filter(
+                Cuota.credito_id == credito.id,
+                Cuota.numero >= numero_cuota
+            ).all()
+        ]
+
+        if cuotas_futuras_ids:
+            pagos_futuros = Pago.query.filter(Pago.cuota_id.in_(cuotas_futuras_ids)).count()
+
+            if pagos_futuros > 0:
+                flash(
+                    "No se puede cambiar la tasa porque existen pagos registrados "
+                    "en la cuota seleccionada o en cuotas posteriores.",
+                    "error"
+                )
+                return redirect(url_for('ver_cuotas', credito_id=credito.id))
+
+        cuota_anterior = Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.numero < numero_cuota
+        ).order_by(Cuota.numero.desc()).first()
+
+        if cuota_anterior:
+            saldo = cuota_anterior.saldo_restante
+            tasa_anterior = cuota_anterior.interes / cuota_anterior.saldo_inicial * 100 if cuota_anterior.saldo_inicial else credito.interes
+        else:
+            saldo = credito.monto_financiado
+            tasa_anterior = credito.interes
+
+        cambio = CambioTasaInteresCredito(
+            credito_id=credito.id,
+            numero_cuota=numero_cuota,
+            fecha_cambio=fecha_cambio,
+            tasa_anterior=tasa_anterior,
+            tasa_nueva=tasa_nueva,
+            observacion=observacion
+        )
+
+        db.session.add(cambio)
         db.session.commit()
-        return "Columnas creadas correctamente"
-    except Exception as e:
-        return f"Error: {str(e)}"
+
+        Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.numero >= numero_cuota
+        ).delete()
+        db.session.commit()
+
+        dia_original = credito.fecha_creacion.day
+
+        for numero in range(numero_cuota, credito.cuotas + 1):
+            fecha_pago = sumar_meses(
+                credito.fecha_creacion,
+                numero - 1,
+                dia_fijo=dia_original
+            )
+
+            inyecciones = InyeccionCapital.query.filter_by(
+                credito_id=credito.id,
+                numero_cuota=numero
+            ).all()
+
+            adicion_capital = round(sum(i.valor or 0 for i in inyecciones), 2)
+
+            saldo_inicial = round(saldo + adicion_capital, 2)
+            interes_mes = round(saldo_inicial * (tasa_nueva / 100), 2)
+
+            cuotas_restantes = credito.cuotas - numero + 1
+            capital = round(saldo_inicial / max(cuotas_restantes, 1), 2)
+
+            valor_cuota = round(capital + interes_mes, 2)
+            saldo = round(saldo_inicial - capital, 2)
+
+            if saldo < 0:
+                capital = round(capital + saldo, 2)
+                saldo = 0
+
+            nueva_cuota = Cuota(
+                credito_id=credito.id,
+                numero=numero,
+                fecha_pago=fecha_pago,
+                valor_cuota=valor_cuota,
+                saldo_inicial=saldo_inicial,
+                capital=capital,
+                interes=interes_mes,
+                saldo_restante=saldo,
+                saldo_pendiente=valor_cuota,
+                tasa_mora_mensual_cuota=0,
+                porcentaje_mora_aplicado=0,
+                dias_mora=0,
+                interes_mora=0,
+                total_cobro=valor_cuota,
+                estado='PENDIENTE'
+            )
+
+            db.session.add(nueva_cuota)
+
+        credito.saldo_actual = saldo
+        db.session.commit()
+
+        flash("Tasa de interés cambiada correctamente.", "success")
+        return redirect(url_for('ver_cuotas', credito_id=credito.id))
+
+    historial = CambioTasaInteresCredito.query.filter_by(
+        credito_id=credito.id
+    ).order_by(CambioTasaInteresCredito.numero_cuota.asc()).all()
+
+    return render_template(
+        'cambiar_tasa_interes_credito.html',
+        credito=credito,
+        historial=historial
+    )
+
+@app.route('/reversar_pago/<int:pago_id>', methods=['POST'])
+def reversar_pago(pago_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    pago = Pago.query.get_or_404(pago_id)
+
+    if pago.reversado:
+        return redirect(request.referrer or '/dashboard')
+
+    cuota = Cuota.query.get_or_404(pago.cuota_id)
+    credito = Credito.query.get_or_404(cuota.credito_id)
+
+    motivo = request.form.get('motivo_reversion', '').strip()
+
+    if not motivo:
+        return redirect(url_for('ver_cuotas', credito_id=credito.id))
+
+    # Marcar pago como reversado, NO borrarlo
+    pago.activo = False
+    pago.reversado = True
+    pago.motivo_reversion = motivo
+    pago.fecha_reversion = datetime.now()
+
+    db.session.commit()
+
+    # Recalcular la cuota con pagos activos
+    pagos_activos = Pago.query.filter_by(
+        cuota_id=cuota.id,
+        activo=True
+    ).all()
+
+    total_pagado_activo = sum(p.valor or 0 for p in pagos_activos)
+
+    cuota.saldo_pendiente = max((cuota.valor_cuota or 0) - total_pagado_activo, 0)
+
+    if cuota.saldo_pendiente <= 0:
+        cuota.estado = 'PAGADA'
+        cuota.interes_mora = 0
+        cuota.dias_mora = 0
+        cuota.total_cobro = 0
+    elif total_pagado_activo > 0:
+        cuota.estado = 'ABONO'
+        cuota.total_cobro = cuota.saldo_pendiente
+    else:
+        cuota.estado = 'PENDIENTE'
+        cuota.total_cobro = cuota.saldo_pendiente
+
+    db.session.commit()
+
+    # Recalcular mora del crédito después de reversar
+    actualizar_mora_credito(credito, date.today())
+    db.session.commit()
+
+    return redirect(url_for('ver_cuotas', credito_id=credito.id))
+
+@app.route('/historial_reversiones/<int:credito_id>')
+def historial_reversiones(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    pagos_reversados = (
+        db.session.query(Pago, Cuota)
+        .join(Cuota, Pago.cuota_id == Cuota.id)
+        .filter(
+            Cuota.credito_id == credito.id,
+            Pago.reversado == True
+        )
+        .order_by(Pago.fecha_reversion.desc())
+        .all()
+    )
+
+    return render_template(
+        'historial_reversiones.html',
+        credito=credito,
+        pagos_reversados=pagos_reversados
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)

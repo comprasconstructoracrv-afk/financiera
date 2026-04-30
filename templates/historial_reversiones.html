@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Historial de pagos reversados</title>
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #eef2f7, #dfe9f3);
+            padding: 40px 20px;
+            color: #102a43;
+        }
+
+        .contenedor {
+            max-width: 1100px;
+            margin: auto;
+            background: white;
+            border-radius: 24px;
+            padding: 34px;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 36px;
+            color: #102a43;
+        }
+
+        .subtitulo {
+            margin: 10px 0 28px 0;
+            color: #52606d;
+        }
+
+        .grid-resumen {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .card-info {
+            background: #f8fafc;
+            border: 1px solid #dbe2ea;
+            border-radius: 16px;
+            padding: 18px;
+        }
+
+        .card-info span {
+            display: block;
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .card-info strong {
+            font-size: 18px;
+            color: #0f172a;
+        }
+
+        .acciones {
+            margin-bottom: 24px;
+        }
+
+        .btn-volver {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            padding: 0 20px;
+            border-radius: 14px;
+            text-decoration: none;
+            color: white;
+            font-weight: bold;
+            background: linear-gradient(135deg, #6b7280, #374151);
+            box-shadow: 0 10px 22px rgba(15, 23, 42, 0.16);
+        }
+
+        .tabla-wrapper {
+            overflow-x: auto;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 900px;
+        }
+
+        th {
+            background: linear-gradient(135deg, #ec4899, #831843);
+            color: white;
+            padding: 14px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        td {
+            padding: 13px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 14px;
+            vertical-align: middle;
+        }
+
+        tr:nth-child(even) {
+            background: #fdf2f8;
+        }
+
+        .valor {
+            font-weight: bold;
+            color: #831843;
+        }
+
+        .motivo {
+            text-align: left;
+            white-space: normal;
+            max-width: 360px;
+            line-height: 1.4;
+        }
+
+        .vacio {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 14px;
+            padding: 24px;
+            text-align: center;
+            color: #64748b;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="contenedor">
+
+    <h1>Historial de pagos reversados</h1>
+    <p class="subtitulo">Consulta los pagos reversados de este crédito con su motivo y fecha de reversión.</p>
+
+    <div class="grid-resumen">
+        <div class="card-info">
+            <span>Cliente</span>
+            <strong>{{ credito.cliente }}</strong>
+        </div>
+
+        <div class="card-info">
+            <span>Pagaré</span>
+            <strong>{{ credito.numero_pagare }}</strong>
+        </div>
+
+        <div class="card-info">
+            <span>Sede</span>
+            <strong>{{ credito.sede }}</strong>
+        </div>
+    </div>
+
+    <div class="acciones">
+        <a href="/ver_cuotas/{{ credito.id }}" class="btn-volver">Volver a cuotas</a>
+    </div>
+
+    {% if pagos_reversados %}
+    <div class="tabla-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Cuota</th>
+                    <th>Fecha pago</th>
+                    <th>Valor reversado</th>
+                    <th>Medio de pago</th>
+                    <th>Fecha reversión</th>
+                    <th>Motivo / observación</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pago, cuota in pagos_reversados %}
+                <tr>
+                    <td>{{ cuota.numero }}</td>
+                    <td>{{ pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '' }}</td>
+                    <td class="valor">{{ pago.valor | cop }}</td>
+                    <td>{{ pago.medio_pago }}</td>
+                    <td>
+                        {{ pago.fecha_reversion.strftime('%d/%m/%Y %H:%M') if pago.fecha_reversion else '' }}
+                    </td>
+                    <td class="motivo">{{ pago.motivo_reversion or 'Sin motivo registrado' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <div class="vacio">
+            Este crédito todavía no tiene pagos reversados.
+        </div>
+    {% endif %}
+
+</div>
+
+</body>
+</html>

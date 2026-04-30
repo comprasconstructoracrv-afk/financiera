@@ -18,7 +18,7 @@
     }
 
     .contenedor {
-        max-width: 1500px;
+        max-width: 1750px;
         margin: auto;
         background: white;
         padding: 30px;
@@ -658,6 +658,108 @@
         background: linear-gradient(135deg, #6366f1, #1e1b4b);
     }
 
+    .btn-tasa {
+        background: linear-gradient(135deg, #1e3a8a, #020617);
+        color: white;
+    }
+
+    .btn-tasa:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(124, 45, 18, 0.4);
+    }
+
+    .btn-reversar {
+        background: #dc3545 !important;
+        margin-top: 6px;
+    }
+
+    .modal-reversion {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    .modal-contenido {
+        width: 100%;
+        max-width: 480px;
+        background: white;
+        border-radius: 22px;
+        padding: 28px;
+        box-shadow: 0 25px 60px rgba(0,0,0,0.25);
+    }
+
+    .modal-contenido h2 {
+        margin: 0 0 10px 0;
+        color: #102a43;
+        font-size: 28px;
+    }
+
+    .modal-contenido p {
+        color: #52606d;
+        margin-bottom: 20px;
+    }
+
+    .modal-contenido label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+
+    .modal-contenido textarea {
+        width: 100%;
+        min-height: 120px;
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid #cbd5e1;
+        resize: vertical;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+    }
+
+    .modal-contenido textarea:focus {
+        outline: none;
+        border-color: #dc3545;
+        box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.15);
+    }
+
+    .modal-acciones {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 20px;
+    }
+
+    .btn-cancelar,
+    .btn-confirmar {
+        border: none;
+        border-radius: 12px;
+        padding: 12px 18px;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .btn-cancelar {
+        background: linear-gradient(135deg, #6b7280, #374151);
+    }
+
+    .btn-confirmar {
+        background: linear-gradient(135deg, #ef4444, #991b1b);
+    }
+
+    .btn-reversar {
+        margin-top: 6px;
+    }    
+
+    .btn-reversiones {
+        background: linear-gradient(135deg, #ec4899, #831843);
+        color: white;
+    }
 </style>
 
 </head>
@@ -693,6 +795,14 @@
             <a href="/inyeccion_capital/{{ credito.id }}" class="btn-accion btn-inyeccion">Inyección de capital</a>
 
             <a href="/simular_inyeccion/{{ credito.id }}" class="btn-accion btn-simulador">Simulador inyección</a>
+
+            <a href="/cambiar_tasa_interes_credito/{{ credito.id }}" class="btn-accion btn-tasa">
+                Cambiar tasa de interés
+            </a>
+
+            <a href="/historial_reversiones/{{ credito.id }}" class="btn-accion btn-reversiones">
+                Historial reversados
+            </a>
 
             <a href="{{ url_for('plan_pagos_credito', credito_id=credito.id) }}" class="btn-accion btn-plan">Imprimir plan de pagos</a>
 
@@ -874,6 +984,7 @@
                     <th>Valor cuota</th>
                     <th>Capital</th>
                     <th>Interés</th>
+                    <th>Tasa interés</th>
                     <th>Saldo restante</th>
                     <th>% mora mensual</th>
                     <th>Días mora</th>
@@ -914,6 +1025,13 @@
                     <td class="col-moneda">{{ cuota.valor_cuota | cop }}</td>
                     <td class="col-moneda">{{ cuota.capital | cop }}</td>
                     <td class="col-moneda">{{ cuota.interes | cop }}</td>
+                    <td>
+                        {% if cuota.saldo_inicial and cuota.saldo_inicial > 0 %}
+                            {{ "%.2f"|format((cuota.interes / cuota.saldo_inicial) * 100) }}%
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
                     <td class="col-moneda">{{ cuota.saldo_restante | cop }}</td>
 
                     <td>
@@ -943,8 +1061,10 @@
                     </td>
 
                     <td class="historial">
-                        {% if pagos_por_cuota[cuota.id] %}
-                            {% for pago in pagos_por_cuota[cuota.id] %}
+                        {% set pagos_activos = pagos_por_cuota[cuota.id] | selectattr("activo") | list %}
+
+                        {% if pagos_activos %}
+                            {% for pago in pagos_activos %}
                                 <div class="pago-box">
                                     <strong>Fecha:</strong> {{ pago.fecha.strftime('%d/%m/%Y') }}<br>
                                     <strong>Valor:</strong> {{ pago.valor | cop }}<br>
@@ -953,6 +1073,12 @@
                                     <a href="/detalle_pago/{{ pago.id }}" class="btn-detalle" style="display:inline-block; text-decoration:none;">
                                         Ver detalle
                                     </a>
+
+                                    <button type="button"
+                                            class="btn-detalle btn-reversar"
+                                            onclick="abrirModalReversion('{{ pago.id }}')">
+                                        Reversar
+                                    </button>
                                 </div>
                             {% endfor %}
                         {% else %}
@@ -1021,5 +1147,51 @@ function sincronizarScroll(tablaTopId, tablaBottomId) {
 
 sincronizarScroll("scroll-top-cuotas", "scroll-bottom-cuotas");
 </script>
+
+<div id="modal-reversion" class="modal-reversion">
+    <div class="modal-contenido">
+        <h2>Reversar pago</h2>
+        <p>Indica el motivo por el cual deseas reversar este pago.</p>
+
+        <form id="form-reversion" method="POST">
+            <label>Motivo de reversión</label>
+            <textarea name="motivo_reversion" id="motivo_reversion" required
+                      placeholder="Ej: Pago registrado con valor incorrecto"></textarea>
+
+            <div class="modal-acciones">
+                <button type="button" class="btn-cancelar" onclick="cerrarModalReversion()">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-confirmar">
+                    Confirmar reversión
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function abrirModalReversion(pagoId) {
+    const modal = document.getElementById('modal-reversion');
+    const form = document.getElementById('form-reversion');
+    const motivo = document.getElementById('motivo_reversion');
+
+    form.action = `/reversar_pago/${pagoId}`;
+    motivo.value = '';
+    modal.style.display = 'flex';
+    motivo.focus();
+}
+
+function cerrarModalReversion() {
+    document.getElementById('modal-reversion').style.display = 'none';
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        cerrarModalReversion();
+    }
+});
+</script>
+
 </body>
 </html>

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cambiar tasa de interés</title>
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #eef2f7, #dfe9f3);
+            padding: 40px 20px;
+            color: #102a43;
+        }
+
+        .contenedor {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            border-radius: 24px;
+            padding: 34px;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 38px;
+        }
+
+        .subtitulo {
+            margin: 10px 0 28px 0;
+            color: #52606d;
+        }
+
+        .grid-resumen {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 26px;
+        }
+
+        .card-info {
+            background: #f8fafc;
+            border: 1px solid #dbe2ea;
+            border-radius: 16px;
+            padding: 18px;
+        }
+
+        .card-info span {
+            display: block;
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .card-info strong {
+            font-size: 19px;
+            color: #0f172a;
+        }
+
+        .alerta {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+            border-radius: 16px;
+            padding: 16px 18px;
+            font-weight: bold;
+            margin-bottom: 26px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+
+        .campo-completo {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #0f172a;
+        }
+
+        input {
+            width: 100%;
+            padding: 13px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+        }
+
+        .acciones {
+            margin-top: 26px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            padding: 0 20px;
+            border-radius: 14px;
+            border: none;
+            text-decoration: none;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 10px 22px rgba(15, 23, 42, 0.16);
+            transition: 0.25s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-guardar {
+            background: linear-gradient(135deg, #6366f1, #1e1b4b);
+        }
+
+        .btn-volver {
+            background: linear-gradient(135deg, #6b7280, #374151);
+        }
+
+        .separador {
+            margin: 34px 0 24px 0;
+            border: none;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        h2 {
+            margin: 0 0 18px 0;
+            font-size: 26px;
+        }
+
+        .tabla-wrapper {
+            overflow-x: auto;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 760px;
+        }
+
+        th {
+            background: #eef2ff;
+            color: #1e1b4b;
+            padding: 13px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        td {
+            padding: 13px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .valor {
+            font-weight: bold;
+            color: #3730a3;
+        }
+
+        .vacio {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 14px;
+            padding: 22px;
+            text-align: center;
+            color: #64748b;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="contenedor">
+
+    <h1>Cambiar tasa de interés</h1>
+    <p class="subtitulo">Modifica la tasa corriente únicamente desde una cuota específica hacia adelante.</p>
+
+    <div class="grid-resumen">
+        <div class="card-info">
+            <span>Cliente</span>
+            <strong>{{ credito.cliente }}</strong>
+        </div>
+
+        <div class="card-info">
+            <span>Pagaré</span>
+            <strong>{{ credito.numero_pagare }}</strong>
+        </div>
+
+        <div class="card-info">
+            <span>Tipo de crédito</span>
+            <strong>{{ credito.tipo_cuota }} / {{ credito.tipo_interes }}</strong>
+        </div>
+    </div>
+
+    <div class="alerta">
+        Este cambio recalcula únicamente las cuotas desde la cuota seleccionada hacia adelante. Las cuotas anteriores no se modifican.
+    </div>
+
+    <form method="POST">
+        <div class="form-grid">
+
+            <div>
+                <label>Número de cuota desde donde cambia la tasa</label>
+                <input type="number" name="numero_cuota" min="1" max="{{ credito.cuotas }}" required>
+            </div>
+
+            <div>
+                <label>Fecha del cambio</label>
+                <input type="date" name="fecha_cambio" required>
+            </div>
+
+            <div>
+                <label>Nueva tasa mensual (%)</label>
+                <input type="number" name="tasa_nueva" step="0.01" required placeholder="Ej: 1.9">
+            </div>
+
+            <div>
+                <label>Observación</label>
+                <input type="text" name="observacion" placeholder="Ej: Ajuste anual por control interno">
+            </div>
+
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="btn btn-guardar">Guardar cambio de tasa</button>
+            <a href="/ver_cuotas/{{ credito.id }}" class="btn btn-volver">Volver</a>
+        </div>
+    </form>
+
+    <hr class="separador">
+
+    <h2>Histórico de cambios de tasa</h2>
+
+    {% if historial %}
+    <div class="tabla-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Cuota desde</th>
+                    <th>Fecha cambio</th>
+                    <th>Tasa anterior</th>
+                    <th>Tasa nueva</th>
+                    <th>Observación</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in historial %}
+                <tr>
+                    <td>{{ item.numero_cuota }}</td>
+                    <td>{{ item.fecha_cambio.strftime('%d/%m/%Y') if item.fecha_cambio else '' }}</td>
+                    <td>{{ "%.2f"|format(item.tasa_anterior or 0) }} %</td>
+                    <td class="valor">{{ "%.2f"|format(item.tasa_nueva or 0) }} %</td>
+                    <td>{{ item.observacion or 'Sin observación' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <div class="vacio">
+            Este crédito todavía no tiene cambios de tasa registrados.
+        </div>
+    {% endif %}
+
+</div>
+
+</body>
+</html>

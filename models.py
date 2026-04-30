@@ -94,6 +94,11 @@ class Pago(db.Model):
     saldo_pendiente_antes_pago = db.Column(db.Float, nullable=False, default=0)
     total_exigible_al_pago = db.Column(db.Float, nullable=False, default=0)
 
+    activo = db.Column(db.Boolean, default=True)
+    reversado = db.Column(db.Boolean, default=False)
+    motivo_reversion = db.Column(db.String(255), nullable=True)
+    fecha_reversion = db.Column(db.DateTime, nullable=True)
+
 class ConfiguracionTasa(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(50), unique=True, nullable=False)
@@ -140,6 +145,18 @@ class Sede(db.Model):
     nombre = db.Column(db.String(80), unique=True, nullable=False)
     activa = db.Column(db.Boolean, default=True)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+
+class CambioTasaInteresCredito(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    credito_id = db.Column(db.Integer, db.ForeignKey('credito.id'), nullable=False)
+    numero_cuota = db.Column(db.Integer, nullable=False)
+    fecha_cambio = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    tasa_anterior = db.Column(db.Float, nullable=True)
+    tasa_nueva = db.Column(db.Float, nullable=False)
+    observacion = db.Column(db.String(255), nullable=True)
+    fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
+
+    credito = db.relationship('Credito', backref='cambios_tasa_interes')
 
     def __repr__(self):
         return f"<Sede {self.nombre}>"
