@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, session, flash, url_for, send_file
-from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo, Sede, TasaInteresVariable, InyeccionCapital, CambioTasaInteresCredito
+from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo, Sede, TasaInteresVariable, InyeccionCapital, CambioTasaInteresCredito, AbonoCapital
 from datetime import datetime, date, timedelta
 import calendar
 import os
@@ -284,9 +284,10 @@ def actualizar_mora_credito(credito, fecha_corte=None):
             cuota.total_cobro = 0
             continue
 
-        pagos_activos = Pago.query.filter_by(
-            cuota_id=cuota.id,
-            activo=True
+        pagos_activos = Pago.query.filter(
+            Pago.cuota_id == cuota.id,
+            Pago.activo == True,
+            Pago.tipo_pago != 'ABONO_CAPITAL'
         ).all()
 
         total_pagado_activo = round(sum(p.valor or 0 for p in pagos_activos), 2)
@@ -1183,25 +1184,44 @@ def ver_cuotas(credito_id):
 
     credito = Credito.query.get_or_404(credito_id)
 
-    # TEMPORAL RENDER:
-    # No recalcular mora automáticamente aquí para evitar que Render mate el proceso.
-    # Mora calculada a hoy
     actualizar_mora_credito(credito)
     db.session.commit()
 
-    cuotas = Cuota.query.filter_by(credito_id=credito_id).order_by(Cuota.numero).all()
+    cuotas = Cuota.query.filter_by(
+        credito_id=credito_id
+    ).order_by(Cuota.numero).all()
 
     pagos_por_cuota = {}
     ultimo_pago = None
 
     for cuota in cuotas:
-        pagos = Pago.query.filter_by(cuota_id=cuota.id).order_by(Pago.fecha).all()
+        pagos = Pago.query.filter_by(
+            cuota_id=cuota.id
+        ).order_by(Pago.fecha).all()
+
         pagos_por_cuota[cuota.id] = pagos
 
         if pagos:
             ultimo_pago_cuota = pagos[-1]
             if ultimo_pago is None or ultimo_pago_cuota.fecha > ultimo_pago.fecha:
                 ultimo_pago = ultimo_pago_cuota
+
+    # ABONOS A CAPITAL SEPARADOS DE LOS PAGOS DE CUOTA
+    abonos_capital = AbonoCapital.query.filter_by(
+        credito_id=credito.id
+    ).order_by(AbonoCapital.fecha.asc()).all()
+
+    abonos_por_cuota = {cuota.id: [] for cuota in cuotas}
+
+    for abono in abonos_capital:
+        fecha_abono = abono.fecha.date() if isinstance(abono.fecha, datetime) else abono.fecha
+
+        for cuota in cuotas:
+            fecha_cuota = cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago
+
+            if fecha_abono <= fecha_cuota:
+                abonos_por_cuota[cuota.id].append(abono)
+                break
 
     hoy = date.today()
 
@@ -1216,10 +1236,12 @@ def ver_cuotas(credito_id):
         sum((cuota.saldo_pendiente or 0) for cuota in cuotas_exigibles_hoy),
         2
     )
+
     mora_total = round(
         sum((cuota.interes_mora or 0) for cuota in cuotas_exigibles_hoy),
         2
     )
+
     deuda_total_fecha = round(cuota_pendiente_total + mora_total, 2)
 
     if any(c.estado == 'EN MORA' for c in cuotas):
@@ -1238,6 +1260,7 @@ def ver_cuotas(credito_id):
         credito=credito,
         cuotas=cuotas,
         pagos_por_cuota=pagos_por_cuota,
+        abonos_por_cuota=abonos_por_cuota,
         ultimo_pago=ultimo_pago,
         estado_credito=estado_credito,
         cuota_pendiente_total=cuota_pendiente_total,
@@ -1246,7 +1269,6 @@ def ver_cuotas(credito_id):
         esta_al_dia=esta_al_dia,
         cuotas_exigibles_hoy=cuotas_exigibles_hoy
     )
-
 
 @app.route('/pagar_cuota/<int:cuota_id>', methods=['GET', 'POST'])
 def pagar_cuota(cuota_id):
@@ -1483,15 +1505,10 @@ def abono_capital(credito_id):
         credito_id=credito.id
     ).order_by(Cuota.numero.asc()).all()
 
-    cuotas_ids = [cuota.id for cuota in cuotas_credito]
 
-    abonos_capital = []
-    if cuotas_ids:
-        abonos_capital = Pago.query.filter(
-            Pago.cuota_id.in_(cuotas_ids),
-            Pago.observacion == 'ABONO A CAPITAL',
-            Pago.valor_aplicado_prepago_capital > 0
-        ).order_by(Pago.fecha.desc()).all()
+    abonos_capital = AbonoCapital.query.filter_by(
+        credito_id=credito.id
+    ).order_by(AbonoCapital.fecha.desc()).all()
 
     cuotas_activas = Cuota.query.filter(
         Cuota.credito_id == credito.id,
@@ -1551,11 +1568,12 @@ def abono_capital(credito_id):
             db.session.rollback()
             return f"No se puede hacer abono a capital porque en la fecha seleccionada existía deuda exigible por {formato_cop(deuda_en_fecha_abono)}"
 
+        saldo_antes_abono = round(credito.saldo_actual or 0, 2)
+
         credito.saldo_actual = round(credito.saldo_actual - valor_pago, 2)
 
         if credito.saldo_actual < 0:
             credito.saldo_actual = 0
-
         cuota_referencia = None
 
         for cuota in cuotas_en_fecha:
@@ -1569,28 +1587,50 @@ def abono_capital(credito_id):
             db.session.rollback()
             return "No se encontró una cuota futura para aplicar el abono a capital"
 
-        recalcular_cuotas_pendientes(
-            credito=credito,
-            cuota_actual_numero=cuota_referencia.numero - 1,
-            fecha_base=sumar_meses(cuota_referencia.fecha_pago, -1)
+        if credito.tipo_cuota == 'VARIABLE' and credito.tipo_interes == 'VARIABLE':
+            recalcular_cuotas_variables_pendientes(
+                credito=credito,
+                cuota_actual_numero=cuota_referencia.numero - 1,
+                fecha_base=sumar_meses(cuota_referencia.fecha_pago, -1)
+            )
+        else:
+            recalcular_cuotas_pendientes(
+                credito=credito,
+                cuota_actual_numero=cuota_referencia.numero - 1,
+                fecha_base=sumar_meses(cuota_referencia.fecha_pago, -1)
+            )
+
+        abono = AbonoCapital(
+            credito_id=credito.id,
+            fecha=fecha_pago,
+            valor=valor_pago,
+            medio_pago=medio_pago,
+            observacion="ABONO A CAPITAL"
         )
+        db.session.add(abono)
 
         pago = Pago(
             cuota_id=cuota_referencia.id,
             fecha=fecha_pago,
             valor=valor_pago,
             medio_pago=medio_pago,
+            valor_aplicado_mora=0,
+            valor_aplicado_interes=0,
+            valor_aplicado_capital=0,
             valor_aplicado_prepago_capital=valor_pago,
-            observacion='ABONO A CAPITAL',
-            tipo_pago='ABONO_CAPITAL'
+            observacion="ABONO A CAPITAL",
+            tipo_pago="ABONO_CAPITAL",
+            dias_mora_pagados=0,
+            mora_generada_al_pago=0,
+            saldo_pendiente_antes_pago=saldo_antes_abono,
+            total_exigible_al_pago=valor_pago
         )
-
         db.session.add(pago)
-
         actualizar_mora_credito(credito, date.today())
 
         db.session.commit()
-        return redirect(url_for('ver_recibo_pago', pago_id=pago.id))
+
+        return redirect(url_for("ver_recibo_pago", pago_id=pago.id))
 
     return render_template(
         'abono_capital.html',
@@ -4232,6 +4272,68 @@ def fix_db():
         
     except Exception as e:
         return f"Error: {str(e)}"
+
+@app.route('/limpiar_abonos_malos/<int:credito_id>')
+def limpiar_abonos_malos(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero).all()
+    cuotas_ids = [c.id for c in cuotas]
+
+    pagos_malos = Pago.query.filter(
+        Pago.cuota_id.in_(cuotas_ids),
+        Pago.tipo_pago == 'ABONO_CAPITAL'
+    ).all()
+
+    total_limpiados = 0
+
+    for pago in pagos_malos:
+        abono = AbonoCapital(
+            credito_id=credito.id,
+            fecha=pago.fecha,
+            valor=pago.valor,
+            medio_pago=pago.medio_pago,
+            observacion=pago.observacion or 'ABONO A CAPITAL'
+        )
+
+        db.session.add(abono)
+        db.session.delete(pago)
+        total_limpiados += 1
+
+    db.session.flush()
+
+    for cuota in cuotas:
+        pagos_activos = Pago.query.filter_by(
+            cuota_id=cuota.id,
+            activo=True
+        ).all()
+
+        total_pagado = round(sum(p.valor or 0 for p in pagos_activos), 2)
+        valor_cuota = round(cuota.valor_cuota or 0, 2)
+
+        if total_pagado <= 0:
+            cuota.estado = 'PENDIENTE'
+            cuota.saldo_pendiente = valor_cuota
+            cuota.total_cobro = valor_cuota
+        elif total_pagado >= valor_cuota:
+            cuota.estado = 'PAGADA'
+            cuota.saldo_pendiente = 0
+            cuota.total_cobro = 0
+            cuota.dias_mora = 0
+            cuota.interes_mora = 0
+        else:
+            cuota.estado = 'ABONO'
+            cuota.saldo_pendiente = round(valor_cuota - total_pagado, 2)
+            cuota.total_cobro = cuota.saldo_pendiente
+
+    actualizar_mora_credito(credito, date.today())
+
+    db.session.commit()
+
+    return f"Listo. Se separaron {total_limpiados} abonos mal registrados."
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -99,6 +99,14 @@ class Pago(db.Model):
     motivo_reversion = db.Column(db.String(255), nullable=True)
     fecha_reversion = db.Column(db.DateTime, nullable=True)
 
+class AbonoCapital(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    credito_id = db.Column(db.Integer, db.ForeignKey('credito.id'), nullable=False)
+    fecha = db.Column(db.DateTime, nullable=False)
+    valor = db.Column(db.Float, nullable=False)
+    medio_pago = db.Column(db.String(100), nullable=False)
+    observacion = db.Column(db.String(255), default='ABONO A CAPITAL')
+
 class ConfiguracionTasa(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(50), unique=True, nullable=False)

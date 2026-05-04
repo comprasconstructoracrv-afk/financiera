@@ -159,13 +159,14 @@
 <body>
     <div class="contenedor">
         <h1>Configuración tasa de mora por mes</h1>
-
         {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
+        {% if messages %}
             {% for category, message in messages %}
-              <div class="flash">{{ message }}</div>
+                {% if category == 'mora' %}
+                    <div class="flash">{{ message }}</div>
+                {% endif %}
             {% endfor %}
-          {% endif %}
+        {% endif %}
         {% endwith %}
 
         <form method="POST">

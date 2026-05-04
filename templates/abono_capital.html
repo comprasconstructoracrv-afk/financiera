@@ -329,7 +329,7 @@
                     {% for abono in abonos_capital %}
                     <tr>
                         <td>{{ abono.fecha.strftime('%d/%m/%Y') if abono.fecha else '' }}</td>
-                        <td><strong>{{ abono.valor_aplicado_prepago_capital | cop }}</strong></td>
+                        <td><strong>{{ abono.valor | cop }}</strong></td>
                         <td>{{ abono.medio_pago }}</td>
                     </tr>
                     {% endfor %}

@@ -18,7 +18,7 @@
     }
 
     .contenedor {
-        max-width: 1750px;
+        max-width: 1950px;
         margin: auto;
         background: white;
         padding: 30px;
@@ -991,6 +991,7 @@
                     <th>Mora</th>
                     <th>Total a pagar</th>
                     <th>Estado</th>
+                    <th>Abonos a capital</th>
                     <th>Pagos realizados</th>
                     <th>Acción</th>
                 </tr>
@@ -1057,6 +1058,21 @@
                             ABONO
                         {% else %}
                             PENDIENTE
+                        {% endif %}
+                    </td>
+
+                    <td class="historial">
+                        {% if abonos_por_cuota[cuota.id] %}
+                            {% for abono in abonos_por_cuota[cuota.id] %}
+                                <div class="pago-box" style="border-left: 4px solid #16a34a;">
+                                    <strong>Fecha:</strong> {{ abono.fecha.strftime('%d/%m/%Y') }}<br>
+                                    <strong>Valor:</strong> {{ abono.valor | cop }}<br>
+                                    <strong>Medio:</strong> {{ abono.medio_pago }}<br>
+                                    <span style="color:#15803d; font-weight:700;">Abono a capital</span>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="historial-vacio">Sin abonos</div>
                         {% endif %}
                     </td>
 
