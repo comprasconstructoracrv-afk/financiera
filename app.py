@@ -406,7 +406,23 @@ def recalcular_cuotas_variables_pendientes(credito, cuota_actual_numero, fecha_b
     if not cuotas_futuras:
         return
 
-    saldo = round(credito.saldo_actual or 0, 2)
+    cuota_anterior = Cuota.query.filter(
+        Cuota.credito_id == credito.id,
+        Cuota.numero == cuota_actual_numero
+    ).first()
+
+    if cuota_anterior:
+        saldo = round(cuota_anterior.saldo_restante or 0, 2)
+        fecha_anterior = cuota_anterior.fecha_pago.date() if isinstance(cuota_anterior.fecha_pago, datetime) else cuota_anterior.fecha_pago
+    else:
+        saldo = round(credito.monto_financiado or 0, 2)
+        fecha_anterior = credito.fecha_creacion.date() if isinstance(credito.fecha_creacion, datetime) else credito.fecha_creacion
+
+    abonos = AbonoCapital.query.filter_by(
+        credito_id=credito.id
+    ).order_by(AbonoCapital.fecha.asc()).all()
+
+    abonos_aplicados = set()
     dia_original = credito.fecha_creacion.day
 
     for cuota in cuotas_futuras:
@@ -421,6 +437,22 @@ def recalcular_cuotas_variables_pendientes(credito, cuota_actual_numero, fecha_b
             dia_fijo=dia_original
         )
 
+        fecha_pago_date = fecha_pago.date() if isinstance(fecha_pago, datetime) else fecha_pago
+
+        total_abonos_periodo = 0
+
+        for abono in abonos:
+            fecha_abono = abono.fecha.date() if isinstance(abono.fecha, datetime) else abono.fecha
+
+            if abono.id not in abonos_aplicados and fecha_anterior < fecha_abono <= fecha_pago_date:
+                total_abonos_periodo += round(abono.valor or 0, 2)
+                abonos_aplicados.add(abono.id)
+
+        saldo = round(saldo - total_abonos_periodo, 2)
+
+        if saldo < 0:
+            saldo = 0
+
         tasa_mes = obtener_tasa_credito_en_cuota(
             credito,
             cuota.numero,
@@ -429,7 +461,7 @@ def recalcular_cuotas_variables_pendientes(credito, cuota_actual_numero, fecha_b
 
         saldo_inicial = round(saldo, 2)
         interes_mes = round(saldo_inicial * (tasa_mes / 100), 2)
-        capital = round(saldo_inicial / cuotas_restantes, 2)
+        capital = round(saldo_inicial / max(cuotas_restantes, 1), 2)
         valor_cuota = round(capital + interes_mes, 2)
         saldo = round(saldo_inicial - capital, 2)
 
@@ -449,6 +481,10 @@ def recalcular_cuotas_variables_pendientes(credito, cuota_actual_numero, fecha_b
         cuota.interes_mora = 0
         cuota.total_cobro = valor_cuota
         cuota.estado = 'PENDIENTE'
+
+        fecha_anterior = fecha_pago_date
+
+    credito.saldo_actual = round(saldo, 2)
 
 
 def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
@@ -4334,6 +4370,36 @@ def limpiar_abonos_malos(credito_id):
     db.session.commit()
 
     return f"Listo. Se separaron {total_limpiados} abonos mal registrados."
+
+@app.route('/recalcular_variable_abonos/<int:credito_id>')
+def recalcular_variable_abonos(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    if credito.tipo_cuota != 'VARIABLE':
+        return "Este recalculo solo aplica para créditos de cuota variable"
+
+    ultima_pagada = Cuota.query.filter(
+        Cuota.credito_id == credito.id,
+        Cuota.estado == 'PAGADA'
+    ).order_by(Cuota.numero.desc()).first()
+
+    if not ultima_pagada:
+        return "No se encontró una cuota pagada como punto de partida"
+
+    recalcular_cuotas_variables_pendientes(
+        credito=credito,
+        cuota_actual_numero=ultima_pagada.numero,
+        fecha_base=ultima_pagada.fecha_pago
+    )
+
+    actualizar_mora_credito(credito, date.today())
+
+    db.session.commit()
+
+    return redirect(url_for('ver_cuotas', credito_id=credito.id))
 
 if __name__ == "__main__":
     app.run(debug=True)
