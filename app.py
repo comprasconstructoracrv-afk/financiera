@@ -1183,9 +1183,11 @@ def ver_cuotas(credito_id):
 
     credito = Credito.query.get_or_404(credito_id)
 
+    # TEMPORAL RENDER:
+    # No recalcular mora automáticamente aquí para evitar que Render mate el proceso.
     # Mora calculada a hoy
-    actualizar_mora_credito(credito)
-    db.session.commit()
+    # actualizar_mora_credito(credito)
+    # db.session.commit()
 
     cuotas = Cuota.query.filter_by(credito_id=credito_id).order_by(Cuota.numero).all()
 
