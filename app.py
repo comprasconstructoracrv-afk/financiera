@@ -1680,7 +1680,7 @@ def abono_capital(credito_id):
 
         db.session.commit()
 
-        return redirect(url_for("ver_recibo_pago", pago_id=pago.id))
+        return redirect(url_for("ver_cuotas", credito_id=credito.id))
 
     return render_template(
         'abono_capital.html',
