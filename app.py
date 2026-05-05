@@ -1593,7 +1593,7 @@ def abono_capital(credito_id):
         if valor_pago > credito.saldo_actual:
             from flask import flash
 
-            flash("El abono a capital no puede ser mayor al saldo actual del crédito", "error")
+            flash("El abono a capital no puede ser mayor al saldo actual del crédito", "abono_error")
             return redirect(url_for('abono_capital', credito_id=credito.id))
 
         # Validar deuda según la fecha real del abono
@@ -3719,12 +3719,22 @@ def eliminar_credito(credito_id):
     sede = credito.sede
     origen = request.form.get('origen', 'activos')
 
+    # Borrar abonos a capital del crédito
+    AbonoCapital.query.filter_by(credito_id=credito.id).delete()
+
     # Borrar inyecciones de capital del crédito
     InyeccionCapital.query.filter_by(credito_id=credito.id).delete()
 
     # Borrar cambios de tasa del crédito
     CambioTasaInteresCredito.query.filter_by(credito_id=credito.id).delete()
 
+    # Borrar pagos y cuotas manualmente para evitar residuos
+    cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+
+    for cuota in cuotas:
+        Pago.query.filter_by(cuota_id=cuota.id).delete()
+
+    Cuota.query.filter_by(credito_id=credito.id).delete()
     try:
         db.session.delete(credito)
         db.session.commit()
@@ -4324,67 +4334,50 @@ def fix_db():
     except Exception as e:
         return f"Error: {str(e)}"
 
-@app.route('/limpiar_abonos_malos/<int:credito_id>')
-def limpiar_abonos_malos(credito_id):
+
+@app.route('/limpiar_abonos_credito/<int:credito_id>')
+def limpiar_abonos_credito(credito_id):
     if 'user' not in session:
         return redirect('/login')
 
     credito = Credito.query.get_or_404(credito_id)
 
-    cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero).all()
-    cuotas_ids = [c.id for c in cuotas]
-
-    pagos_malos = Pago.query.filter(
-        Pago.cuota_id.in_(cuotas_ids),
-        Pago.tipo_pago == 'ABONO_CAPITAL'
-    ).all()
-
-    total_limpiados = 0
-
-    for pago in pagos_malos:
-        abono = AbonoCapital(
-            credito_id=credito.id,
-            fecha=pago.fecha,
-            valor=pago.valor,
-            medio_pago=pago.medio_pago,
-            observacion=pago.observacion or 'ABONO A CAPITAL'
-        )
-
-        db.session.add(abono)
-        db.session.delete(pago)
-        total_limpiados += 1
-
-    db.session.flush()
-
-    for cuota in cuotas:
-        pagos_activos = Pago.query.filter_by(
-            cuota_id=cuota.id,
-            activo=True
-        ).all()
-
-        total_pagado = round(sum(p.valor or 0 for p in pagos_activos), 2)
-        valor_cuota = round(cuota.valor_cuota or 0, 2)
-
-        if total_pagado <= 0:
-            cuota.estado = 'PENDIENTE'
-            cuota.saldo_pendiente = valor_cuota
-            cuota.total_cobro = valor_cuota
-        elif total_pagado >= valor_cuota:
-            cuota.estado = 'PAGADA'
-            cuota.saldo_pendiente = 0
-            cuota.total_cobro = 0
-            cuota.dias_mora = 0
-            cuota.interes_mora = 0
-        else:
-            cuota.estado = 'ABONO'
-            cuota.saldo_pendiente = round(valor_cuota - total_pagado, 2)
-            cuota.total_cobro = cuota.saldo_pendiente
-
-    actualizar_mora_credito(credito, date.today())
+    total = AbonoCapital.query.filter_by(credito_id=credito.id).delete()
 
     db.session.commit()
 
-    return f"Listo. Se separaron {total_limpiados} abonos mal registrados."
+    return f"Listo. Se eliminaron {total} abonos asociados al crédito {credito.id}."
+
+@app.route('/limpiar_abonos_duplicados/<int:credito_id>')
+def limpiar_abonos_duplicados(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    abonos = AbonoCapital.query.filter_by(
+        credito_id=credito.id
+    ).order_by(AbonoCapital.fecha.asc(), AbonoCapital.valor.asc(), AbonoCapital.id.asc()).all()
+
+    vistos = set()
+    eliminados = 0
+
+    for abono in abonos:
+        clave = (
+            abono.fecha.date() if isinstance(abono.fecha, datetime) else abono.fecha,
+            round(abono.valor or 0, 2),
+            (abono.medio_pago or '').strip().upper()
+        )
+
+        if clave in vistos:
+            db.session.delete(abono)
+            eliminados += 1
+        else:
+            vistos.add(clave)
+
+    db.session.commit()
+
+    return f"Listo. Se eliminaron {eliminados} abonos duplicados del crédito {credito.id}."
 
 @app.route('/recalcular_variable_abonos/<int:credito_id>')
 def recalcular_variable_abonos(credito_id):

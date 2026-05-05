@@ -287,18 +287,20 @@
     <h1>Abono a capital</h1>
     <p class="subtitulo">Registra un abono directo al capital del crédito.</p>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        <div class="alerta-overlay">
-        <div class="alerta-box">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
             {% for category, message in messages %}
-            <p>{{ message }}</p>
+            {% if category == 'abono_error' %}
+                <div class="alerta-overlay">
+                <div class="alerta-box">
+                    <p>{{ message }}</p>
+                    <button onclick="cerrarAlerta()">Aceptar</button>
+                </div>
+                </div>
+            {% endif %}
             {% endfor %}
-            <button onclick="cerrarAlerta()">Aceptar</button>
-        </div>
-        </div>
-    {% endif %}
-    {% endwith %}
+        {% endif %}
+        {% endwith %}
 
     <div class="grid-resumen">
         <div class="card-info">
