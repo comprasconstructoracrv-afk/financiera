@@ -429,12 +429,25 @@ def recalcular_cuotas_variables_pendientes(credito, cuota_actual_numero, fecha_b
 
         saldo = round(saldo - total_prepago_anterior, 2)
 
-        fecha_anterior = cuota_anterior.fecha_pago.date() if isinstance(cuota_anterior.fecha_pago, datetime) else cuota_anterior.fecha_pago
+        fecha_anterior = (
+            cuota_anterior.fecha_pago.date()
+            if isinstance(cuota_anterior.fecha_pago, datetime)
+            else cuota_anterior.fecha_pago
+        )
     else:
         saldo = round(credito.monto_financiado or 0, 2)
-        fecha_anterior = credito.fecha_creacion.date() if isinstance(credito.fecha_creacion, datetime) else credito.fecha_creacion
+
+        fecha_anterior = (
+            credito.fecha_creacion.date()
+            if isinstance(credito.fecha_creacion, datetime)
+            else credito.fecha_creacion
+        )
 
     dia_original = credito.fecha_creacion.day
+
+    abonos_credito = AbonoCapital.query.filter_by(
+        credito_id=credito.id
+    ).order_by(AbonoCapital.fecha.asc()).all()
 
     for cuota in cuotas_futuras:
         fecha_pago = sumar_meses(
@@ -443,23 +456,35 @@ def recalcular_cuotas_variables_pendientes(credito, cuota_actual_numero, fecha_b
             dia_fijo=dia_original
         )
 
-        fecha_pago_date = fecha_pago.date() if isinstance(fecha_pago, datetime) else fecha_pago
-
-        abonos_credito = AbonoCapital.query.filter_by(
-            credito_id=credito.id
-        ).order_by(AbonoCapital.fecha.asc()).all()
+        fecha_pago_date = (
+            fecha_pago.date()
+            if isinstance(fecha_pago, datetime)
+            else fecha_pago
+        )
 
         total_abonos_periodo = 0
 
         for abono in abonos_credito:
-            fecha_abono = abono.fecha.date() if isinstance(abono.fecha, datetime) else abono.fecha
+            fecha_abono = (
+                abono.fecha.date()
+                if isinstance(abono.fecha, datetime)
+                else abono.fecha
+            )
 
             if fecha_anterior < fecha_abono <= fecha_pago_date:
                 total_abonos_periodo += round(abono.valor or 0, 2)
 
-        total_abonos_periodo = round(total_abonos_periodo, 2)
+        inyecciones_cuota = InyeccionCapital.query.filter_by(
+            credito_id=credito.id,
+            numero_cuota=cuota.numero
+        ).all()
 
-        saldo = round(saldo - total_abonos_periodo, 2)
+        adicion_capital = round(sum(
+            i.valor or 0
+            for i in inyecciones_cuota
+        ), 2)
+
+        saldo = round(saldo + adicion_capital - total_abonos_periodo, 2)
 
         if saldo < 0:
             saldo = 0
@@ -499,7 +524,6 @@ def recalcular_cuotas_variables_pendientes(credito, cuota_actual_numero, fecha_b
         fecha_anterior = fecha_pago_date
 
     credito.saldo_actual = round(saldo, 2)
-
 
 def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
     actualizar_mora_credito(credito, fecha_pago)
