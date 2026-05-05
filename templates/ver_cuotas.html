@@ -307,9 +307,11 @@
     }
 
     .tabla-wrapper {
-        overflow-x: auto;
+        overflow: auto;
         margin-top: 10px;
         border-radius: 12px;
+        max-height: 72vh;
+        position: relative;
     }
 
     table {
@@ -519,9 +521,11 @@
     }
 
     .tabla-wrapper {
-        overflow-x: auto;
+        overflow: auto;
         margin-top: 10px;
         border-radius: 12px;
+        max-height: 72vh;
+        position: relative;
     }
 
     .btn-accion:active {
@@ -760,6 +764,65 @@
         background: linear-gradient(135deg, #ec4899, #831843);
         color: white;
     }
+
+
+    /* Encabezado fijo de tabla */
+    .tabla-cuotas thead th {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: #f1f5f9;
+    }
+
+    /* Columna fija: N° cuota */
+    .tabla-cuotas th:nth-child(1),
+    .tabla-cuotas td:nth-child(1) {
+        position: sticky;
+        left: 0;
+        z-index: 40;
+        background: inherit;
+        font-weight: bold;
+        box-shadow: 2px 0 4px rgba(0,0,0,0.08);
+    }
+
+    /* Header de N° cuota encima */
+    .tabla-cuotas thead th:nth-child(1) {
+        z-index: 70;
+        background: #e9eef5;
+    }
+
+    /* Columna fija: Valor cuota */
+    .tabla-cuotas th:nth-child(5),
+    .tabla-cuotas td:nth-child(5) {
+        position: sticky;
+        left: 95px;
+        z-index: 39;
+        background: inherit;
+        font-weight: bold;
+        box-shadow: 2px 0 4px rgba(0,0,0,0.08);
+    }
+
+    /* Header de Valor cuota encima */
+    .tabla-cuotas thead th:nth-child(5) {
+        z-index: 69;
+        background: #e9eef5;
+    }
+
+    /* Mejor lectura */
+    .tabla-cuotas th:nth-child(1),
+    .tabla-cuotas td:nth-child(1),
+    .tabla-cuotas th:nth-child(5),
+    .tabla-cuotas td:nth-child(5) {
+        box-shadow: 2px 0 4px rgba(0,0,0,0.08);
+        font-weight: bold;
+    }
+
+    .header-credito {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: #fff;
+    }
 </style>
 
 </head>
@@ -972,7 +1035,7 @@
     </div>
 
     <div class="tabla-wrapper" id="scroll-bottom-cuotas">
-        <table>
+        <table class="tabla-cuotas">
             <thead>
                 <tr>
                     <th>N° Cuota</th>
