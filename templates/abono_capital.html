@@ -211,6 +211,42 @@
                 padding: 24px;
             }
         }
+
+        .alerta-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .alerta-box {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .alerta-box p {
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+
+        .alerta-box button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
     </style>
 
     <script>
@@ -237,6 +273,11 @@
                 input.value = input.value.replace(/\D/g, "");
             }
         }
+
+        function cerrarAlerta() {
+            document.querySelector('.alerta-overlay').style.display = 'none';
+        }
+
     </script>
 </head>
 
@@ -245,6 +286,19 @@
 
     <h1>Abono a capital</h1>
     <p class="subtitulo">Registra un abono directo al capital del crédito.</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="alerta-overlay">
+        <div class="alerta-box">
+            {% for category, message in messages %}
+            <p>{{ message }}</p>
+            {% endfor %}
+            <button onclick="cerrarAlerta()">Aceptar</button>
+        </div>
+        </div>
+    {% endif %}
+    {% endwith %}
 
     <div class="grid-resumen">
         <div class="card-info">

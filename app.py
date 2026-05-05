@@ -1578,8 +1578,23 @@ def abono_capital(credito_id):
         if valor_pago <= 0:
             return "El abono a capital debe ser mayor que cero"
 
+        saldo_real_credito = round(sum(
+            cuota.capital or 0
+            for cuota in Cuota.query.filter(
+                Cuota.credito_id == credito.id,
+                Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
+            ).all()
+        ), 2)
+
+        if credito.saldo_actual is None or credito.saldo_actual <= 0:
+            credito.saldo_actual = saldo_real_credito
+            db.session.flush()
+
         if valor_pago > credito.saldo_actual:
-            return "El abono a capital no puede ser mayor al saldo actual del crédito"
+            from flask import flash
+
+            flash("El abono a capital no puede ser mayor al saldo actual del crédito", "error")
+            return redirect(url_for('abono_capital', credito_id=credito.id))
 
         # Validar deuda según la fecha real del abono
         actualizar_mora_credito(credito, fecha_pago_date)
