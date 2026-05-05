@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Recibo Abono a Capital</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #eef2f7;
+            padding: 24px;
+            color: #1f2937;
+        }
+
+        .wrapper {
+            max-width: 980px;
+            margin: auto;
+        }
+
+        .recibo {
+            background: white;
+            border-radius: 22px;
+            padding: 20px 20px 24px 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.10);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .recibo::before {
+            content: "";
+            position: absolute;
+            top: -60px;
+            right: -60px;
+            width: 220px;
+            height: 220px;
+            border: 14px solid rgba(210, 170, 60, 0.12);
+            border-radius: 50%;
+        }
+
+        .recibo::after {
+            content: "";
+            position: absolute;
+            bottom: -55px;
+            right: -30px;
+            width: 180px;
+            height: 180px;
+            border: 12px solid rgba(210, 170, 60, 0.10);
+            border-radius: 50%;
+        }
+
+        .header {
+            display: grid;
+            grid-template-columns: 120px 1fr 180px;
+            gap: 14px;
+            align-items: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .logo-box img {
+            max-width: 90px;
+            height: auto;
+            display: block;
+        }
+
+        .logo-box .marca {
+            margin-top: 8px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #374151;
+        }
+
+        .titulo-box {
+            text-align: center;
+        }
+
+        .titulo-box h1 {
+            margin: 0;
+            font-size: 18px;
+            color: #102a43;
+        }
+
+        .titulo-box .empresa {
+            margin-top: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #c59a24;
+        }
+
+        .titulo-box .detalle {
+            margin-top: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #1f2937;
+            line-height: 1.25;
+        }
+
+        .lado-derecho {
+            text-align: right;
+        }
+
+        .lado-derecho .fecha {
+            font-size: 12px;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #d9b441, #f1d163);
+            color: #1f2937;
+            padding: 10px 16px;
+            border-radius: 999px;
+            font-weight: bold;
+            font-size: 13px;
+            box-shadow: 0 4px 10px rgba(217, 180, 65, 0.25);
+        }
+
+        .separador {
+            margin: 14px 0 12px 0;
+            border: none;
+            border-top: 1px solid #e5e7eb;
+            position: relative;
+            z-index: 2;
+        }
+
+        .grid-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .card {
+            background: #fbfbfc;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 12px 14px;
+        }
+
+        .card h3 {
+            margin: 0 0 10px 0;
+            font-size: 15px;
+            color: #102a43;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card h3::before {
+            content: "";
+            width: 4px;
+            height: 20px;
+            border-radius: 999px;
+            background: #d4af37;
+            display: inline-block;
+        }
+
+        .dato {
+            margin-bottom: 7px;
+            font-size: 13px;
+            color: #374151;
+            line-height: 1.3;
+        }
+
+        .dato strong {
+            color: #111827;
+        }
+
+        .tabla-box {
+            margin-top: 12px;
+            position: relative;
+            z-index: 2;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            overflow: hidden;
+            border-radius: 14px;
+        }
+
+        thead th {
+            background: #102a43;
+            color: white;
+            padding: 10px 8px;
+            font-size: 13px;
+            text-align: left;
+        }
+
+        tbody td {
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 10px 8px;
+            font-size: 13px;
+            color: #374151;
+        }
+
+        tbody td.valor {
+            font-weight: bold;
+            color: #111827;
+        }
+
+        .totales {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .total-card {
+            background: #fffdf7;
+            border: 1px solid #efe3b0;
+            border-radius: 14px;
+            padding: 12px 14px;
+            font-size: 15px;
+            font-weight: bold;
+            color: #111827;
+        }
+
+        .total-card .valor-dorado {
+            color: #a97800;
+        }
+
+        .total-card .valor-verde {
+            color: #166534;
+        }
+
+        .total-card .valor-rojo {
+            color: #dc2626;
+        }
+
+        .total-amarillo {
+            background: #fffdf7;
+            border: 1px solid #efe3b0;
+        }
+
+        .total-rojo {
+            background: #fff1f2;
+            border: 1px solid #fecdd3;
+        }
+
+        .total-verde {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+        }
+
+        .mensaje {
+            margin-top: 12px;
+            text-align: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .mensaje strong {
+            display: block;
+            font-size: 16px;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+
+        .mensaje span {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .acciones {
+            margin-top: 24px;
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 22px;
+            border-radius: 12px;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+        }
+
+        .btn-imprimir {
+            background: linear-gradient(135deg, #d4af37, #f1cf60);
+            color: #1f2937;
+            box-shadow: 0 6px 16px rgba(212, 175, 55, 0.28);
+        }
+
+        .btn-volver {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 8mm;
+            }
+
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+            }
+
+            .wrapper {
+                max-width: 100%;
+                margin: 0;
+            }
+
+            .recibo {
+                box-shadow: none;
+                border-radius: 0;
+                padding: 10px 12px 12px 12px;
+            }
+
+            .acciones {
+                display: none;
+            }
+
+            .header {
+                grid-template-columns: 100px 1fr 150px;
+                gap: 10px;
+            }
+
+            .logo-box img {
+                max-width: 78px;
+            }
+
+            .titulo-box h1 {
+                font-size: 16px;
+            }
+
+            .titulo-box .empresa {
+                font-size: 11px;
+                margin-top: 2px;
+            }
+
+            .titulo-box .detalle {
+                font-size: 10px;
+                line-height: 1.15;
+            }
+
+            .lado-derecho .fecha {
+                font-size: 11px;
+                margin-bottom: 6px;
+            }
+
+            .badge {
+                font-size: 11px;
+                padding: 8px 12px;
+                box-shadow: none;
+            }
+
+            .separador {
+                margin: 10px 0 10px 0;
+            }
+
+            .grid-info {
+                gap: 8px;
+            }
+
+            .card {
+                padding: 10px 12px;
+                border-radius: 12px;
+            }
+
+            .card h3 {
+                font-size: 13px;
+                margin-bottom: 8px;
+            }
+
+            .dato {
+                font-size: 11px;
+                margin-bottom: 5px;
+                line-height: 1.2;
+            }
+
+            .tabla-box {
+                margin-top: 10px;
+            }
+
+            thead th {
+                padding: 8px 6px;
+                font-size: 11px;
+            }
+
+            tbody td {
+                padding: 8px 6px;
+                font-size: 11px;
+            }
+
+            .totales {
+                margin-top: 10px;
+                gap: 8px;
+            }
+
+            .total-card {
+                padding: 10px 12px;
+                font-size: 13px;
+            }
+
+            .mensaje {
+                margin-top: 10px;
+            }
+
+            .mensaje strong {
+                font-size: 14px;
+            }
+
+            .mensaje span {
+                font-size: 10px;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .header {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .logo-box,
+            .lado-derecho {
+                text-align: center;
+            }
+
+            .logo-box img {
+                margin: auto;
+            }
+
+            .grid-info,
+            .totales {
+                grid-template-columns: 1fr;
+            }
+
+            thead th,
+            tbody td {
+                font-size: 13px;
+            }
+        }
+    </style>
+
+</head>
+<body>
+
+<div class="wrapper">
+    <div class="recibo">
+
+```
+    <div class="header">
+        <div class="logo-box">
+            <img src="{{ url_for('static', filename='logo.png') }}">
+        </div>
+
+        <div class="titulo-box">
+            <h1>Recibo de Abono a Capital</h1>
+            <div class="empresa">CONSTRUCCIONES Y URBANIZACIONES S.A.S</div>
+        </div>
+
+        <div class="lado-derecho">
+            <div class="fecha">
+                Fecha: {{ abono.fecha.strftime('%Y-%m-%d') }}
+            </div>
+            <div class="badge">
+                ABONO A CAPITAL
+            </div>
+        </div>
+    </div>
+
+    <hr class="separador">
+
+    <div class="grid-info">
+        <div class="card">
+            <h3>Datos del pago</h3>
+            <div class="dato"><strong>Sede:</strong> {{ credito.sede }}</div>
+            <div class="dato"><strong>Tipo:</strong> ABONO A CAPITAL</div>
+            <div class="dato"><strong>Medio:</strong> {{ abono.medio_pago }}</div>
+            <div class="dato"><strong>Observación:</strong> {{ abono.observacion }}</div>
+        </div>
+
+        <div class="card">
+            <h3>Datos del cliente</h3>
+            <div class="dato"><strong>Nombre:</strong> {{ credito.cliente }}</div>
+            <div class="dato"><strong>Cédula:</strong> {{ credito.cedula_cliente }}</div>
+            <div class="dato"><strong>Dirección:</strong> {{ credito.direccion_cliente }}</div>
+            <div class="dato"><strong>Celular:</strong> {{ credito.telefono_1 }}</div>
+        </div>
+    </div>
+
+    <div class="tabla-box">
+        <table>
+            <thead>
+                <tr>
+                    <th>Referencia</th>
+                    <th>N° Cuota</th>
+                    <th>Valor</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>ABONO CAPITAL</td>
+                    <td>—</td>
+                    <td class="valor">{{ abono.valor | cop }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="totales">
+        <div class="total-card total-amarillo">
+            Saldo del crédito:
+            <span class="valor-dorado">{{ credito.saldo_actual | cop }}</span>
+        </div>
+
+        <div class="total-card total-verde">
+            Total abonado:
+            <span class="valor-verde">{{ abono.valor | cop }}</span>
+        </div>
+
+        <div class="total-card">
+            Impacto:
+            <span>Reducción directa a capital</span>
+        </div>
+    </div>
+
+    <div class="mensaje">
+        <strong>Abono aplicado correctamente.</strong>
+        <span>Este valor reduce directamente el saldo del crédito.</span>
+    </div>
+
+    <div class="acciones">
+        <button class="btn btn-imprimir" onclick="window.print()">Imprimir</button>
+        <a href="/ver_cuotas/{{ credito.id }}" class="btn btn-volver">Volver</a>
+    </div>
+
+</div>
+```
+
+</div>
+
+</body>
+</html>

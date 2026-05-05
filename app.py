@@ -1680,7 +1680,7 @@ def abono_capital(credito_id):
 
         db.session.commit()
 
-        return redirect(url_for("ver_cuotas", credito_id=credito.id))
+        return redirect(url_for("ver_recibo_abono_capital", abono_id=abono.id))
 
     return render_template(
         'abono_capital.html',
@@ -4363,6 +4363,21 @@ def recalcular_variable_abonos(credito_id):
     db.session.commit()
 
     return redirect(url_for('ver_cuotas', credito_id=credito.id))
+
+@app.route('/ver_recibo_abono_capital/<int:abono_id>')
+def ver_recibo_abono_capital(abono_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    abono = AbonoCapital.query.get_or_404(abono_id)
+    credito = Credito.query.get_or_404(abono.credito_id)
+
+    return render_template(
+        'recibo_abono_capital.html',
+        abono=abono,
+        credito=credito,
+        cliente=credito
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)
