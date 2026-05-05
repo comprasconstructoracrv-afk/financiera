@@ -413,6 +413,22 @@ def recalcular_cuotas_variables_pendientes(credito, cuota_actual_numero, fecha_b
 
     if cuota_anterior:
         saldo = round(cuota_anterior.saldo_restante or 0, 2)
+
+        prepagos_cuota_anterior = Pago.query.filter(
+            Pago.cuota_id == cuota_anterior.id,
+            Pago.activo == True,
+            Pago.tipo_pago.in_(['PAGO_CUOTA', 'ABONO_CAPITAL'])  # ← importante
+        ).all()
+
+        total_prepagos_cuota_anterior = round(sum(
+            p.valor_aplicado_prepago_capital or 0
+            for p in prepagos_cuota_anterior
+        ), 2)
+
+        saldo = round(saldo - total_prepagos_cuota_anterior, 2)
+
+        if saldo < 0:
+            saldo = 0
         fecha_anterior = cuota_anterior.fecha_pago.date() if isinstance(cuota_anterior.fecha_pago, datetime) else cuota_anterior.fecha_pago
     else:
         saldo = round(credito.monto_financiado or 0, 2)
@@ -4334,50 +4350,6 @@ def fix_db():
     except Exception as e:
         return f"Error: {str(e)}"
 
-
-@app.route('/limpiar_abonos_credito/<int:credito_id>')
-def limpiar_abonos_credito(credito_id):
-    if 'user' not in session:
-        return redirect('/login')
-
-    credito = Credito.query.get_or_404(credito_id)
-
-    total = AbonoCapital.query.filter_by(credito_id=credito.id).delete()
-
-    db.session.commit()
-
-    return f"Listo. Se eliminaron {total} abonos asociados al crédito {credito.id}."
-
-@app.route('/limpiar_abonos_duplicados/<int:credito_id>')
-def limpiar_abonos_duplicados(credito_id):
-    if 'user' not in session:
-        return redirect('/login')
-
-    credito = Credito.query.get_or_404(credito_id)
-
-    abonos = AbonoCapital.query.filter_by(
-        credito_id=credito.id
-    ).order_by(AbonoCapital.fecha.asc(), AbonoCapital.valor.asc(), AbonoCapital.id.asc()).all()
-
-    vistos = set()
-    eliminados = 0
-
-    for abono in abonos:
-        clave = (
-            abono.fecha.date() if isinstance(abono.fecha, datetime) else abono.fecha,
-            round(abono.valor or 0, 2),
-            (abono.medio_pago or '').strip().upper()
-        )
-
-        if clave in vistos:
-            db.session.delete(abono)
-            eliminados += 1
-        else:
-            vistos.add(clave)
-
-    db.session.commit()
-
-    return f"Listo. Se eliminaron {eliminados} abonos duplicados del crédito {credito.id}."
 
 @app.route('/recalcular_variable_abonos/<int:credito_id>')
 def recalcular_variable_abonos(credito_id):
