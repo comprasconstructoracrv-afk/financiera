@@ -3,189 +3,370 @@
 <head>
     <meta charset="UTF-8">
     <title>Extracto del crédito</title>
+
     <style>
         * { box-sizing: border-box; }
 
         body {
             margin: 0;
             font-family: Arial, sans-serif;
-            background: #f4f6f9;
-            padding: 30px;
+            background: #eef2f7;
+            padding: 24px;
             color: #1f2937;
         }
 
         .contenedor {
-            max-width: 1550px;
+            max-width: 1200px;
             margin: auto;
         }
 
-        .encabezado, .seccion {
+        .documento {
             background: white;
-            border-radius: 22px;
-            padding: 25px;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
-            margin-bottom: 25px;
+            border-radius: 24px;
+            padding: 26px;
+            box-shadow: 0 12px 35px rgba(0,0,0,0.10);
+            position: relative;
+            overflow: hidden;
         }
 
-        .encabezado {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .documento::before {
+            content: "";
+            position: absolute;
+            top: -80px;
+            right: -80px;
+            width: 260px;
+            height: 260px;
+            border: 16px solid rgba(212,175,55,0.12);
+            border-radius: 50%;
+        }
+
+        .header {
+            display: grid;
+            grid-template-columns: 140px 1fr 220px;
             gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .encabezado h1 {
-            margin: 0;
-            font-size: 40px;
-            color: #102a43;
-        }
-
-        .encabezado p {
-            margin: 10px 0 0 0;
-            color: #52606d;
+            align-items: center;
+            position: relative;
+            z-index: 2;
         }
 
         .logo img {
-            max-height: 90px;
-            width: auto;
+            max-width: 110px;
+        }
+
+        .titulo {
+            text-align: center;
+        }
+
+        .titulo h1 {
+            margin: 0;
+            font-size: 28px;
+            color: #102a43;
+        }
+
+        .empresa {
+            margin-top: 5px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #c59a24;
+        }
+
+        .detalle-empresa {
+            font-size: 11px;
+            font-weight: bold;
+            line-height: 1.35;
+            margin-top: 4px;
+        }
+
+        .fecha-box {
+            text-align: right;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .badge {
+            margin-top: 8px;
+            display: inline-block;
+            background: linear-gradient(135deg, #d4af37, #f1cf60);
+            padding: 10px 16px;
+            border-radius: 999px;
+            color: #1f2937;
+            font-weight: bold;
+        }
+
+        .separador {
+            border: none;
+            border-top: 1px solid #e5e7eb;
+            margin: 18px 0;
         }
 
         .acciones {
-            margin-top: 18px;
             display: flex;
             gap: 12px;
-            flex-wrap: wrap;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 2;
         }
 
         .btn {
-            display: inline-block;
             padding: 11px 18px;
-            border-radius: 10px;
-            text-decoration: none;
+            border-radius: 12px;
             color: white;
+            text-decoration: none;
             font-weight: bold;
-            font-size: 14px;
-            background: #6c757d;
+            font-size: 13px;
         }
 
-        .btn-pdf {
-            background: linear-gradient(135deg, #102a43, #1f4e78);
+        .btn-volver { background: #6b7280; }
+        .btn-pdf { background: #102a43; }
+
+        .seccion {
+            margin-top: 20px;
+            position: relative;
+            z-index: 2;
         }
 
         .seccion h2 {
-            margin-top: 0;
             color: #102a43;
+            font-size: 20px;
+            margin-bottom: 12px;
         }
 
         .grid-resumen {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 18px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
         }
 
         .card {
             background: #f8fafc;
             border: 1px solid #e5e7eb;
             border-radius: 16px;
-            padding: 18px;
+            padding: 15px;
         }
 
         .card .label {
-            font-size: 12px;
-            color: #6b7280;
+            font-size: 11px;
             text-transform: uppercase;
+            color: #64748b;
             margin-bottom: 8px;
         }
 
         .card .valor {
-            font-size: 24px;
+            font-size: 18px;
             font-weight: bold;
+            color: #111827;
+        }
+
+        .card.azul {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+        }
+
+        .card.verde {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+
+        .card.rojo {
+            background: #fff1f2;
+            border-color: #fecdd3;
+        }
+
+        .card.dorado {
+            background: #fffdf7;
+            border-color: #efe3b0;
         }
 
         .tabla-wrapper {
             overflow-x: auto;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 1100px;
-        }
-
-        th, td {
-            padding: 12px 10px;
-            border-bottom: 1px solid #e5e7eb;
-            text-align: center;
-            font-size: 14px;
+            min-width: 1000px;
+            background: white;
         }
 
         th {
-            background: #eaf2ff;
-            color: #102a43;
+            background: #102a43;
+            color: white;
+            padding: 11px 9px;
+            font-size: 12px;
+            text-align: center;
         }
 
-        tr:hover td {
-            background: #f8fbff;
+        td {
+            padding: 10px 9px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 12px;
+            text-align: center;
         }
 
-        .rojo { color: #dc3545; font-weight: bold; }
-        .verde { color: #198754; font-weight: bold; }
-        .azul { color: #0d6efd; font-weight: bold; }
+        tbody tr:nth-child(even) td {
+            background: #f8fafc;
+        }
+
+        .estado-mora {
+            color: #dc2626;
+            font-weight: bold;
+        }
+
+        .estado-pagada {
+            color: #15803d;
+            font-weight: bold;
+        }
+
+        .estado-pendiente {
+            color: #92400e;
+            font-weight: bold;
+        }
+
+        .nota {
+            margin-top: 18px;
+            background: #fffdf7;
+            border: 1px solid #efe3b0;
+            border-radius: 14px;
+            padding: 14px;
+            font-size: 12px;
+            color: #475569;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .acciones {
+                display: none;
+            }
+
+            .documento {
+                box-shadow: none;
+                border-radius: 0;
+            }
+        }
     </style>
 </head>
+
 <body>
 <div class="contenedor">
+    <div class="documento">
 
-    <div class="encabezado">
-        <div>
-            <h1>Extracto del crédito</h1>
-            <p>{{ credito.cliente }} - Pagaré {{ credito.numero_pagare if credito.numero_pagare else 'Sin asignar' }}</p>
+        <div class="header">
+            <div class="logo">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
+            </div>
 
-            <div class="acciones">
-                <a href="/ver_cuotas/{{ credito.id }}" class="btn">Volver al crédito</a>
-                <a href="/extracto_credito_pdf/{{ credito.id }}" class="btn btn-pdf" target="_blank">Descargar PDF</a>
+            <div class="titulo">
+                <h1>Extracto del Crédito</h1>
+                <div class="empresa">CONSTRUCCIONES Y URBANIZACIONES S.A.S</div>
+                <div class="detalle-empresa">
+                    NIT: 901.527.083-2<br>
+                    AV. AMBALA N° 27-136 - PISO 3<br>
+                    IBAGUÉ - TOLIMA · TEL: 311 414 5843
+                </div>
+            </div>
+
+            <div class="fecha-box">
+                Fecha: {{ fecha_generacion if fecha_generacion else '' }}
+                <div class="badge">EXTRACTO FINANCIERO</div>
             </div>
         </div>
 
-        <div class="logo">
-            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
+        <hr class="separador">
+
+        <div class="acciones">
+            <a href="/ver_cuotas/{{ credito.id }}" class="btn btn-volver">Volver al crédito</a>
+            <a href="/extracto_credito_pdf/{{ credito.id }}" class="btn btn-pdf" target="_blank">Descargar PDF</a>
         </div>
-    </div>
 
-    <div class="seccion">
-        <h2>Resumen del cliente y crédito</h2>
+        <div class="seccion">
+            <h2>Resumen del cliente y crédito</h2>
 
-        <div class="grid-resumen">
-            <div class="card"><div class="label">Cliente</div><div class="valor">{{ credito.cliente }}</div></div>
-            <div class="card"><div class="label">Cédula</div><div class="valor">{{ credito.cedula_cliente if credito.cedula_cliente else 'No registrada' }}</div></div>
-            <div class="card"><div class="label">Sede</div><div class="valor">{{ credito.sede }}</div></div>
-            <div class="card"><div class="label">Monto financiado</div><div class="valor">{{ credito.monto_financiado | cop }}</div></div>
-            <div class="card"><div class="label">Saldo actual</div><div class="valor">{{ credito.saldo_actual | cop }}</div></div>
-            <div class="card"><div class="label">Deuda total a hoy</div><div class="valor">{{ deuda_total_hoy | cop }}</div></div>
-            <div class="card"><div class="label">Interés</div><div class="valor">{{ credito.interes }}%</div></div>
-            <div class="card"><div class="label">Estado</div><div class="valor">{{ estado_credito }}</div></div>
+            <div class="grid-resumen">
+                <div class="card">
+                    <div class="label">Cliente</div>
+                    <div class="valor">{{ credito.cliente }}</div>
+                </div>
+
+                <div class="card">
+                    <div class="label">Cédula</div>
+                    <div class="valor">{{ credito.cedula_cliente or 'No registrada' }}</div>
+                </div>
+
+                <div class="card">
+                    <div class="label">Pagaré</div>
+                    <div class="valor">{{ credito.numero_pagare if credito.numero_pagare else credito.id }}</div>
+                </div>
+
+                <div class="card">
+                    <div class="label">Sede</div>
+                    <div class="valor">{{ credito.sede }}</div>
+                </div>
+
+                <div class="card azul">
+                    <div class="label">Monto financiado</div>
+                    <div class="valor">{{ credito.monto_financiado | cop }}</div>
+                </div>
+
+                <div class="card verde">
+                    <div class="label">Saldo actual</div>
+                    <div class="valor">{{ credito.saldo_actual | cop }}</div>
+                </div>
+
+                <div class="card rojo">
+                    <div class="label">Deuda total a hoy</div>
+                    <div class="valor">{{ deuda_total_hoy | cop }}</div>
+                </div>
+
+                <div class="card dorado">
+                    <div class="label">Estado</div>
+                    <div class="valor">{{ estado_credito }}</div>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <div class="seccion">
-        <h2>Resumen de pagos</h2>
+        <div class="seccion">
+            <h2>Resumen de pagos</h2>
 
-        <div class="grid-resumen">
-            <div class="card"><div class="label">Total pagado</div><div class="valor">{{ total_pagado | cop }}</div></div>
-            <div class="card"><div class="label">Interés pagado</div><div class="valor">{{ total_interes_pagado | cop }}</div></div>
-            <div class="card"><div class="label">Capital pagado</div><div class="valor">{{ total_capital_pagado | cop }}</div></div>
-            <div class="card"><div class="label">Mora pagada</div><div class="valor">{{ total_mora_pagada | cop }}</div></div>
-            <div class="card"><div class="label">Prepago a capital</div><div class="valor">{{ total_prepago_capital | cop }}</div></div>
+            <div class="grid-resumen">
+                <div class="card verde">
+                    <div class="label">Total pagado</div>
+                    <div class="valor">{{ total_pagado | cop }}</div>
+                </div>
+
+                <div class="card">
+                    <div class="label">Interés pagado</div>
+                    <div class="valor">{{ total_interes_pagado | cop }}</div>
+                </div>
+
+                <div class="card">
+                    <div class="label">Capital pagado</div>
+                    <div class="valor">{{ total_capital_pagado | cop }}</div>
+                </div>
+
+                <div class="card rojo">
+                    <div class="label">Mora pagada</div>
+                    <div class="valor">{{ total_mora_pagada | cop }}</div>
+                </div>
+
+                <div class="card dorado">
+                    <div class="label">Prepago a capital</div>
+                    <div class="valor">{{ total_prepago_capital | cop }}</div>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <div class="seccion">
-        <h2>Historial de pagos</h2>
+        <div class="seccion">
+            <h2>Historial de pagos</h2>
 
-        <div class="tabla-wrapper">
-            <table>
-                <thead>
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
                     <tr>
                         <th>Fecha</th>
                         <th>Cuota</th>
@@ -194,11 +375,12 @@
                         <th>Capital</th>
                         <th>Mora</th>
                         <th>Prepago capital</th>
-                        <th>Medio de pago</th>
+                        <th>Medio</th>
                         <th>Tipo</th>
                     </tr>
-                </thead>
-                <tbody>
+                    </thead>
+
+                    <tbody>
                     {% for pago in pagos %}
                     <tr>
                         <td>{{ pago.fecha.strftime('%d/%m/%Y') }}</td>
@@ -209,26 +391,26 @@
                         <td>{{ pago.valor_aplicado_mora | cop }}</td>
                         <td>{{ pago.valor_aplicado_prepago_capital | cop }}</td>
                         <td>{{ pago.medio_pago }}</td>
-                        <td>{{ pago.tipo_pago if pago.tipo_pago else 'N/A' }}</td>
+                        <td>{{ pago.tipo_pago or 'PAGO' }}</td>
                     </tr>
                     {% else %}
                     <tr>
                         <td colspan="9">No hay pagos registrados.</td>
                     </tr>
                     {% endfor %}
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
 
-    <div class="seccion">
-        <h2>Tabla de cuotas</h2>
+        <div class="seccion">
+            <h2>Tabla de amortización</h2>
 
-        <div class="tabla-wrapper">
-            <table>
-                <thead>
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
                     <tr>
-                        <th>#</th>
+                        <th>N° Cuota</th>
                         <th>Fecha cuota</th>
                         <th>Valor cuota</th>
                         <th>Capital</th>
@@ -238,8 +420,9 @@
                         <th>Total cobro</th>
                         <th>Estado</th>
                     </tr>
-                </thead>
-                <tbody>
+                    </thead>
+
+                    <tbody>
                     {% for cuota in cuotas %}
                     <tr>
                         <td>{{ cuota.numero }}</td>
@@ -252,22 +435,27 @@
                         <td>{{ cuota.total_cobro | cop }}</td>
                         <td>
                             {% if cuota.estado == 'EN MORA' %}
-                                <span class="rojo">EN MORA</span>
+                                <span class="estado-mora">EN MORA</span>
                             {% elif cuota.estado == 'PAGADA' %}
-                                <span class="verde">PAGADA</span>
-                            {% elif cuota.estado == 'LIQUIDADA' %}
-                                <span class="azul">LIQUIDADA</span>
+                                <span class="estado-pagada">PAGADA</span>
+                            {% elif cuota.estado == 'PENDIENTE' %}
+                                <span class="estado-pendiente">PENDIENTE</span>
                             {% else %}
                                 {{ cuota.estado }}
                             {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+                    </tbody>
+                </table>
+            </div>
 
+            <div class="nota">
+                Este extracto se genera con base en los pagos, abonos, mora y movimientos registrados en el sistema financiero.
+            </div>
+        </div>
+
+    </div>
 </div>
 </body>
 </html>

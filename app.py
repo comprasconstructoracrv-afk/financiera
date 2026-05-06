@@ -3222,243 +3222,350 @@ def extracto_credito_pdf(credito_id):
     if 'user' not in session:
         return redirect('/login')
 
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
-    from reportlab.lib import colors
-    from reportlab.lib.pagesizes import letter, landscape
-    from reportlab.lib.styles import getSampleStyleSheet
-    from reportlab.lib.utils import ImageReader
     from io import BytesIO
-    import os
     from datetime import date
+    from flask import send_file
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.units import cm
+
+    def money(valor):
+        try:
+            return "$ {:,.0f}".format(float(valor or 0)).replace(",", ".")
+        except:
+            return "$ 0"
+
+    def fecha(valor):
+        try:
+            return valor.strftime('%d/%m/%Y') if valor else ""
+        except:
+            return ""
 
     credito = Credito.query.get_or_404(credito_id)
+
     actualizar_mora_credito(credito)
     db.session.commit()
 
-    cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero).all()
+    cuotas = Cuota.query.filter_by(
+        credito_id=credito.id
+    ).order_by(Cuota.numero.asc()).all()
+
     cuotas_ids = [c.id for c in cuotas]
 
     pagos = []
     if cuotas_ids:
-        pagos = Pago.query.filter(Pago.cuota_id.in_(cuotas_ids)).order_by(Pago.fecha.desc()).all()
+        pagos = Pago.query.filter(
+            Pago.cuota_id.in_(cuotas_ids),
+            Pago.tipo_pago != 'ABONO_CAPITAL'
+        ).order_by(Pago.fecha.desc()).all()
 
-    total_pagado = round(sum(p.valor or 0 for p in pagos), 2)
-    total_interes_pagado = round(sum(p.valor_aplicado_interes or 0 for p in pagos), 2)
-    total_capital_pagado = round(sum(p.valor_aplicado_capital or 0 for p in pagos), 2)
-    total_mora_pagada = round(sum(p.valor_aplicado_mora or 0 for p in pagos), 2)
-    total_prepago_capital = round(sum(p.valor_aplicado_prepago_capital or 0 for p in pagos), 2)
+    abonos_capital = AbonoCapital.query.filter_by(
+        credito_id=credito.id
+    ).order_by(AbonoCapital.fecha.desc()).all()
 
-    deuda_total_hoy = round(
-        sum((c.total_cobro or 0) for c in cuotas if c.estado in ['PENDIENTE', 'EN MORA', 'ABONO']),
-        2
-    )
+    inyecciones = InyeccionCapital.query.filter_by(
+        credito_id=credito.id
+    ).order_by(InyeccionCapital.numero_cuota.asc()).all()
 
-    if all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas) and cuotas:
-        estado_credito = 'CANCELADO'
-    elif any(c.estado == 'EN MORA' for c in cuotas):
-        estado_credito = 'EN MORA'
-    else:
-        estado_credito = 'AL DÍA'
+    cuotas_dict = {c.id: c for c in cuotas}
 
-    # 🎨 Colores corporativos
-    azul = colors.HexColor('#102a43')
-    gris = colors.HexColor('#52606d')
-    gris_claro = colors.HexColor('#f7f9fc')
-    borde = colors.HexColor('#d9e2ec')
+    total_pagado = round(sum((p.valor or 0) for p in pagos), 2)
+    total_interes = round(sum((p.valor_aplicado_interes or 0) for p in pagos), 2)
+    total_capital = round(sum((p.valor_aplicado_capital or 0) for p in pagos), 2)
+    total_mora_pagada = round(sum((p.valor_aplicado_mora or 0) for p in pagos), 2)
+    total_prepago = round(sum((p.valor_aplicado_prepago_capital or 0) for p in pagos), 2)
+    total_abonos = round(sum((a.valor or 0) for a in abonos_capital), 2)
+    total_inyectado = round(sum((i.valor or 0) for i in inyecciones), 2)
+
+    deuda_total = round(sum((c.total_cobro or 0) for c in cuotas if c.estado in ['PENDIENTE', 'EN MORA', 'ABONO']), 2)
+    mora_total = round(sum((c.interes_mora or 0) for c in cuotas), 2)
+
+    estado_credito = 'EN MORA' if any(c.estado == 'EN MORA' for c in cuotas) else 'AL DÍA'
 
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=28,
+        leftMargin=28,
+        topMargin=24,
+        bottomMargin=24
+    )
 
     styles = getSampleStyleSheet()
 
+    titulo_style = ParagraphStyle(
+        'TituloExtracto',
+        parent=styles['Title'],
+        fontSize=18,
+        textColor=colors.HexColor('#082A4D'),
+        alignment=1,
+        spaceAfter=4
+    )
+
+    normal_center = ParagraphStyle(
+        'NormalCenter',
+        parent=styles['BodyText'],
+        fontSize=8,
+        alignment=1,
+        leading=10
+    )
+
+    seccion_style = ParagraphStyle(
+        'Seccion',
+        parent=styles['Heading2'],
+        fontSize=12,
+        textColor=colors.HexColor('#082A4D'),
+        spaceBefore=12,
+        spaceAfter=6
+    )
+
     elementos = []
 
-    # ================= HEADER =================
-    logo_path = os.path.join(app.root_path, 'static', 'logo.png')
-    logo = ""
-    if os.path.exists(logo_path):
-        logo = Image(logo_path, width=90, height=50)
+    header = Table([
+        [
+            Paragraph("<b>CRV</b><br/><font size='7'>CONSTRUCCIONES Y<br/>URBANIZACIONES</font>", normal_center),
+            Paragraph(
+                "<b>EXTRACTO FINANCIERO DEL CRÉDITO</b><br/>"
+                "<font size='8'>CONSTRUCCIONES Y URBANIZACIONES S.A.S<br/>"
+                "NIT: 901.527.083-2 - IBAGUÉ, TOLIMA</font>",
+                titulo_style
+            ),
+            Paragraph(
+                f"<b>Fecha:</b> {date.today().strftime('%d/%m/%Y')}<br/>"
+                f"<b>Pagaré:</b> {getattr(credito, 'numero_pagare', None) or getattr(credito, 'pagare', '')}<br/>"
+                f"<b>Estado:</b> {estado_credito}",
+                styles['BodyText']
+            )
+        ]
+    ], colWidths=[3.2*cm, 10.5*cm, 5.5*cm])
 
-    header_texto = Paragraph(f"""
-        <para align='center'>
-        <font size='22'><b>Extracto del crédito</b></font><br/><br/>
-        <font size='11'><b>{credito.cliente}</b></font><br/><br/>
-        Pagaré: {credito.numero_pagare}<br/>
-        Fecha: {date.today().strftime('%d/%m/%Y')}
-        </para>
-    """, styles['Normal'])
-
-    header = Table([[header_texto, logo]], colWidths=[600, 120])
     header.setStyle(TableStyle([
-        ('BOX', (0,0), (-1,-1), 1, borde),
-        ('BACKGROUND', (0,0), (-1,-1), colors.white),
-        ('LEFTPADDING', (0,0), (-1,-1), 20),
-        ('RIGHTPADDING', (0,0), (-1,-1), 20),
-        ('TOPPADDING', (0,0), (-1,-1), 20),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 20),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
+        ('BOX', (0, 0), (-1, -1), 0.8, colors.HexColor('#E5E7EB')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+        ('TOPPADDING', (0, 0), (-1, -1), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
     ]))
 
     elementos.append(header)
-    elementos.append(Spacer(1, 25))
+    elementos.append(Spacer(1, 10))
 
-    # ================= TARJETAS =================
-    def card(titulo, valor):
-        contenido = [
-            [Paragraph(f"<font size='8' color='#52606d'>{titulo.upper()}</font>", styles['Normal'])],
-            [Paragraph(f"<b>{valor}</b>", styles['Heading3'])]
+    datos_cliente = Table([
+        ['CLIENTE', credito.cliente, 'CÉDULA', getattr(credito, 'cedula_cliente', '')],
+        ['MONTO CRÉDITO', money(getattr(credito, 'monto', 0)), 'INTERÉS', f"{credito.interes}%"],
+        ['FECHA CRÉDITO', fecha(getattr(credito, 'fecha_creacion', None)), 'DEUDA A LA FECHA', money(deuda_total)]
+    ], colWidths=[3.5*cm, 6.7*cm, 3.5*cm, 5.5*cm])
+
+    datos_cliente.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#082A4D')),
+        ('BACKGROUND', (2, 0), (2, -1), colors.HexColor('#082A4D')),
+        ('TEXTCOLOR', (0, 0), (0, -1), colors.white),
+        ('TEXTCOLOR', (2, 0), (2, -1), colors.white),
+        ('BACKGROUND', (1, 0), (1, -1), colors.HexColor('#F8FAFC')),
+        ('BACKGROUND', (3, 0), (3, -1), colors.HexColor('#F8FAFC')),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#CBD5E1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 7),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+    ]))
+
+    elementos.append(datos_cliente)
+    elementos.append(Spacer(1, 12))
+
+    resumen = Table([
+        ['TOTAL PAGADO', 'CAPITAL PAGADO', 'INTERÉS PAGADO', 'MORA', 'ABONOS CAPITAL', 'INYECCIONES'],
+        [
+            money(total_pagado),
+            money(total_capital),
+            money(total_interes),
+            money(mora_total),
+            money(total_abonos + total_prepago),
+            money(total_inyectado)
         ]
+    ], colWidths=[3.2*cm] * 6)
 
-        t = Table(contenido, colWidths=[170])
-
-        t.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,-1), gris_claro),
-            ('BOX', (0,0), (-1,-1), 0.8, borde),
-            ('ROUNDEDCORNERS', [12,12,12,12]),
-
-            # 🔥 MÁS AIRE INTERNO
-            ('LEFTPADDING', (0,0), (-1,-1), 14),
-            ('RIGHTPADDING', (0,0), (-1,-1), 14),
-            ('TOPPADDING', (0,0), (-1,-1), 12),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 12),
-        ]))
-
-        return t
-
-    elementos.append(Paragraph("Resumen del crédito", styles['Heading2']))
-
-    fila1 = [
-        card("Cliente", credito.cliente),
-        card("Cédula", credito.cedula_cliente),
-        card("Sede", credito.sede),
-        card("Monto", formato_cop(credito.monto_financiado))
-    ]
-
-    fila2 = [
-        card("Saldo", formato_cop(credito.saldo_actual)),
-        card("Deuda hoy", formato_cop(deuda_total_hoy)),
-        card("Interés", f"{credito.interes}%"),
-        card("Estado", estado_credito)
-    ]
-
-    tabla_fila1 = Table([[
-        card("Cliente", credito.cliente), "",
-        card("Cédula", credito.cedula_cliente), "",
-        card("Sede", credito.sede), "",
-        card("Monto", formato_cop(credito.monto_financiado))
-    ]], colWidths=[165, 14, 165, 14, 165, 14, 165])
-
-    tabla_fila1.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('LEFTPADDING', (0,0), (-1,-1), 0),
-        ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('TOPPADDING', (0,0), (-1,-1), 0),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+    resumen.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#D4AF37')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('BACKGROUND', (0, 1), (0, 1), colors.HexColor('#EAF5FF')),
+        ('BACKGROUND', (1, 1), (1, 1), colors.HexColor('#E8F5E9')),
+        ('BACKGROUND', (2, 1), (2, 1), colors.HexColor('#F8FAFC')),
+        ('BACKGROUND', (3, 1), (3, 1), colors.HexColor('#FDECEC')),
+        ('BACKGROUND', (4, 1), (4, 1), colors.HexColor('#FFF7E6')),
+        ('BACKGROUND', (5, 1), (5, 1), colors.HexColor('#EAF5FF')),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 7.5),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('BOX', (0, 0), (-1, -1), 0.8, colors.HexColor('#E5E7EB')),
+        ('INNERGRID', (0, 0), (-1, -1), 0.4, colors.white),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
     ]))
 
-    tabla_fila2 = Table([[
-        card("Saldo", formato_cop(credito.saldo_actual)), "",
-        card("Deuda hoy", formato_cop(deuda_total_hoy)), "",
-        card("Interés", f"{credito.interes}%"), "",
-        card("Estado", estado_credito)
-    ]], colWidths=[165, 14, 165, 14, 165, 14, 165])
+    elementos.append(resumen)
 
-    tabla_fila2.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('LEFTPADDING', (0,0), (-1,-1), 0),
-        ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('TOPPADDING', (0,0), (-1,-1), 0),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-    ]))
+    elementos.append(Paragraph("Historial de pagos", seccion_style))
 
-    elementos.append(tabla_fila1)
-    elementos.append(Spacer(1, 18))  # 🔥 separación vertical
-    elementos.append(tabla_fila2)
-    elementos.append(Spacer(1, 25))
+    pagos_data = [[
+        'Fecha',
+        'N° cuota',
+        'Valor pagado',
+        'Interés',
+        'Capital',
+        'Mora',
+        'Prepago capital',
+        'Medio',
+        'Tipo'
+    ]]
 
-    # ================= RESUMEN PAGOS =================
-    elementos.append(Paragraph("Resumen de pagos", styles['Heading2']))
+    for pago in pagos:
+        cuota = cuotas_dict.get(pago.cuota_id)
+        numero_cuota = cuota.numero if cuota else ''
 
-    pagos_tabla = Table([[
-        card("Total pagado", formato_cop(total_pagado)), "",
-        card("Interés", formato_cop(total_interes_pagado)), "",
-        card("Capital", formato_cop(total_capital_pagado)), "",
-        card("Mora", formato_cop(total_mora_pagada)), "",
-        card("Prepago", formato_cop(total_prepago_capital))
-    ]], colWidths=[125, 12, 125, 12, 125, 12, 125, 12, 125])
-
-    pagos_tabla.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('LEFTPADDING', (0,0), (-1,-1), 0),
-        ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('TOPPADDING', (0,0), (-1,-1), 0),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-    ]))
-
-    elementos.append(pagos_tabla)
-    elementos.append(Spacer(1, 30))
-
-    # ================= HISTORIAL =================
-    elementos.append(Paragraph("Historial de pagos", styles['Heading2']))
-
-    data = [["Fecha","Cuota","Valor","Interés","Capital","Mora","Prepago"]]
-
-    for p in pagos:
-        data.append([
-            p.fecha.strftime('%d/%m/%Y'),
-            p.cuota_id,
-            formato_cop(p.valor),
-            formato_cop(p.valor_aplicado_interes),
-            formato_cop(p.valor_aplicado_capital),
-            formato_cop(p.valor_aplicado_mora),
-            formato_cop(p.valor_aplicado_prepago_capital),
+        pagos_data.append([
+            fecha(pago.fecha),
+            numero_cuota,
+            money(pago.valor),
+            money(pago.valor_aplicado_interes),
+            money(pago.valor_aplicado_capital),
+            money(pago.valor_aplicado_mora),
+            money(pago.valor_aplicado_prepago_capital),
+            pago.medio_pago or '',
+            pago.tipo_pago or 'PAGO'
         ])
 
-    tabla = Table(data, repeatRows=1)
-    tabla.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), azul),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('GRID', (0,0), (-1,-1), 0.5, borde),
-    ]))
+    if len(pagos_data) == 1:
+        pagos_data.append(['Sin pagos registrados', '', '', '', '', '', '', '', ''])
 
-    elementos.append(tabla)
-    elementos.append(Spacer(1, 30))
+    tabla_pagos = Table(
+        pagos_data,
+        repeatRows=1,
+        colWidths=[2.1*cm, 1.5*cm, 2.5*cm, 2.2*cm, 2.2*cm, 1.8*cm, 2.5*cm, 2.1*cm, 2.4*cm]
+    )
 
-    # ================= CUOTAS =================
-    elementos.append(Paragraph("Tabla de cuotas", styles['Heading2']))
+    estilo_pagos = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#082A4D')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 6.8),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 0.35, colors.HexColor('#CBD5E1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]
 
-    data_cuotas = [["#","Fecha","Valor","Capital","Interés","Saldo","Mora","Total","Estado"]]
+    for i in range(1, len(pagos_data)):
+        color = colors.HexColor('#FFFFFF') if i % 2 else colors.HexColor('#F8FAFC')
+        estilo_pagos.append(('BACKGROUND', (0, i), (-1, i), color))
 
-    for c in cuotas:
-        data_cuotas.append([
-            c.numero,
-            c.fecha_pago.strftime('%d/%m/%Y') if c.fecha_pago else "",
-            formato_cop(c.valor_cuota),
-            formato_cop(c.capital),
-            formato_cop(c.interes),
-            formato_cop(c.saldo_pendiente),
-            formato_cop(c.interes_mora),
-            formato_cop(c.total_cobro),
-            c.estado
+    tabla_pagos.setStyle(TableStyle(estilo_pagos))
+    elementos.append(tabla_pagos)
+
+    elementos.append(Paragraph("Abonos a capital", seccion_style))
+
+    abonos_data = [[
+        'Fecha',
+        'Valor abonado',
+        'Medio de pago',
+        'Observación'
+    ]]
+
+    for abono in abonos_capital:
+        abonos_data.append([
+            fecha(abono.fecha),
+            money(abono.valor),
+            abono.medio_pago or '',
+            abono.observacion or 'Abono a capital'
         ])
 
-    tabla2 = Table(data_cuotas, repeatRows=1)
-    tabla2.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), azul),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('GRID', (0,0), (-1,-1), 0.5, borde),
-    ]))
+    if len(abonos_data) == 1:
+        abonos_data.append(['Sin abonos a capital registrados', '', '', ''])
 
-    elementos.append(tabla2)
+    tabla_abonos = Table(
+        abonos_data,
+        repeatRows=1,
+        colWidths=[3*cm, 4*cm, 4*cm, 8.2*cm]
+    )
+
+    estilo_abonos = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#082A4D')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 7.5),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 0.35, colors.HexColor('#CBD5E1')),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#E8F5E9')),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]
+
+    tabla_abonos.setStyle(TableStyle(estilo_abonos))
+    elementos.append(tabla_abonos)
+
+    elementos.append(Paragraph("Inyecciones de capital", seccion_style))
+
+    iny_data = [[
+        'Fecha',
+        'N° cuota',
+        'Valor inyectado',
+        'Observación'
+    ]]
+
+    for iny in inyecciones:
+        iny_data.append([
+            fecha(iny.fecha),
+            iny.numero_cuota,
+            money(iny.valor),
+            iny.observacion or ''
+        ])
+
+    if len(iny_data) == 1:
+        iny_data.append(['Sin inyecciones registradas', '', '', ''])
+
+    tabla_iny = Table(
+        iny_data,
+        repeatRows=1,
+        colWidths=[3*cm, 2.5*cm, 4*cm, 9.7*cm]
+    )
+
+    estilo_iny = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#082A4D')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 7.5),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 0.35, colors.HexColor('#CBD5E1')),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#FFF7E6')),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]
+
+    tabla_iny.setStyle(TableStyle(estilo_iny))
+    elementos.append(tabla_iny)
+
+    elementos.append(Spacer(1, 12))
+
+    nota = Paragraph(
+        "<font size='8' color='#475569'>"
+        "Este extracto fue generado automáticamente con base en los pagos, abonos, inyecciones de capital y movimientos registrados en el sistema financiero."
+        "</font>",
+        styles['BodyText']
+    )
+
+    elementos.append(nota)
 
     doc.build(elementos)
-
     buffer.seek(0)
 
     return send_file(
         buffer,
-        as_attachment=True,
-        download_name=f"extracto_{credito.id}.pdf",
+        as_attachment=False,
+        download_name=f"extracto_credito_{credito.id}.pdf",
         mimetype='application/pdf'
     )
 
