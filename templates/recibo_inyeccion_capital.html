@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Recibo de Inyección de Capital</title>
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #eef2f7;
+            padding: 24px;
+            color: #1f2937;
+        }
+
+        .wrapper { max-width: 980px; margin: auto; }
+
+        .recibo {
+            background: white;
+            border-radius: 22px;
+            padding: 20px 20px 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.10);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .recibo::before {
+            content: "";
+            position: absolute;
+            top: -60px;
+            right: -60px;
+            width: 220px;
+            height: 220px;
+            border: 14px solid rgba(210, 170, 60, 0.12);
+            border-radius: 50%;
+        }
+
+        .recibo::after {
+            content: "";
+            position: absolute;
+            bottom: -55px;
+            right: -30px;
+            width: 180px;
+            height: 180px;
+            border: 12px solid rgba(210, 170, 60, 0.10);
+            border-radius: 50%;
+        }
+
+        .header {
+            display: grid;
+            grid-template-columns: 120px 1fr 180px;
+            gap: 14px;
+            align-items: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .logo-box img {
+            max-width: 90px;
+            height: auto;
+            display: block;
+        }
+
+        .titulo-box { text-align: center; }
+
+        .titulo-box h1 {
+            margin: 0;
+            font-size: 18px;
+            color: #102a43;
+        }
+
+        .empresa {
+            margin-top: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #c59a24;
+        }
+
+        .detalle {
+            margin-top: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #1f2937;
+            line-height: 1.25;
+        }
+
+        .lado-derecho { text-align: right; }
+
+        .fecha {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #d9b441, #f1d163);
+            color: #1f2937;
+            padding: 10px 16px;
+            border-radius: 999px;
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .separador {
+            margin: 14px 0 12px;
+            border: none;
+            border-top: 1px solid #e5e7eb;
+            position: relative;
+            z-index: 2;
+        }
+
+        .grid-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .card {
+            background: #fbfbfc;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 12px 14px;
+        }
+
+        .card h3 {
+            margin: 0 0 10px;
+            font-size: 15px;
+            color: #102a43;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card h3::before {
+            content: "";
+            width: 4px;
+            height: 20px;
+            border-radius: 999px;
+            background: #d4af37;
+            display: inline-block;
+        }
+
+        .dato {
+            margin-bottom: 7px;
+            font-size: 13px;
+            color: #374151;
+            line-height: 1.3;
+        }
+
+        .dato strong { color: #111827; }
+
+        .tabla-box {
+            margin-top: 12px;
+            position: relative;
+            z-index: 2;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            overflow: hidden;
+            border-radius: 14px;
+        }
+
+        thead th {
+            background: #102a43;
+            color: white;
+            padding: 10px 8px;
+            font-size: 13px;
+            text-align: left;
+        }
+
+        tbody td {
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 10px 8px;
+            font-size: 13px;
+            color: #374151;
+        }
+
+        tbody td.valor {
+            font-weight: bold;
+            color: #111827;
+        }
+
+        .totales {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .total-card {
+            border-radius: 14px;
+            padding: 12px 14px;
+            font-size: 15px;
+            font-weight: bold;
+            color: #111827;
+        }
+
+        .total-amarillo {
+            background: #fffdf7;
+            border: 1px solid #efe3b0;
+        }
+
+        .total-verde {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+        }
+
+        .total-azul {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+        }
+
+        .valor-dorado { color: #a97800; }
+        .valor-verde { color: #166534; }
+        .valor-azul { color: #1d4ed8; }
+
+        .mensaje {
+            margin-top: 12px;
+            text-align: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .mensaje strong {
+            display: block;
+            font-size: 16px;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+
+        .mensaje span {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .acciones {
+            margin-top: 24px;
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 22px;
+            border-radius: 12px;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+        }
+
+        .btn-imprimir {
+            background: linear-gradient(135deg, #d4af37, #f1cf60);
+            color: #1f2937;
+        }
+
+        .btn-volver {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        @media print {
+            body { background: white; padding: 0; }
+            .recibo { box-shadow: none; border-radius: 0; }
+            .acciones { display: none; }
+        }
+    </style>
+</head>
+
+<body>
+<div class="wrapper">
+    <div class="recibo">
+
+        <div class="header">
+            <div class="logo-box">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
+            </div>
+
+            <div class="titulo-box">
+                <h1>Recibo de Caja</h1>
+                <div class="empresa">CONSTRUCCIONES Y URBANIZACIONES S.A.S</div>
+                <div class="detalle">
+                    NIT: 901.527.083-2<br>
+                    AV. AMBALA N° 27-136 - PISO 3<br>
+                    IBAGUÉ - TOLIMA<br>
+                    TELÉFONO: 311 414 5843
+                </div>
+            </div>
+
+            <div class="lado-derecho">
+                <div class="fecha">
+                    Fecha: {{ inyeccion.fecha.strftime('%Y-%m-%d') if inyeccion.fecha else '' }}
+                </div>
+                <div class="badge">INYECCIÓN DE CAPITAL</div>
+            </div>
+        </div>
+
+        <hr class="separador">
+
+        <div class="grid-info">
+            <div class="card">
+                <h3>Datos de la inyección</h3>
+                <div class="dato"><strong>Sede:</strong> {{ credito.sede }}</div>
+                <div class="dato"><strong>Tipo:</strong> INYECCIÓN DE CAPITAL</div>
+                <div class="dato"><strong>Cuota donde aplica:</strong> {{ inyeccion.numero_cuota }}</div>
+                <div class="dato"><strong>Observación:</strong> {{ inyeccion.observacion or 'Sin observación' }}</div>
+            </div>
+
+            <div class="card">
+                <h3>Datos del cliente</h3>
+                <div class="dato"><strong>Nombre:</strong> {{ credito.cliente }}</div>
+                <div class="dato"><strong>Cédula:</strong> {{ credito.cedula_cliente }}</div>
+                <div class="dato"><strong>Dirección:</strong> {{ credito.direccion_cliente }}</div>
+                <div class="dato"><strong>Celular:</strong> {{ credito.telefono_1 }}</div>
+            </div>
+        </div>
+
+        <div class="tabla-box">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Referencia</th>
+                        <th>N° Cuota</th>
+                        <th>Valor inyectado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>INYECCIÓN CAPITAL</td>
+                        <td>{{ inyeccion.numero_cuota }}</td>
+                        <td class="valor">{{ inyeccion.valor | cop }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="totales">
+            <div class="total-card total-amarillo">
+                Capital original:
+                <span class="valor-dorado">{{ credito.monto | cop }}</span>
+            </div>
+
+            <div class="total-card total-verde">
+                Total inyectado:
+                <span class="valor-verde">{{ inyeccion.valor | cop }}</span>
+            </div>
+
+            <div class="total-card total-azul">
+                Cuota aplicada:
+                <span class="valor-azul">N° {{ inyeccion.numero_cuota }}</span>
+            </div>
+        </div>
+
+        <div class="mensaje">
+            <strong>Inyección de capital registrada correctamente.</strong>
+            <span>Este documento sirve como soporte de la adición de capital al crédito.</span>
+        </div>
+
+        <div class="acciones">
+            <button class="btn btn-imprimir" onclick="window.print()">Imprimir recibo</button>
+            <a href="/ver_cuotas/{{ credito.id }}" class="btn btn-volver">Volver</a>
+        </div>
+
+    </div>
+</div>
+</body>
+</html>

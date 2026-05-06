@@ -1362,6 +1362,7 @@ def pagar_cuota(cuota_id):
         fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d')
         valor_pago = limpiar_valor_moneda(request.form['valor'])
         medio_pago = request.form['medio_pago']
+        observacion = request.form.get('observacion', '').strip()
 
         if medio_pago == 'OTRO':
             medio_pago_otro = request.form.get('medio_pago_otro', '').strip()
@@ -1495,7 +1496,8 @@ def pagar_cuota(cuota_id):
             dias_mora_pagados=dias_mora_al_pago,
             mora_generada_al_pago=mora_generada_al_pago,
             saldo_pendiente_antes_pago=saldo_pendiente_antes_pago,
-            total_exigible_al_pago=total_exigible
+            total_exigible_al_pago=total_exigible,
+            observacion=observacion if observacion else "Pago registrado en el sistema financiero"
         )
         db.session.add(pago)
 
@@ -1520,6 +1522,7 @@ def pagar_deuda_fecha(credito_id):
         fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d').date()
         valor_pago = limpiar_valor_moneda(request.form['valor'])
         medio_pago = request.form['medio_pago']
+        observacion = request.form.get('observacion', '').strip()
 
         if medio_pago == 'OTRO':
             medio_pago_otro = request.form.get('medio_pago_otro', '').strip()
@@ -3974,7 +3977,7 @@ def inyeccion_capital(credito_id):
         )
 
         db.session.add(nueva)
-        db.session.commit()
+        db.session.flush()
 
         # Tomar saldo desde la cuota anterior para NO tocar historia ya pagada
         cuota_anterior = Cuota.query.filter(
@@ -4052,8 +4055,10 @@ def inyeccion_capital(credito_id):
 
         db.session.commit()
 
-        flash("Inyección de capital aplicada correctamente.", "success")
-        return redirect(url_for('ver_cuotas', credito_id=credito.id))
+        return redirect(url_for(
+            'ver_recibo_inyeccion_capital',
+            inyeccion_id=nueva.id
+        ))
 
     inyecciones = InyeccionCapital.query.filter_by(
         credito_id=credito.id
@@ -4406,6 +4411,20 @@ def ver_recibo_abono_capital(abono_id):
         abono=abono,
         credito=credito,
         cliente=credito
+    )
+
+@app.route('/ver_recibo_inyeccion_capital/<int:inyeccion_id>')
+def ver_recibo_inyeccion_capital(inyeccion_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    inyeccion = InyeccionCapital.query.get_or_404(inyeccion_id)
+    credito = Credito.query.get_or_404(inyeccion.credito_id)
+
+    return render_template(
+        'recibo_inyeccion_capital.html',
+        inyeccion=inyeccion,
+        credito=credito
     )
 
 if __name__ == "__main__":

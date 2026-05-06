@@ -450,6 +450,18 @@
                 font-size: 13px;
             }
         }
+
+        .observacion-recibo {
+            margin-top: 12px;
+            background: #fbfbfc;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 12px 14px;
+            font-size: 13px;
+            color: #374151;
+            position: relative;
+            z-index: 2;
+        }
     </style>
 </head>
 <body>
@@ -511,7 +523,6 @@
                     </div>
 
                     <div class="dato"><strong>Cuenta / Medio:</strong> {{ pago.medio_pago }}</div>
-                    <div class="dato"><strong>Observación:</strong> {{ pago.observacion or 'Pago registrado en el sistema financiero' }}</div>
                 </div>
 
                 <div class="card">
@@ -573,7 +584,7 @@
                 </table>
             </div>
 
-            <div class="totales">
+        <div class="totales">
                 <div class="total-card total-amarillo">
                     Saldo pendiente del crédito:
                     <span class="valor-dorado">{{ saldo_pendiente_credito | cop }}</span>
@@ -588,6 +599,11 @@
                     Total recibido hoy:
                     <span class="valor-verde">{{ pago.valor | cop }}</span>
                 </div>
+            </div>
+
+            <div class="observacion-recibo">
+                <strong>Observación:</strong>
+                {{ pago.observacion or 'Sin observación registrada.' }}
             </div>
 
             <div class="mensaje">
