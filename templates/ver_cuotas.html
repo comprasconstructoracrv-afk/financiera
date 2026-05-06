@@ -1051,8 +1051,8 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% if credito.cambios_tasa %}
-                            {% for cambio in credito.cambios_tasa %}
+                        {% if historial_tasas %}
+                            {% for cambio in historial_tasas %}
                             <tr>
                                 <td>{{ cambio.numero_cuota }}</td>
                                 <td>{{ cambio.fecha_cambio.strftime('%d/%m/%Y') if cambio.fecha_cambio else '' }}</td>

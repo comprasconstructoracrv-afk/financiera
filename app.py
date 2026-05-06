@@ -1330,6 +1330,10 @@ def ver_cuotas(credito_id):
 
     esta_al_dia = deuda_total_fecha <= 0
 
+    historial_tasas = CambioTasaInteresCredito.query.filter_by(
+        credito_id=credito.id
+    ).order_by(CambioTasaInteresCredito.numero_cuota.asc()).all()
+
     return render_template(
         'ver_cuotas.html',
         credito=credito,
@@ -1342,7 +1346,8 @@ def ver_cuotas(credito_id):
         mora_total=mora_total,
         deuda_total_fecha=deuda_total_fecha,
         esta_al_dia=esta_al_dia,
-        cuotas_exigibles_hoy=cuotas_exigibles_hoy
+        cuotas_exigibles_hoy=cuotas_exigibles_hoy,
+        historial_tasas=historial_tasas
     )
 
 @app.route('/pagar_cuota/<int:cuota_id>', methods=['GET', 'POST'])
