@@ -888,7 +888,9 @@
 
         <div class="card-info">
             <div class="label">Monto</div>
-            <div class="valor">{{ credito.monto | cop }}</div>
+            <div class="valor">
+                {{ (credito.monto + (credito.inyecciones_capital | sum(attribute='valor'))) | cop }}
+            </div>
         </div>
 
         <div class="card-info">
@@ -899,6 +901,10 @@
         <div class="card-info">
             <div class="label">Interés</div>
             <div class="valor">{{ credito.interes }}%</div>
+
+            {% if credito.tipo_cuota == 'VARIABLE' and credito.tipo_interes == 'VARIABLE' %}
+                <button class="mini-btn" type="button" onclick="toggleDetalleTasas()">Ver detalle</button>
+            {% endif %}
         </div>
 
         <div class="card-info">
@@ -1029,6 +1035,41 @@
         </div>
     </div>
 </div>   
+
+        <div id="panel-detalle-tasas" class="panel-detalle" style="display: none;">
+            <h3 style="text-align:center; margin-bottom:10px;">Historial de tasas de interés</h3>
+
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>N° Cuota desde</th>
+                            <th>Fecha cambio</th>
+                            <th>Tasa anterior</th>
+                            <th>Tasa nueva</th>
+                            <th>Observación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if credito.cambios_tasa %}
+                            {% for cambio in credito.cambios_tasa %}
+                            <tr>
+                                <td>{{ cambio.numero_cuota }}</td>
+                                <td>{{ cambio.fecha_cambio.strftime('%d/%m/%Y') if cambio.fecha_cambio else '' }}</td>
+                                <td>{{ cambio.tasa_anterior }}%</td>
+                                <td>{{ cambio.tasa_nueva }}%</td>
+                                <td>{{ cambio.observacion or 'Sin observación' }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5">Este crédito no tiene cambios de tasa registrados.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
     <div class="scroll-superior" id="scroll-top-cuotas">
         <div></div>
@@ -1270,6 +1311,19 @@ document.addEventListener('keydown', function(e) {
         cerrarModalReversion();
     }
 });
+</script>
+
+<script>
+function toggleDetalleTasas() {
+    const panel = document.getElementById('panel-detalle-tasas');
+    if (!panel) return;
+
+    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+
+    if (panel.style.display === 'block') {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
 </script>
 
 </body>
