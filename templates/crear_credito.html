@@ -300,9 +300,27 @@
                                 <input type="text" name="cliente" required>
                             </div>
 
-                            <div class="campo">
-                                <label>Cédula</label>
-                                <input type="text" name="cedula_cliente" id="cedula_cliente" inputmode="numeric">
+                            <div class="grupo-formulario">
+
+                                <label>Tipo de documento</label>
+
+                                <select name="tipo_documento" required>
+                                    <option value="CC">CC - Cédula de ciudadanía</option>
+                                    <option value="CE">CE - Cédula de extranjería</option>
+                                    <option value="PPT">PPT - Permiso por Protección Temporal</option>
+                                    <option value="OTRO">OTRO</option>
+                                </select>
+
+                            </div>
+
+                            <div class="grupo-formulario">
+
+                                <label>Número de documento</label>
+
+                                <input type="text"
+                                    name="cedula_cliente"
+                                    required>
+
                             </div>
 
                             <div class="campo">

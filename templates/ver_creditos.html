@@ -485,7 +485,7 @@
                 </td>
 
                 <td class="valor-columna">
-                    {{ item.credito.monto | cop }}
+                    {{ item.credito.monto_total_con_inyecciones|cop }}
                 </td>
 
                 <td class="valor-columna">
@@ -493,7 +493,7 @@
                 </td>
 
                 <td class="valor-columna">
-                    {{ item.credito.monto_financiado | cop }}
+                    {{ item.credito.monto_total_con_inyecciones|cop }}
                 </td>
 
                 <td>
@@ -519,7 +519,7 @@
                 </td>
 
                 <td class="valor-columna">
-                    {{ item.credito.saldo_actual | cop }}
+                    {{ item.credito.saldo_real_credito|cop }}
                 </td>
 
                 <td class="accion-columna">

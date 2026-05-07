@@ -220,7 +220,7 @@
 
             <div class="acciones">
                 <button onclick="window.print()" class="btn btn-imprimir">Imprimir pagaré</button>
-                <a href="/dashboard" class="btn btn-volver">Volver</a>
+                <a href="{{ volver_url }}" class="btn btn-volver">Volver</a>
             </div>
         </div>
 
@@ -248,7 +248,10 @@
             <div class="bloque">
                 <h3>Deudor(es)</h3>
                 <div class="linea"><strong>Nombre(s):</strong> {{ credito.cliente }}</div>
-                <div class="linea"><strong>Identificación:</strong> {{ credito.cedula_cliente or '' }}</div>
+                <div class="linea">
+                    <strong>Identificación:</strong>
+                    {{ credito.tipo_documento or 'CC' }} {{ credito.cedula_cliente or '' }}
+                </div>
                 <div class="linea"><strong>Dirección:</strong> {{ credito.direccion_cliente or '' }}</div>
                 <div class="linea"><strong>Teléfono:</strong> {{ credito.telefono_1 or credito.telefono_2 or '' }}</div>
                 <div class="linea"><strong>Correo:</strong> {{ credito.correo_cliente or '' }}</div>
@@ -405,7 +408,10 @@
                 </tr>
                 <tr>
                     <td>Identificación</td>
-                    <td>{{ credito.cedula_cliente or '' }}</td>
+                    <td>
+                        {{ credito.tipo_documento or 'CC' }}
+                        {{ credito.cedula_cliente or '' }}
+                    </td>
                 </tr>
                 <tr>
                     <td>Objeto</td>

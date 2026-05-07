@@ -823,6 +823,21 @@
         z-index: 50;
         background: #fff;
     }
+
+    .btn-ver-pagare{
+        background: linear-gradient(135deg, #7c3aed, #4c1d95);
+        color: white;
+        padding: 12px 22px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: bold;
+        box-shadow: 0 6px 14px rgba(76,29,149,0.30);
+    }
+
+    .btn-pagare:hover{
+        transform: translateY(-2px);
+        opacity: 0.95;
+    }
 </style>
 
 </head>
@@ -868,6 +883,11 @@
             </a>
 
             <a href="{{ url_for('plan_pagos_credito', credito_id=credito.id) }}" class="btn-accion btn-plan">Imprimir plan de pagos</a>
+
+            <a href="{{ url_for('ver_pagare', credito_id=credito.id) }}"
+            class="btn-ver-pagare">
+            Ver pagaré
+            </a>          
 
         </div>
     </div>

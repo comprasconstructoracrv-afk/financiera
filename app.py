@@ -1051,6 +1051,7 @@ def crear_credito():
     if request.method == 'POST':
         try:
             cliente = request.form['cliente'].strip()
+            tipo_documento = request.form.get('tipo_documento', 'CC').strip()
             cedula_cliente = request.form.get('cedula_cliente', '').strip()
             telefono_1 = request.form.get('telefono_1', '').strip()
             telefono_2 = request.form.get('telefono_2', '').strip()
@@ -1093,6 +1094,7 @@ def crear_credito():
                 numero_pagare=numero_pagare,
                 cliente=cliente,
                 sede=sede,
+                tipo_documento=tipo_documento,
                 cedula_cliente=cedula_cliente,
                 telefono_1=telefono_1,
                 telefono_2=telefono_2,
@@ -1220,15 +1222,16 @@ def ver_creditos(sede):
 
     sede = sede.strip().upper()
 
-    creditos = Credito.query.filter_by(sede=sede).order_by(Credito.fecha_creacion.desc()).all()
-    hoy = date.today()
+    creditos = Credito.query.filter_by(
+        sede=sede
+    ).order_by(Credito.fecha_creacion.desc()).all()
 
     resumen_creditos = []
 
     for credito in creditos:
-        # actualizar_mora_credito(credito, hoy)
-
-        cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+        cuotas = Cuota.query.filter_by(
+            credito_id=credito.id
+        ).all()
 
         if not cuotas:
             continue
@@ -1242,16 +1245,41 @@ def ver_creditos(sede):
         else:
             estado_credito = 'AL DÍA'
 
-        # SOLO mostrar créditos activos en esta vista
         if all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
             continue
+
+        total_inyecciones = db.session.query(
+            db.func.coalesce(
+                db.func.sum(InyeccionCapital.valor),
+                0
+            )
+        ).filter(
+            InyeccionCapital.credito_id == credito.id
+        ).scalar()
+
+        credito.monto_total_con_inyecciones = (
+            (credito.monto or 0) + (total_inyecciones or 0)
+        )
+
+        saldo_real_credito = round(
+            sum(
+                (c.saldo_pendiente or 0) + (c.interes_mora or 0)
+                for c in cuotas
+                if c.estado in ['PENDIENTE', 'EN MORA', 'ABONO']
+            ),
+            2
+        )
+
+        credito.saldo_real_credito = saldo_real_credito
+
+        credito.monto_financiado_real = (
+            (credito.monto or 0) - (credito.abono_inicial or 0)
+        )
 
         resumen_creditos.append({
             'credito': credito,
             'estado_credito': estado_credito
         })
-
-    db.session.commit()
 
     return render_template(
         'ver_creditos.html',
@@ -4674,6 +4702,61 @@ def ver_recibo_inyeccion_capital(inyeccion_id):
         'recibo_inyeccion_capital.html',
         inyeccion=inyeccion,
         credito=credito
+    )
+
+@app.route('/ver_pagare/<int:credito_id>')
+def ver_pagare(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    cuotas = Cuota.query.filter_by(
+        credito_id=credito.id
+    ).order_by(Cuota.numero.asc()).all()
+
+    primera_cuota = cuotas[0] if cuotas else None
+    ultima_cuota = cuotas[-1] if cuotas else None
+
+    valor_pagare = credito.monto_financiado or ((credito.monto or 0) - (credito.abono_inicial or 0))
+    plazo_meses = credito.cuotas or len(cuotas)
+
+    fecha_suscripcion = credito.fecha_creacion.date() if isinstance(credito.fecha_creacion, datetime) else credito.fecha_creacion
+
+    fecha_inicial_pagos = primera_cuota.fecha_pago if primera_cuota else credito.fecha_creacion
+    fecha_vencimiento_final = ultima_cuota.fecha_pago if ultima_cuota else credito.fecha_creacion
+
+    if isinstance(fecha_inicial_pagos, datetime):
+        fecha_inicial_pagos = fecha_inicial_pagos.date()
+
+    if isinstance(fecha_vencimiento_final, datetime):
+        fecha_vencimiento_final = fecha_vencimiento_final.date()
+
+    cuota_mensual = primera_cuota.valor_cuota if primera_cuota else 0
+    interes_mensual = credito.interes or 0
+    dia_pago = fecha_inicial_pagos.day if fecha_inicial_pagos else ''
+
+    try:
+        valor_pagare_letras = numero_a_letras(int(valor_pagare))
+    except:
+        valor_pagare_letras = ""
+
+    return render_template(
+        'pagare_credito.html',
+        volver_url=url_for('ver_cuotas', credito_id=credito.id),
+        credito=credito,
+        desde_creacion=False,
+        lugar_suscripcion="Ibagué - Tolima",
+        fecha_suscripcion_texto=fecha_suscripcion.strftime('%d/%m/%Y') if fecha_suscripcion else '',
+        fecha_carta_texto=fecha_suscripcion.strftime('%d/%m/%Y') if fecha_suscripcion else '',
+        valor_pagare=valor_pagare,
+        valor_pagare_letras=valor_pagare_letras,
+        plazo_meses=plazo_meses,
+        dia_pago=dia_pago,
+        fecha_inicial_pagos_texto=fecha_inicial_pagos.strftime('%d/%m/%Y') if fecha_inicial_pagos else '',
+        fecha_vencimiento_final_texto=fecha_vencimiento_final.strftime('%d/%m/%Y') if fecha_vencimiento_final else '',
+        cuota_mensual=cuota_mensual,
+        interes_mensual=interes_mensual
     )
 
 if __name__ == "__main__":

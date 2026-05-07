@@ -48,6 +48,7 @@ class Credito(db.Model):
     fecha_liquidacion = db.Column(db.DateTime, nullable=True)
     valor_liquidado = db.Column(db.Float, nullable=True)
     cuotas_rel = db.relationship('Cuota', backref='credito', cascade='all, delete-orphan', lazy=True)
+    tipo_documento = db.Column(db.String(20), default='CC')
     
 
 # CUOTAS
