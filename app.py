@@ -15,6 +15,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.lib.utils import ImageReader
 
+
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
@@ -26,6 +27,18 @@ app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
+
+from sqlalchemy import inspect
+
+with app.app_context():
+    inspector = inspect(db.engine)
+    columnas_credito = [col['name'] for col in inspector.get_columns('credito')]
+
+    if 'tipo_documento' not in columnas_credito:
+        db.session.execute(
+            db.text("ALTER TABLE credito ADD COLUMN tipo_documento VARCHAR(20) DEFAULT 'CC'")
+        )
+        db.session.commit()
 
 @app.template_filter('cop')
 def formato_cop(valor):
