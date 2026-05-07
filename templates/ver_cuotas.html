@@ -874,9 +874,8 @@
 
             <a href="/simular_inyeccion/{{ credito.id }}" class="btn-accion btn-simulador">Simulador inyección</a>
 
-            <a href="{{ url_for('cambiar_tasa_interes_credito', credito_id=credito.id) }}"
-            class="btn btn-cambiar-tasa">
-            Cambiar tasa de interés
+            <a href="/cambiar_tasa_interes_credito/{{ credito.id }}" class="btn-accion btn-tasa">
+                Cambiar tasa de interés
             </a>
 
             <a href="/historial_reversiones/{{ credito.id }}" class="btn-accion btn-reversiones">
