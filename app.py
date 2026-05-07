@@ -262,13 +262,17 @@ def obtener_tasa_interes_variable(anio, tasa_inicial):
 
     return tasa_inicial
 
-
 def actualizar_mora_credito(credito, fecha_corte=None):
     if isinstance(credito, int):
         credito = Credito.query.get_or_404(credito)
 
     if fecha_corte is None:
         fecha_corte = date.today()
+
+    es_variable_variable = (
+        credito.tipo_cuota == 'VARIABLE'
+        and credito.tipo_interes == 'VARIABLE'
+    )
 
     cuotas_credito = Cuota.query.filter_by(
         credito_id=credito.id
@@ -294,6 +298,29 @@ def actualizar_mora_credito(credito, fecha_corte=None):
 
         valor_cuota = round(cuota.valor_cuota or 0, 2)
         saldo_base = round(valor_cuota - total_pagado_activo, 2)
+
+        # =====================================================
+        # PROTECCIÓN SOLO VARIABLE + VARIABLE
+        # Si hubo un pago cuyo total exigible incluía mora,
+        # y el pago no alcanzó a cubrir ese total,
+        # la cuota NO puede quedar PAGADA.
+        # =====================================================
+        if es_variable_variable and pagos_activos:
+            total_exigible_historico = round(
+                max(
+                    [p.total_exigible_al_pago or 0 for p in pagos_activos] or [0]
+                ),
+                2
+            )
+
+            if total_exigible_historico > 0 and total_pagado_activo < total_exigible_historico:
+                faltante = round(total_exigible_historico - total_pagado_activo, 2)
+
+                cuota.saldo_pendiente = faltante
+                cuota.interes_mora = faltante
+                cuota.total_cobro = faltante
+                cuota.estado = 'EN MORA'
+                continue
 
         if saldo_base <= 1:
             cuota.saldo_pendiente = 0
