@@ -306,21 +306,33 @@ def actualizar_mora_credito(credito, fecha_corte=None):
         # la cuota NO puede quedar PAGADA.
         # =====================================================
         if es_variable_variable and pagos_activos:
-            total_exigible_historico = round(
-                max(
-                    [p.total_exigible_al_pago or 0 for p in pagos_activos] or [0]
-                ),
-                2
-            )
 
-            if total_exigible_historico > 0 and total_pagado_activo < total_exigible_historico:
-                faltante = round(total_exigible_historico - total_pagado_activo, 2)
+            pagos_con_mora = [
+                p for p in pagos_activos
+                if (p.mora_generada_al_pago or 0) > 0
+            ]
 
-                cuota.saldo_pendiente = faltante
-                cuota.interes_mora = faltante
-                cuota.total_cobro = faltante
-                cuota.estado = 'EN MORA'
-                continue
+            if pagos_con_mora:
+                total_pagado_real = round(
+                    sum(p.valor or 0 for p in pagos_con_mora),
+                    2
+                )
+
+                total_exigible_historico = round(
+                    max(
+                        [p.total_exigible_al_pago or 0 for p in pagos_con_mora] or [0]
+                    ),
+                    2
+                )
+
+                if total_exigible_historico > 0 and total_pagado_real < total_exigible_historico:
+                    faltante = round(total_exigible_historico - total_pagado_real, 2)
+
+                    cuota.saldo_pendiente = faltante
+                    cuota.interes_mora = faltante
+                    cuota.total_cobro = faltante
+                    cuota.estado = 'EN MORA'
+                    continue
 
         if saldo_base <= 1:
             cuota.saldo_pendiente = 0
