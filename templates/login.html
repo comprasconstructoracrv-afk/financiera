@@ -176,19 +176,27 @@
 <body>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    <div id="overlay-alerta" class="overlay-alerta activo">
-      <div class="alerta-box">
-        <div class="alerta-icono">⚠</div>
-        <h3>Error de acceso</h3>
-        {% for category, message in messages %}
-          <p>{{ message }}</p>
-        {% endfor %}
-        <button type="button" class="btn-alerta" onclick="cerrarAlerta()">Entendido</button>
-      </div>
-    </div>
-  {% endif %}
-{% endwith %}
+    {% if messages %}
+        <div id="overlay-alerta" class="overlay-alerta activo">
+        <div class="alerta-box">
+            <div class="alerta-icono">⚠</div>
+            <h3>Error de acceso</h3>
+
+            {% for category, message in messages %}
+
+            {% if category == 'error' %}
+                <p>{{ message }}</p>
+            {% endif %}
+
+            {% endfor %}
+
+            <button type="button" class="btn-alerta" onclick="cerrarAlerta()">
+            Entendido
+            </button>
+        </div>
+        </div>
+    {% endif %}
+    {% endwith %}
 
 <div class="login-container">
     <img src="{{ url_for('static', filename='logo.png') }}" class="logo" alt="Logo CRV">
