@@ -4131,7 +4131,9 @@ def pagare_credito(credito_id):
         'fecha_carta_texto': formatear_fecha_larga(fecha_suscripcion),
         'cuota_mensual': credito.cuota_mensual or 0,
         'interes_mensual': credito.interes or 0,
-        'desde_creacion': request.args.get('desde') == 'crear'
+        'desde_creacion': request.args.get('desde') == 'crear',
+        'volver_url': url_for('dashboard') if request.args.get('desde') == 'crear'
+                    else url_for('ver_cuotas', credito_id=credito.id)
     }
 
     return render_template('pagare_credito.html', **contexto)
