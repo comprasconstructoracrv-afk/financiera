@@ -1403,6 +1403,8 @@ def pagar_cuota(cuota_id):
         mora_hoy = round(cuota.interes_mora or 0, 2)
         total_exigible = round(saldo_cuota_hoy + mora_hoy, 2)
 
+
+
         valor_aplicado_cuota = 0
         valor_aplicado_mora = 0
         valor_aplicado_prepago = 0
@@ -1464,21 +1466,19 @@ def pagar_cuota(cuota_id):
             if cuota.interes_mora <= 1:
                 cuota.interes_mora = 0
 
-            if cuota.saldo_pendiente <= 0 and cuota.interes_mora <= 0:
+            faltante_total = round(total_exigible - valor_pago, 2)
+
+            if faltante_total <= 1:
                 cuota.saldo_pendiente = 0
                 cuota.dias_mora = 0
                 cuota.interes_mora = 0
                 cuota.total_cobro = 0
                 cuota.estado = 'PAGADA'
-
-            elif cuota.saldo_pendiente <= 0 and cuota.interes_mora > 0:
-                cuota.saldo_pendiente = 0
-                cuota.total_cobro = round(cuota.interes_mora, 2)
-                cuota.estado = 'EN MORA'
-
             else:
-                cuota.total_cobro = round(cuota.saldo_pendiente + cuota.interes_mora, 2)
-                cuota.estado = 'EN MORA' if cuota.dias_mora > 0 else 'ABONO'
+                cuota.saldo_pendiente = faltante_total
+                cuota.interes_mora = faltante_total
+                cuota.total_cobro = faltante_total
+                cuota.estado = 'EN MORA'
 
         # =====================================================
         # LOS DEMÁS CRÉDITOS QUEDAN CON TU LÓGICA ANTERIOR
