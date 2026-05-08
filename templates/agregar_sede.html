@@ -100,14 +100,6 @@
             <h1>Agregar sede</h1>
             <p>Registra una nueva sede para que quede disponible en todo el sistema.</p>
 
-            {% with messages = get_flashed_messages(with_categories=true) %}
-              {% if messages %}
-                {% for category, message in messages %}
-                  <div class="alerta {{ category }}">{{ message }}</div>
-                {% endfor %}
-              {% endif %}
-            {% endwith %}
-
             <form method="POST">
                 <label for="nombre">Nombre de la sede</label>
                 <input type="text" id="nombre" name="nombre" placeholder="Ej: BOGOTA" required>

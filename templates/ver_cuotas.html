@@ -924,6 +924,11 @@
             <div class="label">Cliente</div>
             <div class="valor">{{ credito.cliente }}</div>
             <button class="mini-btn" onclick="toggleDetalleCliente()">Ver detalle</button>
+            <a href="{{ url_for('editar_cliente_credito', credito_id=credito.id) }}"
+            class="mini-btn"
+            style="display:block; text-decoration:none; margin-top:8px; text-align:center;">
+                Actualizar datos
+            </a>
         </div>
 
         <div class="card-info">
