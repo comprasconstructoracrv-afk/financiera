@@ -427,18 +427,67 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
     if not cuotas_futuras or cantidad_cuotas <= 0:
         return
 
-    # Por seguridad, solo recalculamos la cantidad contractual restante
     cuotas_futuras = cuotas_futuras[:cantidad_cuotas]
 
-    saldo = round(credito.saldo_actual or 0, 2)
+    cuota_anterior = Cuota.query.filter(
+        Cuota.credito_id == credito.id,
+        Cuota.numero == cuota_actual_numero
+    ).first()
 
-    cuota_fija = round(calcular_cuota(saldo, credito.interes, cantidad_cuotas), 2)
+    if cuota_anterior:
+        saldo = round(cuota_anterior.saldo_restante or 0, 2)
+        fecha_base_recalculo = (
+            cuota_anterior.fecha_pago.date()
+            if isinstance(cuota_anterior.fecha_pago, datetime)
+            else cuota_anterior.fecha_pago
+        )
+    else:
+        saldo = round(credito.monto_financiado or 0, 2)
+        fecha_base_recalculo = (
+            credito.fecha_creacion.date()
+            if isinstance(credito.fecha_creacion, datetime)
+            else credito.fecha_creacion
+        )
+
+    abonos_credito = AbonoCapital.query.filter_by(
+        credito_id=credito.id,
+        activo=True
+    ).order_by(AbonoCapital.fecha.asc(), AbonoCapital.id.asc()).all()
+
+    abonos_aplicados = set()
+
+    for abono in abonos_credito:
+        fecha_abono = abono.fecha.date() if isinstance(abono.fecha, datetime) else abono.fecha
+
+        if fecha_abono <= fecha_base_recalculo:
+            abonos_aplicados.add(abono.id)
+
     tasa_credito = (credito.interes or 0) / 100
-
     config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
     dia_original = fecha_base.day
 
     for i, cuota in enumerate(cuotas_futuras):
+        nueva_fecha = sumar_meses(fecha_base, i + 1, dia_fijo=dia_original)
+        nueva_fecha_date = nueva_fecha.date() if isinstance(nueva_fecha, datetime) else nueva_fecha
+
+        total_abonos_periodo = 0
+
+        for abono in abonos_credito:
+            fecha_abono = abono.fecha.date() if isinstance(abono.fecha, datetime) else abono.fecha
+
+            if abono.id not in abonos_aplicados and fecha_abono <= nueva_fecha_date:
+                total_abonos_periodo += round(abono.valor or 0, 2)
+                abonos_aplicados.add(abono.id)
+
+        saldo = round(saldo - total_abonos_periodo, 2)
+
+        if saldo < 0:
+            saldo = 0
+
+        cuotas_restantes = max(credito.cuotas - cuota.numero + 1, 1)
+
+        cuota_fija = round(calcular_cuota(saldo, credito.interes, cuotas_restantes), 2)
+
         saldo_inicial = round(saldo, 2)
         interes_mes = round(saldo_inicial * tasa_credito, 2)
         capital = round(cuota_fija - interes_mes, 2)
@@ -447,8 +496,7 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
         if saldo < 0:
             capital = round(capital + saldo, 2)
             saldo = 0
-
-        nueva_fecha = sumar_meses(fecha_base, i + 1, dia_fijo=dia_original)
+            cuota_fija = round(capital + interes_mes, 2)
 
         tasa_periodo = TasaPeriodo.query.filter_by(
             anio=nueva_fecha.year,
@@ -475,6 +523,8 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
             cuota.tasa_mora_mensual_cuota = 0
 
         cuota.porcentaje_mora_aplicado = cuota.tasa_mora_mensual_cuota
+
+    credito.saldo_actual = round(saldo, 2)
 
 def obtener_tasa_credito_en_cuota(credito, numero_cuota, fecha_pago):
     cambio = CambioTasaInteresCredito.query.filter(

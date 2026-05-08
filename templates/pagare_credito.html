@@ -206,6 +206,25 @@
                 page-break-after: auto;
             }
         }
+
+        .btn-volver-pagare{
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            padding:12px 22px;
+            background:#4b5563;
+            color:white;
+            text-decoration:none;
+            border-radius:12px;
+            font-weight:700;
+            margin-left:10px;
+            transition:0.2s;
+        }
+
+        .btn-volver-pagare:hover{
+            background:#374151;
+            transform:translateY(-1px);
+        }
     </style>
 </head>
 <body>
@@ -220,7 +239,7 @@
 
             <div class="acciones">
                 <button onclick="window.print()" class="btn btn-imprimir">Imprimir pagaré</button>
-                <a href="{{ volver_url }}" class="btn-volver">
+                <a href="{{ volver_url }}" class="btn-volver-pagare">
                     Volver
                 </a>
             </div>
