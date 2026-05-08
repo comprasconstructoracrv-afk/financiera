@@ -838,6 +838,26 @@
         transform: translateY(-2px);
         opacity: 0.95;
     }
+
+    .btn-mini-detalle{
+        background:#0d6efd;
+        color:white;
+        padding:6px 9px;
+        border-radius:6px;
+        font-size:11px;
+        font-weight:700;
+        text-decoration:none;
+    }
+
+    .btn-mini-reversar{
+        background:#dc3545;
+        color:white;
+        padding:6px 9px;
+        border-radius:6px;
+        font-size:11px;
+        font-weight:700;
+        text-decoration:none;
+    }
 </style>
 
 </head>
@@ -1188,12 +1208,27 @@
                     <td class="historial">
                         {% if abonos_por_cuota[cuota.id] %}
                             {% for abono in abonos_por_cuota[cuota.id] %}
-                                <div class="pago-box" style="border-left: 4px solid #16a34a;">
-                                    <strong>Fecha:</strong> {{ abono.fecha.strftime('%d/%m/%Y') }}<br>
-                                    <strong>Valor:</strong> {{ abono.valor | cop }}<br>
-                                    <strong>Medio:</strong> {{ abono.medio_pago }}<br>
-                                    <span style="color:#15803d; font-weight:700;">Abono a capital</span>
+                            <div class="pago-box" style="border-left: 4px solid #16a34a;">
+                                <strong>Fecha:</strong> {{ abono.fecha.strftime('%d/%m/%Y') }}<br>
+                                <strong>Valor:</strong> {{ abono.valor | cop }}<br>
+                                <strong>Medio:</strong> {{ abono.medio_pago }}<br>
+                                <span style="color:#15803d; font-weight:700;">Abono a capital</span>
+
+                                <div style="margin-top:8px; display:flex; gap:6px;">
+                                <a href="{{ url_for('ver_recibo_abono_capital', abono_id=abono.id) }}"
+                                class="btn-detalle"
+                                style="width:70px; text-align:center; display:inline-block; text-decoration:none;">
+                                    Ver detalle
+                                </a>
+
+                                <button type="button"
+                                        class="btn-detalle"
+                                        style="background:#dc3545; width:70px;"
+                                        onclick="abrirModalReversarAbono('{{ url_for('reversar_abono_capital', abono_id=abono.id) }}')">
+                                    Reversar
+                                </button>
                                 </div>
+                            </div>
                             {% endfor %}
                         {% else %}
                             <div class="historial-vacio">Sin abonos</div>
@@ -1309,6 +1344,40 @@ sincronizarScroll("scroll-top-cuotas", "scroll-bottom-cuotas");
         </form>
     </div>
 </div>
+
+<div id="modalReversarAbono" class="modal-reversion">
+    <div class="modal-contenido">
+        <h2>Reversar abono a capital</h2>
+        <p>Indica el motivo por el cual deseas reversar este abono.</p>
+
+        <form id="formReversarAbono" method="POST">
+            <label>Motivo de reversión</label>
+            <textarea name="motivo_reversion"
+                      required
+                      placeholder="Ej: Valor registrado incorrectamente"></textarea>
+
+            <div class="modal-acciones">
+                <button type="button" onclick="cerrarModalReversarAbono()" class="btn-cancelar">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-confirmar">
+                    Confirmar reversión
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function abrirModalReversarAbono(actionUrl) {
+    document.getElementById('formReversarAbono').action = actionUrl;
+    document.getElementById('modalReversarAbono').style.display = 'flex';
+}
+
+function cerrarModalReversarAbono() {
+    document.getElementById('modalReversarAbono').style.display = 'none';
+}
+</script>
 
 <script>
 function abrirModalReversion(pagoId) {

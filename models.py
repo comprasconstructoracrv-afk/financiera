@@ -107,6 +107,10 @@ class AbonoCapital(db.Model):
     valor = db.Column(db.Float, nullable=False)
     medio_pago = db.Column(db.String(100), nullable=False)
     observacion = db.Column(db.String(255), default='ABONO A CAPITAL')
+    activo = db.Column(db.Boolean, default=True)
+    reversado = db.Column(db.Boolean, default=False)
+    motivo_reversion = db.Column(db.Text)
+    fecha_reversion = db.Column(db.DateTime)
 
 class ConfiguracionTasa(db.Model):
     id = db.Column(db.Integer, primary_key=True)

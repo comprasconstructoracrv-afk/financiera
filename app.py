@@ -40,6 +40,40 @@ with app.app_context():
         )
         db.session.commit()
 
+    inspector = inspect(db.engine)
+
+    columnas_abono = [col['name'] for col in inspector.get_columns('abono_capital')]
+
+    if 'activo' not in columnas_abono:
+        db.session.execute(
+            db.text("ALTER TABLE abono_capital ADD COLUMN activo BOOLEAN DEFAULT TRUE")
+        )
+
+    if 'reversado' not in columnas_abono:
+        db.session.execute(
+            db.text("ALTER TABLE abono_capital ADD COLUMN reversado BOOLEAN DEFAULT FALSE")
+        )
+
+    if 'motivo_reversion' not in columnas_abono:
+        db.session.execute(
+            db.text("ALTER TABLE abono_capital ADD COLUMN motivo_reversion TEXT")
+        )
+
+    if 'fecha_reversion' not in columnas_abono:
+        db.session.execute(
+            db.text("ALTER TABLE abono_capital ADD COLUMN fecha_reversion TIMESTAMP")
+        )
+
+    db.session.execute(
+        db.text("UPDATE abono_capital SET activo = TRUE WHERE activo IS NULL")
+    )
+
+    db.session.execute(
+        db.text("UPDATE abono_capital SET reversado = FALSE WHERE reversado IS NULL")
+    )
+
+    db.session.commit()
+
 @app.template_filter('cop')
 def formato_cop(valor):
     try:
@@ -396,9 +430,10 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
     # Por seguridad, solo recalculamos la cantidad contractual restante
     cuotas_futuras = cuotas_futuras[:cantidad_cuotas]
 
-    saldo = round(credito.saldo_actual, 2)
+    saldo = round(credito.saldo_actual or 0, 2)
+
     cuota_fija = round(calcular_cuota(saldo, credito.interes, cantidad_cuotas), 2)
-    tasa_credito = credito.interes / 100
+    tasa_credito = (credito.interes or 0) / 100
 
     config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
     dia_original = fecha_base.day
@@ -432,9 +467,13 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
         cuota.total_cobro = cuota_fija
         cuota.estado = 'PENDIENTE'
 
-        cuota.tasa_mora_mensual_cuota = (
-            tasa_periodo.tasa_mensual if tasa_periodo else config_tasa.tasa_mensual
-        )
+        if tasa_periodo:
+            cuota.tasa_mora_mensual_cuota = tasa_periodo.tasa_mensual
+        elif config_tasa:
+            cuota.tasa_mora_mensual_cuota = config_tasa.tasa_mensual
+        else:
+            cuota.tasa_mora_mensual_cuota = 0
+
         cuota.porcentaje_mora_aplicado = cuota.tasa_mora_mensual_cuota
 
 def obtener_tasa_credito_en_cuota(credito, numero_cuota, fecha_pago):
@@ -498,7 +537,8 @@ def recalcular_cuotas_variables_pendientes(credito, cuota_actual_numero, fecha_b
     dia_original = credito.fecha_creacion.day
 
     abonos_credito = AbonoCapital.query.filter_by(
-        credito_id=credito.id
+        credito_id=credito.id,
+        activo=True
     ).order_by(AbonoCapital.fecha.asc(), AbonoCapital.id.asc()).all()
 
     abonos_aplicados = set()
@@ -1371,7 +1411,8 @@ def ver_cuotas(credito_id):
 
     # ABONOS A CAPITAL SEPARADOS DE LOS PAGOS DE CUOTA
     abonos_capital = AbonoCapital.query.filter_by(
-        credito_id=credito.id
+        credito_id=credito.id,
+        activo=True
     ).order_by(AbonoCapital.fecha.asc()).all()
 
     abonos_por_cuota = {cuota.id: [] for cuota in cuotas}
@@ -4637,12 +4678,18 @@ def historial_reversiones(credito_id):
         .all()
     )
 
+    abonos_reversados = AbonoCapital.query.filter_by(
+        credito_id=credito.id,
+        reversado=True
+    ).order_by(AbonoCapital.fecha_reversion.desc()).all()
+
     return render_template(
         'historial_reversiones.html',
         credito=credito,
-        pagos_reversados=pagos_reversados
+        pagos_reversados=pagos_reversados,
+        abonos_reversados=abonos_reversados
     )
-
+    
 @app.route('/fix_db')
 def fix_db():
     try:
@@ -4773,6 +4820,57 @@ def ver_pagare(credito_id):
         cuota_mensual=cuota_mensual,
         interes_mensual=interes_mensual
     )
+
+@app.route('/reversar_abono_capital/<int:abono_id>', methods=['POST'])
+def reversar_abono_capital(abono_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    abono = AbonoCapital.query.get_or_404(abono_id)
+    credito = Credito.query.get_or_404(abono.credito_id)
+
+    motivo = request.form.get('motivo_reversion', '').strip()
+
+    if not motivo:
+        flash("Debes escribir el motivo de la reversión.", "error")
+        return redirect(url_for('ver_cuotas', credito_id=credito.id))
+
+    fecha_abono = abono.fecha.date() if isinstance(abono.fecha, datetime) else abono.fecha
+
+    cuota_afectada = Cuota.query.filter(
+        Cuota.credito_id == credito.id,
+        Cuota.fecha_pago >= fecha_abono
+    ).order_by(Cuota.numero.asc()).first()
+
+    abono.activo = False
+    abono.reversado = True
+    abono.motivo_reversion = motivo
+    abono.fecha_reversion = datetime.now()
+
+    credito.saldo_actual = round((credito.saldo_actual or 0) + (abono.valor or 0), 2)
+
+    db.session.commit()
+
+    if cuota_afectada:
+        numero_base = max((cuota_afectada.numero or 1) - 1, 0)
+
+        if credito.tipo_cuota == 'VARIABLE' and credito.tipo_interes == 'VARIABLE':
+            recalcular_cuotas_variables_pendientes(
+                credito=credito,
+                cuota_actual_numero=numero_base,
+                fecha_base=cuota_afectada.fecha_pago
+            )
+        else:
+            recalcular_cuotas_pendientes(
+                credito=credito,
+                cuota_actual_numero=numero_base,
+                fecha_base=cuota_afectada.fecha_pago
+            )
+
+    db.session.commit()
+
+    flash("Abono a capital reversado correctamente.", "success")
+    return redirect(url_for('ver_cuotas', credito_id=credito.id))
 
 if __name__ == "__main__":
     app.run(debug=True)

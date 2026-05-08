@@ -198,8 +198,38 @@
             Este crédito todavía no tiene pagos reversados.
         </div>
     {% endif %}
+<h3 style="margin-top:30px;">Abonos a capital reversados</h3>
 
+{% if abonos_reversados %}
+<table>
+    <thead>
+        <tr>
+            <th>Fecha abono</th>
+            <th>Valor reversado</th>
+            <th>Medio de pago</th>
+            <th>Fecha reversión</th>
+            <th>Motivo / observación</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for abono in abonos_reversados %}
+        <tr>
+            <td>{{ abono.fecha.strftime('%d/%m/%Y') if abono.fecha else '' }}</td>
+            <td>{{ abono.valor | cop }}</td>
+            <td>{{ abono.medio_pago }}</td>
+            <td>{{ abono.fecha_reversion.strftime('%d/%m/%Y %H:%M') if abono.fecha_reversion else '' }}</td>
+            <td>{{ abono.motivo_reversion or 'Sin motivo registrado' }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="mensaje-vacio">
+    Este crédito todavía no tiene abonos a capital reversados.
 </div>
+{% endif %}
+</div>
+
 
 </body>
 </html>
