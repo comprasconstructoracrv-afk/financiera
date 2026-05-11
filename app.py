@@ -345,9 +345,8 @@ def actualizar_mora_credito(credito, fecha_corte=None):
             for p in pagos_activos
         ), 2)
 
-        total_mora_generada_historica = round(sum(
-            p.mora_generada_al_pago or 0
-            for p in pagos_activos
+        total_mora_generada_historica = round(max(
+            [p.mora_generada_al_pago or 0 for p in pagos_activos] or [0]
         ), 2)
 
         total_mora_pagada = round(sum(
@@ -4666,6 +4665,7 @@ def reversar_pago(pago_id):
     motivo = request.form.get('motivo_reversion', '').strip()
 
     if not motivo:
+        flash("Debes escribir el motivo de la reversión.", "error")
         return redirect(url_for('ver_cuotas', credito_id=credito.id))
 
     # Marcar pago como reversado, NO borrarlo
@@ -4674,36 +4674,40 @@ def reversar_pago(pago_id):
     pago.motivo_reversion = motivo
     pago.fecha_reversion = datetime.now()
 
-    db.session.commit()
+    db.session.flush()
 
-    # Recalcular la cuota con pagos activos
-    pagos_activos = Pago.query.filter_by(
-        cuota_id=cuota.id,
-        activo=True
-    ).all()
+    # Recalcular desde la cuota ANTERIOR para reconstruir la tabla
+    numero_base = max((cuota.numero or 1) - 1, 0)
 
-    total_pagado_activo = sum(p.valor or 0 for p in pagos_activos)
+    fecha_base = (
+        credito.fecha_creacion.date()
+        if numero_base == 0 and isinstance(credito.fecha_creacion, datetime)
+        else credito.fecha_creacion
+        if numero_base == 0
+        else cuota.fecha_pago.date()
+        if isinstance(cuota.fecha_pago, datetime)
+        else cuota.fecha_pago
+    )
 
-    cuota.saldo_pendiente = max((cuota.valor_cuota or 0) - total_pagado_activo, 0)
-
-    if cuota.saldo_pendiente <= 0:
-        cuota.estado = 'PAGADA'
-        cuota.interes_mora = 0
-        cuota.dias_mora = 0
-        cuota.total_cobro = 0
-    elif total_pagado_activo > 0:
-        cuota.estado = 'ABONO'
-        cuota.total_cobro = cuota.saldo_pendiente
+    if credito.tipo_cuota == 'VARIABLE' and credito.tipo_interes == 'VARIABLE':
+        recalcular_cuotas_variables_pendientes(
+            credito=credito,
+            cuota_actual_numero=numero_base,
+            fecha_base=fecha_base
+        )
     else:
-        cuota.estado = 'PENDIENTE'
-        cuota.total_cobro = cuota.saldo_pendiente
+        recalcular_cuotas_pendientes(
+            credito=credito,
+            cuota_actual_numero=numero_base,
+            fecha_base=fecha_base
+        )
 
     db.session.commit()
 
-    # Recalcular mora del crédito después de reversar
     actualizar_mora_credito(credito, date.today())
     db.session.commit()
 
+    flash("Pago reversado correctamente.", "success")
     return redirect(url_for('ver_cuotas', credito_id=credito.id))
 
 @app.route('/historial_reversiones/<int:credito_id>')

@@ -317,9 +317,7 @@
 
                                 <label>Número de documento</label>
 
-                                <input type="text"
-                                    name="cedula_cliente"
-                                    required>
+                                <input type="text" name="cedula_cliente" id="cedula_cliente" oninput="formatearNumeroDocumento(this)">
 
                             </div>
 
@@ -488,6 +486,18 @@
         cedulaCodeudor.addEventListener('input', function () {
             this.value = formatearCedula(this.value);
         });
+    }
+    </script>
+
+    <script>
+    function formatearNumeroDocumento(input) {
+        let valor = input.value.replace(/\D/g, '');
+
+        if (valor.length > 3) {
+            valor = valor.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        }
+
+        input.value = valor;
     }
     </script>
 

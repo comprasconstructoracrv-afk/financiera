@@ -257,7 +257,7 @@
         </div>
 
         <label>Valor a pagar</label>
-        <input type="text" name="valor" id="valor" class="input-moneda" required>
+        <input type="text" name="valor" id="valor_pago" oninput="formatearMoneda(this)">
 
         <div class="acciones">
             <button type="submit" class="btn-azul">Registrar pago</button>
@@ -267,5 +267,18 @@
     </form>
 
 </div>
+    <script>
+    function formatearMoneda(input) {
+        let valor = input.value.replace(/\D/g, '');
+
+        if (!valor) {
+            input.value = '';
+            return;
+        }
+
+        valor = valor.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        input.value = "$ " + valor;
+    }
+    </script>
 </body>
 </html>
