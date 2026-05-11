@@ -4968,6 +4968,57 @@ def debug_prepagos(credito_id):
 
     return resultado
 
+@app.route('/recalcular_credito_desde_prepagos/<int:credito_id>')
+def recalcular_credito_desde_prepagos(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    primer_pago = (
+        db.session.query(Pago, Cuota)
+        .join(Cuota, Pago.cuota_id == Cuota.id)
+        .filter(
+            Cuota.credito_id == credito.id,
+            Pago.activo == True,
+            Pago.tipo_pago == 'PAGO_CUOTA'
+        )
+        .order_by(Cuota.numero.asc())
+        .first()
+    )
+
+    if not primer_pago:
+        flash("Este crédito no tiene pagos para recalcular.", "warning")
+        return redirect(url_for('ver_cuotas', credito_id=credito.id))
+
+    pago, cuota_base = primer_pago
+
+    fecha_base = (
+        cuota_base.fecha_pago.date()
+        if isinstance(cuota_base.fecha_pago, datetime)
+        else cuota_base.fecha_pago
+    )
+
+    if credito.tipo_cuota == 'VARIABLE' and credito.tipo_interes == 'VARIABLE':
+        recalcular_cuotas_variables_pendientes(
+            credito=credito,
+            cuota_actual_numero=cuota_base.numero - 1,
+            fecha_base=fecha_base
+        )
+    else:
+        recalcular_cuotas_pendientes(
+            credito=credito,
+            cuota_actual_numero=cuota_base.numero - 1,
+            fecha_base=fecha_base
+        )
+
+    db.session.commit()
+    actualizar_mora_credito(credito, date.today())
+    db.session.commit()
+
+    flash("Crédito recalculado correctamente.", "success")
+    return redirect(url_for('ver_cuotas', credito_id=credito.id))
+
 if __name__ == "__main__":
     app.run(debug=True)
 
