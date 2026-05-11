@@ -436,6 +436,23 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
 
     if cuota_anterior:
         saldo = round(cuota_anterior.saldo_restante or 0, 2)
+
+        pagos_cuota_anterior = Pago.query.filter(
+            Pago.cuota_id == cuota_anterior.id,
+            Pago.activo == True,
+            Pago.tipo_pago == 'PAGO_CUOTA'
+        ).all()
+
+        total_prepago_anterior = round(sum(
+            p.valor_aplicado_prepago_capital or 0
+            for p in pagos_cuota_anterior
+        ), 2)
+
+        saldo = round(saldo - total_prepago_anterior, 2)
+
+        if saldo < 0:
+            saldo = 0
+
         fecha_base_recalculo = (
             cuota_anterior.fecha_pago.date()
             if isinstance(cuota_anterior.fecha_pago, datetime)
@@ -443,6 +460,7 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
         )
     else:
         saldo = round(credito.monto_financiado or 0, 2)
+
         fecha_base_recalculo = (
             credito.fecha_creacion.date()
             if isinstance(credito.fecha_creacion, datetime)
@@ -4891,6 +4909,33 @@ def editar_cliente_credito(credito_id):
         'editar_cliente_credito.html',
         credito=credito
     )
+
+@app.route('/recalcular_credito/<int:credito_id>')
+def recalcular_credito_manual(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    if credito.tipo_cuota == 'VARIABLE' and credito.tipo_interes == 'VARIABLE':
+        recalcular_cuotas_variables_pendientes(
+            credito=credito,
+            cuota_actual_numero=0,
+            fecha_base=credito.fecha_creacion
+        )
+    else:
+        recalcular_cuotas_pendientes(
+            credito=credito,
+            cuota_actual_numero=0,
+            fecha_base=credito.fecha_creacion
+        )
+
+    db.session.commit()
+    actualizar_mora_credito(credito, date.today())
+    db.session.commit()
+
+    flash("Crédito recalculado correctamente.", "success")
+    return redirect(url_for('ver_cuotas', credito_id=credito.id))
 
 if __name__ == "__main__":
     app.run(debug=True)
