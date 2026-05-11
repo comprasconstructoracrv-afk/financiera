@@ -627,7 +627,7 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
         cuota.valor_cuota = valor_cuota
         cuota.capital = capital
         cuota.interes = interes_mes
-        cuota.saldo_restante = saldo_despues_prepago
+        cuota.saldo_restante = saldo_restante
 
         if pagos_cuota:
             cuota.saldo_pendiente = 0
