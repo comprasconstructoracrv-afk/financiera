@@ -1474,6 +1474,12 @@ def ver_creditos(sede):
             credito_id=credito.id
         ).all()
 
+        saldo_actual_credito = sum(
+            (c.saldo_pendiente or 0) + (c.interes_mora or 0)
+            for c in cuotas
+            if c.estado not in ['PAGADA', 'LIQUIDADA']
+        )
+
         if not cuotas:
             continue
 
@@ -4925,99 +4931,6 @@ def editar_cliente_credito(credito_id):
         'editar_cliente_credito.html',
         credito=credito
     )
-
-@app.route('/debug_prepagos/<int:credito_id>')
-def debug_prepagos(credito_id):
-    credito = Credito.query.get_or_404(credito_id)
-
-    cuotas = Cuota.query.filter_by(
-        credito_id=credito.id
-    ).order_by(Cuota.numero.asc()).all()
-
-    resultado = "<h2>Debug prepagos</h2>"
-
-    for cuota in cuotas:
-        pagos = Pago.query.filter_by(
-            cuota_id=cuota.id,
-            activo=True
-        ).all()
-
-        for pago in pagos:
-            valor = pago.valor or 0
-            interes = pago.valor_aplicado_interes or 0
-            capital = pago.valor_aplicado_capital or 0
-            mora = pago.valor_aplicado_mora or 0
-            prepago = pago.valor_aplicado_prepago_capital or 0
-
-            excedente_1 = valor - interes - capital - mora
-            excedente_2 = valor - (cuota.valor_cuota or 0) - mora
-
-            resultado += f"""
-            <div style="margin:15px;padding:12px;border:1px solid #ccc;">
-                <strong>Cuota:</strong> {cuota.numero}<br>
-                <strong>Valor cuota actual:</strong> {cuota.valor_cuota}<br>
-                <strong>Valor pagado:</strong> {valor}<br>
-                <strong>Aplicado interés:</strong> {interes}<br>
-                <strong>Aplicado capital:</strong> {capital}<br>
-                <strong>Aplicado mora:</strong> {mora}<br>
-                <strong>Prepago guardado:</strong> {prepago}<br>
-                <strong>Excedente fórmula 1:</strong> {excedente_1}<br>
-                <strong>Excedente fórmula 2:</strong> {excedente_2}<br>
-            </div>
-            """
-
-    return resultado
-
-@app.route('/recalcular_credito_desde_prepagos/<int:credito_id>')
-def recalcular_credito_desde_prepagos(credito_id):
-    if 'user' not in session:
-        return redirect('/login')
-
-    credito = Credito.query.get_or_404(credito_id)
-
-    primer_pago = (
-        db.session.query(Pago, Cuota)
-        .join(Cuota, Pago.cuota_id == Cuota.id)
-        .filter(
-            Cuota.credito_id == credito.id,
-            Pago.activo == True,
-            Pago.tipo_pago == 'PAGO_CUOTA'
-        )
-        .order_by(Cuota.numero.asc())
-        .first()
-    )
-
-    if not primer_pago:
-        flash("Este crédito no tiene pagos para recalcular.", "warning")
-        return redirect(url_for('ver_cuotas', credito_id=credito.id))
-
-    pago, cuota_base = primer_pago
-
-    fecha_base = (
-        cuota_base.fecha_pago.date()
-        if isinstance(cuota_base.fecha_pago, datetime)
-        else cuota_base.fecha_pago
-    )
-
-    if credito.tipo_cuota == 'VARIABLE' and credito.tipo_interes == 'VARIABLE':
-        recalcular_cuotas_variables_pendientes(
-            credito=credito,
-            cuota_actual_numero=cuota_base.numero - 1,
-            fecha_base=fecha_base
-        )
-    else:
-        recalcular_cuotas_pendientes(
-            credito=credito,
-            cuota_actual_numero=cuota_base.numero - 1,
-            fecha_base=fecha_base
-        )
-
-    db.session.commit()
-    actualizar_mora_credito(credito, date.today())
-    db.session.commit()
-
-    flash("Crédito recalculado correctamente.", "success")
-    return redirect(url_for('ver_cuotas', credito_id=credito.id))
 
 if __name__ == "__main__":
     app.run(debug=True)
