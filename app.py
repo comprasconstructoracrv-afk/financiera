@@ -1510,7 +1510,8 @@ def ver_creditos(sede):
 
         resumen_creditos.append({
             'credito': credito,
-            'estado_credito': estado_credito
+            'estado_credito': estado_credito,
+            'saldo_actual_credito': saldo_actual_credito
         })
 
     db.session.commit()
