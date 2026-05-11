@@ -422,12 +422,8 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
         Cuota.numero > cuota_actual_numero
     ).order_by(Cuota.numero).all()
 
-    cantidad_cuotas = max(credito.cuotas - cuota_actual_numero, 0)
-
-    if not cuotas_futuras or cantidad_cuotas <= 0:
+    if not cuotas_futuras:
         return
-
-    cuotas_futuras = cuotas_futuras[:cantidad_cuotas]
 
     cuota_anterior = Cuota.query.filter(
         Cuota.credito_id == credito.id,
@@ -437,21 +433,18 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
     if cuota_anterior:
         saldo = round(cuota_anterior.saldo_restante or 0, 2)
 
-        pagos_cuota_anterior = Pago.query.filter(
+        pagos_anterior = Pago.query.filter(
             Pago.cuota_id == cuota_anterior.id,
             Pago.activo == True,
             Pago.tipo_pago == 'PAGO_CUOTA'
         ).all()
 
-        total_prepago_anterior = round(sum(
+        prepago_anterior = round(sum(
             p.valor_aplicado_prepago_capital or 0
-            for p in pagos_cuota_anterior
+            for p in pagos_anterior
         ), 2)
 
-        saldo = round(saldo - total_prepago_anterior, 2)
-
-        if saldo < 0:
-            saldo = 0
+        saldo = round(saldo - prepago_anterior, 2)
 
         fecha_base_recalculo = (
             cuota_anterior.fecha_pago.date()
@@ -466,6 +459,9 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
             if isinstance(credito.fecha_creacion, datetime)
             else credito.fecha_creacion
         )
+
+    if saldo < 0:
+        saldo = 0
 
     abonos_credito = AbonoCapital.query.filter_by(
         credito_id=credito.id,
@@ -482,10 +478,17 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
 
     tasa_credito = (credito.interes or 0) / 100
     config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
-    dia_original = fecha_base.day
+
+    fecha_base_date = (
+        fecha_base.date()
+        if isinstance(fecha_base, datetime)
+        else fecha_base
+    )
+
+    dia_original = fecha_base_date.day
 
     for i, cuota in enumerate(cuotas_futuras):
-        nueva_fecha = sumar_meses(fecha_base, i + 1, dia_fijo=dia_original)
+        nueva_fecha = sumar_meses(fecha_base_date, i + 1, dia_fijo=dia_original)
         nueva_fecha_date = nueva_fecha.date() if isinstance(nueva_fecha, datetime) else nueva_fecha
 
         total_abonos_periodo = 0
@@ -504,17 +507,33 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
 
         cuotas_restantes = max(credito.cuotas - cuota.numero + 1, 1)
 
-        cuota_fija = round(calcular_cuota(saldo, credito.interes, cuotas_restantes), 2)
+        valor_cuota = round(calcular_cuota(saldo, credito.interes, cuotas_restantes), 2)
 
         saldo_inicial = round(saldo, 2)
         interes_mes = round(saldo_inicial * tasa_credito, 2)
-        capital = round(cuota_fija - interes_mes, 2)
-        saldo = round(saldo_inicial - capital, 2)
+        capital = round(valor_cuota - interes_mes, 2)
+        saldo_restante = round(saldo_inicial - capital, 2)
 
-        if saldo < 0:
-            capital = round(capital + saldo, 2)
-            saldo = 0
-            cuota_fija = round(capital + interes_mes, 2)
+        if saldo_restante < 0:
+            capital = round(capital + saldo_restante, 2)
+            saldo_restante = 0
+            valor_cuota = round(capital + interes_mes, 2)
+
+        pagos_cuota = Pago.query.filter(
+            Pago.cuota_id == cuota.id,
+            Pago.activo == True,
+            Pago.tipo_pago == 'PAGO_CUOTA'
+        ).all()
+
+        prepago_cuota = round(sum(
+            p.valor_aplicado_prepago_capital or 0
+            for p in pagos_cuota
+        ), 2)
+
+        saldo_despues_prepago = round(saldo_restante - prepago_cuota, 2)
+
+        if saldo_despues_prepago < 0:
+            saldo_despues_prepago = 0
 
         tasa_periodo = TasaPeriodo.query.filter_by(
             anio=nueva_fecha.year,
@@ -523,15 +542,23 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
 
         cuota.fecha_pago = nueva_fecha
         cuota.saldo_inicial = saldo_inicial
-        cuota.valor_cuota = cuota_fija
+        cuota.valor_cuota = valor_cuota
         cuota.capital = capital
         cuota.interes = interes_mes
-        cuota.saldo_restante = saldo
-        cuota.saldo_pendiente = cuota_fija
-        cuota.dias_mora = 0
-        cuota.interes_mora = 0
-        cuota.total_cobro = cuota_fija
-        cuota.estado = 'PENDIENTE'
+        cuota.saldo_restante = saldo_despues_prepago
+
+        if pagos_cuota:
+            cuota.saldo_pendiente = 0
+            cuota.dias_mora = 0
+            cuota.interes_mora = 0
+            cuota.total_cobro = 0
+            cuota.estado = 'PAGADA'
+        else:
+            cuota.saldo_pendiente = valor_cuota
+            cuota.dias_mora = 0
+            cuota.interes_mora = 0
+            cuota.total_cobro = valor_cuota
+            cuota.estado = 'PENDIENTE'
 
         if tasa_periodo:
             cuota.tasa_mora_mensual_cuota = tasa_periodo.tasa_mensual
@@ -541,6 +568,8 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
             cuota.tasa_mora_mensual_cuota = 0
 
         cuota.porcentaje_mora_aplicado = cuota.tasa_mora_mensual_cuota
+
+        saldo = saldo_despues_prepago
 
     credito.saldo_actual = round(saldo, 2)
 
