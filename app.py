@@ -316,11 +316,6 @@ def actualizar_mora_credito(credito, fecha_corte=None):
     if fecha_corte is None:
         fecha_corte = date.today()
 
-    es_variable_variable = (
-        credito.tipo_cuota == 'VARIABLE'
-        and credito.tipo_interes == 'VARIABLE'
-    )
-
     cuotas_credito = Cuota.query.filter_by(
         credito_id=credito.id
     ).order_by(Cuota.numero).all()
@@ -344,52 +339,34 @@ def actualizar_mora_credito(credito, fecha_corte=None):
         total_pagado_activo = round(sum(p.valor or 0 for p in pagos_activos), 2)
 
         valor_cuota = round(cuota.valor_cuota or 0, 2)
-        saldo_base = round(valor_cuota - total_pagado_activo, 2)
 
-        # =====================================================
-        # PROTECCIÓN SOLO VARIABLE + VARIABLE
-        # Si hubo un pago cuyo total exigible incluía mora,
-        # y el pago no alcanzó a cubrir ese total,
-        # la cuota NO puede quedar PAGADA.
-        # =====================================================
-        if es_variable_variable and pagos_activos:
+        total_aplicado_cuota = round(sum(
+            (p.valor_aplicado_interes or 0) + (p.valor_aplicado_capital or 0)
+            for p in pagos_activos
+        ), 2)
 
-            pagos_con_mora = [
-                p for p in pagos_activos
-                if (p.mora_generada_al_pago or 0) > 0
-            ]
+        total_mora_generada_historica = round(sum(
+            p.mora_generada_al_pago or 0
+            for p in pagos_activos
+        ), 2)
 
-            if pagos_con_mora:
-                total_pagado_real = round(
-                    sum(p.valor or 0 for p in pagos_con_mora),
-                    2
-                )
+        total_mora_pagada = round(sum(
+            p.valor_aplicado_mora or 0
+            for p in pagos_activos
+        ), 2)
 
-                total_exigible_historico = round(
-                    max(
-                        [p.total_exigible_al_pago or 0 for p in pagos_con_mora] or [0]
-                    ),
-                    2
-                )
+        mora_pendiente_historica = round(
+            total_mora_generada_historica - total_mora_pagada,
+            2
+        )
 
-                if total_exigible_historico > 0 and total_pagado_real < total_exigible_historico:
-                    faltante = round(total_exigible_historico - total_pagado_real, 2)
+        if mora_pendiente_historica < 0:
+            mora_pendiente_historica = 0
 
-                    cuota.saldo_pendiente = faltante
-                    cuota.interes_mora = faltante
-                    cuota.total_cobro = faltante
-                    cuota.estado = 'EN MORA'
-                    continue
+        saldo_base = round(valor_cuota - total_aplicado_cuota, 2)
 
         if saldo_base <= 1:
-            cuota.saldo_pendiente = 0
-            cuota.dias_mora = 0
-            cuota.interes_mora = 0
-            cuota.total_cobro = 0
-            cuota.estado = 'PAGADA'
-            continue
-
-        cuota.saldo_pendiente = saldo_base
+            saldo_base = 0
 
         tasa = obtener_tasa_periodo(fecha_vencimiento.year, fecha_vencimiento.month)
         tasa_mensual = tasa.tasa_mensual if tasa else 0
@@ -398,20 +375,55 @@ def actualizar_mora_credito(credito, fecha_corte=None):
         cuota.tasa_mora_mensual_cuota = tasa_mensual
         cuota.porcentaje_mora_aplicado = tasa_mensual
 
+        if saldo_base <= 0:
+            cuota.saldo_pendiente = 0
+
+            if mora_pendiente_historica > 1:
+                cuota.interes_mora = round(mora_pendiente_historica, 2)
+                cuota.total_cobro = round(mora_pendiente_historica, 2)
+                cuota.estado = 'EN MORA'
+
+                pagos_con_mora = [
+                    p for p in pagos_activos
+                    if (p.mora_generada_al_pago or 0) > 0
+                ]
+
+                if pagos_con_mora:
+                    cuota.dias_mora = max(
+                        p.dias_mora_pagados or 0
+                        for p in pagos_con_mora
+                    )
+                elif fecha_corte > fecha_vencimiento:
+                    cuota.dias_mora = (fecha_corte - fecha_vencimiento).days
+                else:
+                    cuota.dias_mora = 0
+
+            else:
+                cuota.dias_mora = 0
+                cuota.interes_mora = 0
+                cuota.total_cobro = 0
+                cuota.estado = 'PAGADA'
+
+            continue
+
+        cuota.saldo_pendiente = saldo_base
+
         if fecha_corte > fecha_vencimiento:
             dias_mora = (fecha_corte - fecha_vencimiento).days
             interes_mora = saldo_base * tasa_diaria * dias_mora
 
             cuota.dias_mora = dias_mora
-            cuota.interes_mora = round(interes_mora, 2)
+            cuota.interes_mora = round(interes_mora + mora_pendiente_historica, 2)
             cuota.total_cobro = round(saldo_base + cuota.interes_mora, 2)
             cuota.estado = 'EN MORA'
         else:
             cuota.dias_mora = 0
-            cuota.interes_mora = 0
-            cuota.total_cobro = saldo_base
+            cuota.interes_mora = round(mora_pendiente_historica, 2)
+            cuota.total_cobro = round(saldo_base + cuota.interes_mora, 2)
 
-            if total_pagado_activo > 0:
+            if cuota.interes_mora > 1:
+                cuota.estado = 'EN MORA'
+            elif total_pagado_activo > 0:
                 cuota.estado = 'ABONO'
             else:
                 cuota.estado = 'PENDIENTE'
@@ -1761,7 +1773,7 @@ def pagar_cuota(cuota_id):
         elif cuota.saldo_pendiente <= 0 and cuota.interes_mora > 0:
             cuota.saldo_pendiente = 0
             cuota.total_cobro = round(cuota.interes_mora, 2)
-            cuota.estado = 'ABONO'
+            cuota.estado = 'EN MORA'
 
         else:
             cuota.total_cobro = round(cuota.saldo_pendiente + cuota.interes_mora, 2)
