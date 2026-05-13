@@ -536,11 +536,12 @@
 
                 <td class="accion-columna">
                     <div class="accion-col">
-                        <form action="/eliminar_credito/{{ item.credito.id }}" method="POST"
-                            onsubmit="return confirm('¿Seguro que deseas eliminar este crédito? Esta acción borrará también cuotas y pagos relacionados.');">
-                            <input type="hidden" name="origen" value="activos">
-                            <button type="submit" class="btn-eliminar">Eliminar</button>
-                        </form>
+                        <button
+                            type="button"
+                            class="btn-eliminar"
+                            onclick="abrirModalEliminar('{{ item.credito.id }}')">
+                            Eliminar
+                        </button>
                     </div>
                 </td>
 
@@ -570,6 +571,128 @@ function filtrarTablaCreditos() {
     });
 }
 </script>
+<!-- MODAL ELIMINAR -->
+<div id="modalEliminar" class="modal-eliminar">
+    <div class="modal-contenido">
+        <h3>Eliminar crédito</h3>
 
+        <p>
+            ¿Seguro que deseas eliminar este crédito?
+        </p>
+
+        <p class="texto-advertencia">
+            Esta acción eliminará cuotas, pagos y movimientos relacionados.
+        </p>
+
+        <div class="modal-botones">
+            <button class="btn-cancelar" onclick="cerrarModalEliminar()">
+                Cancelar
+            </button>
+
+            <form id="formEliminarCredito" method="POST">
+                <button type="submit" class="btn-confirmar">
+                    Sí, eliminar
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.modal-eliminar{
+    display:none;
+    position:fixed;
+    z-index:9999;
+    left:0;
+    top:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.45);
+    backdrop-filter: blur(4px);
+    justify-content:center;
+    align-items:center;
+}
+
+.modal-contenido{
+    background:white;
+    width:420px;
+    max-width:90%;
+    border-radius:18px;
+    padding:30px;
+    text-align:center;
+    box-shadow:0 15px 40px rgba(0,0,0,0.25);
+    animation: aparecerModal .2s ease;
+}
+
+.modal-contenido h3{
+    margin-bottom:15px;
+    color:#1f2937;
+    font-size:24px;
+}
+
+.modal-contenido p{
+    color:#4b5563;
+    margin-bottom:10px;
+}
+
+.texto-advertencia{
+    color:#dc2626;
+    font-size:14px;
+}
+
+.modal-botones{
+    margin-top:25px;
+    display:flex;
+    justify-content:center;
+    gap:15px;
+}
+
+.btn-cancelar{
+    background:#d1d5db;
+    border:none;
+    padding:10px 20px;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:600;
+}
+
+.btn-confirmar{
+    background:#dc2626;
+    color:white;
+    border:none;
+    padding:10px 20px;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:600;
+}
+
+.btn-confirmar:hover{
+    background:#b91c1c;
+}
+
+@keyframes aparecerModal{
+    from{
+        transform:scale(0.9);
+        opacity:0;
+    }
+    to{
+        transform:scale(1);
+        opacity:1;
+    }
+}
+</style>
+
+<script>
+function abrirModalEliminar(creditoId){
+    document.getElementById('modalEliminar').style.display = 'flex';
+
+    document.getElementById('formEliminarCredito').action =
+        '/eliminar_credito/' + creditoId;
+}
+
+function cerrarModalEliminar(){
+    document.getElementById('modalEliminar').style.display = 'none';
+}
+</script>
 </body>
 </html>

@@ -927,8 +927,6 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
         db.session.commit()
         return pagos_creados_ids
 
-
-
 def calcular_componentes_liquidacion(credito, fecha_corte):
     cuotas_activas = Cuota.query.filter(
         Cuota.credito_id == credito.id,
@@ -947,23 +945,38 @@ def calcular_componentes_liquidacion(credito, fecha_corte):
     cuotas_vencidas_o_del_mes = []
 
     for cuota in cuotas_activas:
-        fecha_vencimiento = cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago
+        fecha_vencimiento = (
+            cuota.fecha_pago.date()
+            if isinstance(cuota.fecha_pago, datetime)
+            else cuota.fecha_pago
+        )
 
         if fecha_vencimiento <= fecha_corte:
             cuotas_vencidas_o_del_mes.append(cuota)
 
-    # Si no hay vencidas todavía, tomar la primera cuota activa como referencia
-    if not cuotas_vencidas_o_del_mes:
-        cuota_actual = cuotas_activas[0]
-        interes_corriente = round(cuota_actual.interes, 2)
-        total_mora = round(sum(round(c.interes_mora or 0, 2) for c in cuotas_activas), 2)
-    else:
+    if cuotas_vencidas_o_del_mes:
         cuota_actual = cuotas_vencidas_o_del_mes[0]
-        interes_corriente = round(sum(round(c.interes, 2) for c in cuotas_vencidas_o_del_mes), 2)
-        total_mora = round(sum(round(c.interes_mora or 0, 2) for c in cuotas_vencidas_o_del_mes), 2)
+        cuotas_a_cobrar = cuotas_vencidas_o_del_mes
+    else:
+        cuota_actual = cuotas_activas[0]
+        cuotas_a_cobrar = [cuota_actual]
 
-    capital_insoluto = round(credito.saldo_actual, 2)
-    total_liquidacion = round(capital_insoluto + interes_corriente + total_mora, 2)
+    capital_insoluto = round(cuota_actual.saldo_inicial or 0, 2)
+
+    interes_corriente = round(sum(
+        c.interes or 0
+        for c in cuotas_a_cobrar
+    ), 2)
+
+    total_mora = round(sum(
+        c.interes_mora or 0
+        for c in cuotas_a_cobrar
+    ), 2)
+
+    total_liquidacion = round(
+        capital_insoluto + interes_corriente + total_mora,
+        2
+    )
 
     return {
         'cuota_actual': cuota_actual,
@@ -972,7 +985,6 @@ def calcular_componentes_liquidacion(credito, fecha_corte):
         'total_mora': total_mora,
         'total_liquidacion': total_liquidacion
     }
-
 
 def generar_cuotas(credito_id, monto, interes, cuotas, fecha_base):
     saldo = round(monto, 2)
@@ -2716,14 +2728,16 @@ def reporte_financiero():
             Cuota, Pago.cuota_id == Cuota.id
         ).filter(
             Cuota.credito_id == credito.id,
-            Pago.activo == True
+            Pago.activo == True,
+            Pago.reversado == False
         ).scalar() or 0
 
         total_abonos_capital = db.session.query(
             db.func.coalesce(db.func.sum(AbonoCapital.valor), 0)
         ).filter(
             AbonoCapital.credito_id == credito.id,
-            AbonoCapital.activo == True
+            AbonoCapital.activo == True,
+            AbonoCapital.reversado == False
         ).scalar() or 0
 
         total_prestamo = round((credito.monto_financiado or 0) + total_inyecciones, 2)
