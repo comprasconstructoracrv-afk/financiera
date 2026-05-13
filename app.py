@@ -2164,9 +2164,10 @@ def liquidar_credito(credito_id):
             fecha=fecha_pago,
             valor=valor_pago,
             medio_pago=medio_pago,
-            valor_aplicado_mora=total_mora,
-            valor_aplicado_capital=0,
-            valor_aplicado_prepago_capital=round(valor_pago - total_mora, 2),
+            valor_aplicado_mora=round(total_mora, 2),
+            valor_aplicado_interes=round(interes_corriente, 2),
+            valor_aplicado_capital=round(capital_insoluto, 2),
+            valor_aplicado_prepago_capital=0,
             tipo_pago='LIQUIDACION_TOTAL',
             dias_mora_pagados=cuota_actual.dias_mora or 0,
             mora_generada_al_pago=total_mora,
@@ -2176,16 +2177,12 @@ def liquidar_credito(credito_id):
         )
         db.session.add(pago)
 
-        for i, cuota in enumerate(cuotas_activas):
+        for cuota in cuotas_activas:
             cuota.saldo_pendiente = 0
             cuota.dias_mora = 0
             cuota.interes_mora = 0
             cuota.total_cobro = 0
-
-            if i == 0:
-                cuota.estado = 'PAGADA'
-            else:
-                cuota.estado = 'LIQUIDADA'
+            cuota.estado = 'LIQUIDADA'
 
         credito.saldo_actual = 0
         credito.cuota_mensual = 0
@@ -4693,15 +4690,23 @@ def reversar_pago(pago_id):
     # Recalcular desde la cuota ANTERIOR para reconstruir la tabla
     numero_base = max((cuota.numero or 1) - 1, 0)
 
-    fecha_base = (
-        credito.fecha_creacion.date()
-        if numero_base == 0 and isinstance(credito.fecha_creacion, datetime)
-        else credito.fecha_creacion
-        if numero_base == 0
-        else cuota.fecha_pago.date()
-        if isinstance(cuota.fecha_pago, datetime)
-        else cuota.fecha_pago
-    )
+    cuota_base = Cuota.query.filter(
+        Cuota.credito_id == credito.id,
+        Cuota.numero == numero_base
+    ).first()
+
+    if cuota_base:
+        fecha_base = (
+            cuota_base.fecha_pago.date()
+            if isinstance(cuota_base.fecha_pago, datetime)
+            else cuota_base.fecha_pago
+        )
+    else:
+        fecha_base = (
+            credito.fecha_creacion.date()
+            if isinstance(credito.fecha_creacion, datetime)
+            else credito.fecha_creacion
+        )
 
     if credito.tipo_cuota == 'VARIABLE' and credito.tipo_interes == 'VARIABLE':
         recalcular_cuotas_variables_pendientes(
