@@ -212,8 +212,10 @@ def calcular_cuota(monto, interes, cuotas):
 def sumar_meses(fecha_base, meses, dia_fijo=None):
     """
     Mantiene el día original del crédito.
-    Si el mes no tiene ese día (ej: febrero), usa el último día del mes.
+    Si el mes no tiene ese día (ej: febrero),
+    usa el último día del mes.
     """
+
     if dia_fijo is None:
         dia_fijo = fecha_base.day
 
@@ -224,7 +226,7 @@ def sumar_meses(fecha_base, meses, dia_fijo=None):
     ultimo_dia_mes = calendar.monthrange(anio, mes)[1]
     dia = min(dia_fijo, ultimo_dia_mes)
 
-    return fecha_base.replace(year=anio, month=mes, day=dia)
+    return datetime(anio, mes, dia)
 
 def convertir_tasa_anual_a_mensual(tasa_anual):
     return round((((1 + (tasa_anual / 100)) ** (1/12)) - 1) * 100, 6)
@@ -4967,6 +4969,7 @@ def editar_cliente_credito(credito_id):
         'editar_cliente_credito.html',
         credito=credito
     )
+
 
 if __name__ == "__main__":
     app.run(debug=True)
