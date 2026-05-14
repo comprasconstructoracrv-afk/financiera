@@ -4969,7 +4969,31 @@ def editar_cliente_credito(credito_id):
         'editar_cliente_credito.html',
         credito=credito
     )
+@app.route('/recalcular_fechas_credito/<int:credito_id>')
+def recalcular_fechas_credito(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
 
+    credito = Credito.query.get_or_404(credito_id)
+
+    if credito.tipo_cuota == 'VARIABLE' and credito.tipo_interes == 'VARIABLE':
+        recalcular_cuotas_variables_pendientes(
+            credito=credito,
+            cuota_actual_numero=0,
+            fecha_base=credito.fecha_creacion
+        )
+    else:
+        recalcular_cuotas_pendientes(
+            credito=credito,
+            cuota_actual_numero=0,
+            fecha_base=credito.fecha_creacion
+        )
+
+    db.session.commit()
+    actualizar_mora_credito(credito, date.today())
+    db.session.commit()
+
+    return redirect(url_for('ver_cuotas', credito_id=credito.id))
 
 if __name__ == "__main__":
     app.run(debug=True)
