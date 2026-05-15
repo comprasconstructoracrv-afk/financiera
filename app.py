@@ -4969,6 +4969,7 @@ def editar_cliente_credito(credito_id):
         'editar_cliente_credito.html',
         credito=credito
     )
+
 @app.route('/corregir_solo_fechas_credito/<int:credito_id>')
 def corregir_solo_fechas_credito(credito_id):
     if 'user' not in session:
