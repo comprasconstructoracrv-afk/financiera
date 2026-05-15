@@ -4923,19 +4923,30 @@ def reversar_abono_capital(abono_id):
     db.session.commit()
 
     if cuota_afectada:
+
         numero_base = max((cuota_afectada.numero or 1) - 1, 0)
+
+        cuota_base = Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.numero == numero_base
+        ).first()
+
+        if cuota_base:
+            fecha_base = cuota_base.fecha_pago
+        else:
+            fecha_base = credito.fecha_creacion
 
         if credito.tipo_cuota == 'VARIABLE' and credito.tipo_interes == 'VARIABLE':
             recalcular_cuotas_variables_pendientes(
                 credito=credito,
                 cuota_actual_numero=numero_base,
-                fecha_base=cuota_afectada.fecha_pago
+                fecha_base=fecha_base
             )
         else:
             recalcular_cuotas_pendientes(
                 credito=credito,
                 cuota_actual_numero=numero_base,
-                fecha_base=cuota_afectada.fecha_pago
+                fecha_base=fecha_base
             )
 
     db.session.commit()
