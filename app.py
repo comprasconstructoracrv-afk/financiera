@@ -5025,6 +5025,38 @@ def exportar_clientes_sede(sede):
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
+@app.route('/corregir_solo_fechas_credito/<int:credito_id>')
+def corregir_solo_fechas_credito(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    fecha_base = (
+        credito.fecha_creacion.date()
+        if isinstance(credito.fecha_creacion, datetime)
+        else credito.fecha_creacion
+    )
+
+    dia_original = fecha_base.day
+
+    cuotas = Cuota.query.filter_by(
+        credito_id=credito.id
+    ).order_by(Cuota.numero.asc()).all()
+
+    for cuota in cuotas:
+        cuota.fecha_pago = sumar_meses(
+            fecha_base,
+            cuota.numero - 1,
+            dia_fijo=dia_original
+        )
+
+    db.session.commit()
+    actualizar_mora_credito(credito, date.today())
+    db.session.commit()
+
+    return redirect(url_for('ver_cuotas', credito_id=credito.id))
+
 if __name__ == "__main__":
     app.run(debug=True)
 
