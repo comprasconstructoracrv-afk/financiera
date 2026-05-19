@@ -5,6 +5,7 @@ import calendar
 import os
 from io import BytesIO
 from math import floor
+import pandas as pd
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
@@ -525,18 +526,18 @@ def recalcular_cuotas_pendientes(credito, cuota_actual_numero, fecha_base):
         nombre='TASA_MORA'
     ).first()
 
-    fecha_base_date = (
-        fecha_base.date()
-        if isinstance(fecha_base, datetime)
-        else fecha_base
+    fecha_creacion_credito = (
+        credito.fecha_creacion.date()
+        if isinstance(credito.fecha_creacion, datetime)
+        else credito.fecha_creacion
     )
 
-    dia_original = fecha_base_date.day
+    dia_original = fecha_creacion_credito.day
 
-    for i, cuota in enumerate(cuotas_futuras):
+    for cuota in cuotas_futuras:
         nueva_fecha = sumar_meses(
-            fecha_base_date,
-            i + 1,
+            fecha_creacion_credito,
+            cuota.numero - 1,
             dia_fijo=dia_original
         )
 
@@ -1617,10 +1618,14 @@ def ver_cuotas(credito_id):
                 ultimo_pago = ultimo_pago_cuota
 
     # ABONOS A CAPITAL SEPARADOS DE LOS PAGOS DE CUOTA
-    abonos_capital = AbonoCapital.query.filter_by(
-        credito_id=credito.id,
-        activo=True
-    ).order_by(AbonoCapital.fecha.asc()).all()
+    abonos_capital = AbonoCapital.query.filter(
+        AbonoCapital.credito_id == credito.id,
+        AbonoCapital.activo == True,
+        AbonoCapital.reversado == False
+    ).order_by(
+        AbonoCapital.fecha.asc(),
+        AbonoCapital.id.asc()
+    ).all()
 
     abonos_por_cuota = {cuota.id: [] for cuota in cuotas}
 
@@ -4981,6 +4986,44 @@ def editar_cliente_credito(credito_id):
         credito=credito
     )
 
+@app.route('/exportar_clientes_sede/<sede>')
+def exportar_clientes_sede(sede):
+    if 'user' not in session:
+        return redirect('/login')
+
+    creditos = Credito.query.filter_by(sede=sede).order_by(Credito.cliente.asc()).all()
+
+    filas = []
+
+    for credito in creditos:
+        cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+
+        if all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
+            continue
+
+        filas.append({
+            'Cliente': credito.cliente,
+            'Cédula': credito.cedula_cliente,
+            'Teléfono 1': credito.telefono_1,
+            'Teléfono 2': credito.telefono_2,
+            'Correo': credito.correo_cliente,
+            'Dirección': credito.direccion_cliente,
+            'Pagaré': credito.numero_pagare,
+            'Sede': credito.sede
+        })
+
+    df = pd.DataFrame(filas)
+
+    output = BytesIO()
+    df.to_excel(output, index=False, sheet_name='Clientes activos')
+    output.seek(0)
+
+    return send_file(
+        output,
+        download_name=f'clientes_activos_{sede}.xlsx',
+        as_attachment=True,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)
