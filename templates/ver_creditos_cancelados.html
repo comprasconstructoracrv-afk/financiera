@@ -289,18 +289,6 @@
 
 <body>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="flash-contenedor">
-                {% for category, message in messages %}
-                    <div class="flash-mensaje {{ category }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
-
 <div class="contenedor">
     <div class="header-creditos">
 

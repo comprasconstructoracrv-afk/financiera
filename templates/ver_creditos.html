@@ -410,6 +410,23 @@
             box-shadow: 0 6px 14px rgba(21, 153, 87, 0.35);
             color: white;
         }
+
+        .btn-mora-excel {
+            display: inline-block;
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: white;
+            padding: 10px 18px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 4px 10px rgba(220, 38, 38, 0.25);
+        }
+
+        .btn-mora-excel:hover {
+            color: white;
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 
@@ -432,6 +449,10 @@
 
                 <a href="{{ url_for('exportar_clientes_sede', sede=sede_actual) }}" class="btn-excel">
                     Exportar clientes
+                </a>
+
+                <a href="{{ url_for('exportar_clientes_mora_sede', sede=sede_actual) }}" class="btn-mora-excel">
+                    Exportar clientes mora
                 </a>
             </div>
         </div>
@@ -473,7 +494,7 @@
         </colgroup>
         <thead>
             <tr>
-                <th>Número de pagaré</th>
+                <th>Pagaré</th>
                 <th>Fecha inicio</th>
                 <th>Cliente</th>
                 <th>Monto solicitado</th>
@@ -483,7 +504,7 @@
                 <th>Cuotas</th>
                 <th>Cuota mensual</th>
                 <th>Estado</th>
-                <th>Saldo actual</th>
+                <th>Saldo restante</th>
                 <th>Ver cuotas</th>
                 <th>Extracto</th>
                 <th>Eliminar</th>

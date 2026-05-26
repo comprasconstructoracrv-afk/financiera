@@ -5025,6 +5025,76 @@ def exportar_clientes_sede(sede):
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
+@app.route('/exportar_clientes_mora_sede/<sede>')
+def exportar_clientes_mora_sede(sede):
+    if 'user' not in session:
+        return redirect('/login')
+
+    sede = sede.strip().upper()
+    hoy = date.today()
+
+    creditos = Credito.query.filter_by(sede=sede).order_by(Credito.cliente.asc()).all()
+
+    filas = []
+
+    for credito in creditos:
+        actualizar_mora_credito(credito, hoy)
+
+        cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+
+        cuotas_mora = [
+            c for c in cuotas
+            if c.estado == 'EN MORA'
+        ]
+
+        if not cuotas_mora:
+            continue
+
+        deuda_fecha = round(sum(
+            (c.saldo_pendiente or 0) + (c.interes_mora or 0)
+            for c in cuotas
+            if c.estado in ['PENDIENTE', 'EN MORA', 'ABONO']
+            and (
+                (c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago) <= hoy
+            )
+        ), 2)
+
+        mora_total = round(sum(
+            c.interes_mora or 0
+            for c in cuotas_mora
+        ), 2)
+
+        cuotas_vencidas = len(cuotas_mora)
+
+        filas.append({
+            'Cliente': credito.cliente,
+            'Cédula': credito.cedula_cliente,
+            'Teléfono 1': credito.telefono_1,
+            'Teléfono 2': credito.telefono_2,
+            'Correo': credito.correo_cliente,
+            'Dirección': credito.direccion_cliente,
+            'Pagaré': credito.numero_pagare,
+            'Sede': credito.sede,
+            'Cuotas en mora': cuotas_vencidas,
+            'Mora total': mora_total,
+            'Deuda a la fecha': deuda_fecha
+        })
+
+    db.session.commit()
+
+    df = pd.DataFrame(filas)
+
+    output = BytesIO()
+    df.to_excel(output, index=False, sheet_name='Clientes en mora')
+    output.seek(0)
+
+    return send_file(
+        output,
+        download_name=f'clientes_en_mora_{sede}.xlsx',
+        as_attachment=True,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
 
 if __name__ == "__main__":
     app.run(debug=True)
