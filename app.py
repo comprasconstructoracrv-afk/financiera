@@ -3314,7 +3314,7 @@ def dashboard_gerencial():
             cuotas_ids = [q.id for q in cuotas]
 
             for credito in creditos:
-                actualizar_mora_credito(credito, hoy)
+                #actualizar_mora_credito(credito, hoy)
 
                 cuotas_credito = [q for q in cuotas if q.credito_id == credito.id]
 
@@ -3437,7 +3437,7 @@ def dashboard_gerencial():
     al_dia_sedes = [d['al_dia'] for d in datos_sedes]
     cancelados_sedes = [d['cancelados'] for d in datos_sedes]
 
-    db.session.commit()
+    #db.session.commit()
 
     return render_template(
         'dashboard_gerencial.html',
