@@ -3254,7 +3254,8 @@ def dashboard_gerencial():
     mes_seleccionado = request.args.get('mes', type=int) or mes_actual
     sede_seleccionada = request.args.get('sede', default='TODAS', type=str).strip().upper()
 
-    sedes = ['IBAGUE', 'ESPINAL', 'GIRARDOT', 'CRV']
+    sedes_db = db.session.query(Credito.sede).filter(Credito.sede.isnot(None)).distinct().all()
+    sedes = sorted([s[0] for s in sedes_db if s[0]])
 
     if sede_seleccionada == 'TODAS':
         sedes_filtradas = sedes
@@ -3262,18 +3263,9 @@ def dashboard_gerencial():
         sedes_filtradas = [sede_seleccionada]
 
     meses_nombres = {
-        1: 'ENERO',
-        2: 'FEBRERO',
-        3: 'MARZO',
-        4: 'ABRIL',
-        5: 'MAYO',
-        6: 'JUNIO',
-        7: 'JULIO',
-        8: 'AGOSTO',
-        9: 'SEPTIEMBRE',
-        10: 'OCTUBRE',
-        11: 'NOVIEMBRE',
-        12: 'DICIEMBRE'
+        1: 'ENERO', 2: 'FEBRERO', 3: 'MARZO', 4: 'ABRIL',
+        5: 'MAYO', 6: 'JUNIO', 7: 'JULIO', 8: 'AGOSTO',
+        9: 'SEPTIEMBRE', 10: 'OCTUBRE', 11: 'NOVIEMBRE', 12: 'DICIEMBRE'
     }
 
     kpis = {
@@ -3283,21 +3275,37 @@ def dashboard_gerencial():
         'creditos_en_mora': 0,
         'creditos_al_dia': 0,
         'creditos_cancelados': 0,
-        'mora_acumulada': 0
+        'mora_acumulada': 0,
+        'sede_mayor_mora': 'SIN DATOS',
+        'sede_mas_al_dia': 'SIN DATOS',
+        'dso': 0,
+        'cei': 0,
+        'indice_morosidad': 0,
+        'clientes_2_cuotas_vencidas': 0,
+        'clientes_mas_3_cuotas_vencidas': 0,
+        'cartera_critica': 0,
+        'tasa_incobrabilidad': 0
     }
 
     datos_sedes = []
 
+    mayor_mora_valor = 0
+    mayor_al_dia_valor = 0
+    deuda_vencida_total = 0
+
     for sede in sedes_filtradas:
         creditos = Credito.query.filter_by(sede=sede).all()
-        total_creditos = len(creditos)
-        saldo_actual_sede = round(sum(c.saldo_actual or 0 for c in creditos), 2)
 
         creditos_en_mora = 0
         creditos_cancelados = 0
         creditos_al_dia = 0
         recaudo_mes_sede = 0
         mora_acumulada_sede = 0
+        saldo_actual_sede = 0
+        cartera_critica_sede = 0
+        clientes_2_cuotas_sede = 0
+        clientes_mas_3_cuotas_sede = 0
+        deuda_vencida_sede = 0
 
         creditos_ids = [c.id for c in creditos]
 
@@ -3306,46 +3314,117 @@ def dashboard_gerencial():
             cuotas_ids = [q.id for q in cuotas]
 
             for credito in creditos:
+                actualizar_mora_credito(credito, hoy)
+
                 cuotas_credito = [q for q in cuotas if q.credito_id == credito.id]
 
                 if not cuotas_credito:
                     continue
 
-                if any(q.estado == 'EN MORA' for q in cuotas_credito):
-                    creditos_en_mora += 1
-                elif all(q.estado in ['PAGADA', 'LIQUIDADA'] for q in cuotas_credito):
+                cuotas_activas = [
+                    q for q in cuotas_credito
+                    if q.estado not in ['PAGADA', 'LIQUIDADA']
+                ]
+
+                if not cuotas_activas:
                     creditos_cancelados += 1
+                    continue
+
+                kpis['cartera_activa'] += 1
+
+                saldo_credito = round(sum(
+                    (q.saldo_pendiente or 0) + (q.interes_mora or 0)
+                    for q in cuotas_activas
+                ), 2)
+
+                saldo_actual_sede += saldo_credito
+
+                cuotas_mora = [
+                    q for q in cuotas_credito
+                    if q.estado == 'EN MORA'
+                ]
+
+                cuotas_vencidas = len(cuotas_mora)
+
+                if cuotas_vencidas > 0:
+                    creditos_en_mora += 1
+
+                    deuda_vencida_credito = round(sum(
+                        (q.saldo_pendiente or 0) + (q.interes_mora or 0)
+                        for q in cuotas_mora
+                    ), 2)
+
+                    deuda_vencida_sede += deuda_vencida_credito
+
+                    if cuotas_vencidas == 2:
+                        clientes_2_cuotas_sede += 1
+
+                    if cuotas_vencidas > 3:
+                        clientes_mas_3_cuotas_sede += 1
+                        cartera_critica_sede += deuda_vencida_credito
+
                 else:
                     creditos_al_dia += 1
 
-            mora_acumulada_sede = round(sum(q.interes_mora or 0 for q in cuotas), 2)
+            mora_acumulada_sede = round(sum(
+                q.interes_mora or 0
+                for q in cuotas
+            ), 2)
 
             if cuotas_ids:
                 pagos_mes_sede_lista = Pago.query.filter(
                     Pago.cuota_id.in_(cuotas_ids),
+                    Pago.activo == True,
+                    Pago.reversado == False,
                     db.extract('year', Pago.fecha) == anio_seleccionado,
                     db.extract('month', Pago.fecha) == mes_seleccionado
                 ).all()
 
                 recaudo_mes_sede = round(sum(p.valor or 0 for p in pagos_mes_sede_lista), 2)
 
-        kpis['cartera_activa'] += total_creditos
         kpis['saldo_total'] += saldo_actual_sede
         kpis['recaudo_mes'] += recaudo_mes_sede
         kpis['creditos_en_mora'] += creditos_en_mora
         kpis['creditos_cancelados'] += creditos_cancelados
         kpis['creditos_al_dia'] += creditos_al_dia
         kpis['mora_acumulada'] += mora_acumulada_sede
+        kpis['clientes_2_cuotas_vencidas'] += clientes_2_cuotas_sede
+        kpis['clientes_mas_3_cuotas_vencidas'] += clientes_mas_3_cuotas_sede
+        kpis['cartera_critica'] += cartera_critica_sede
+
+        deuda_vencida_total += deuda_vencida_sede
+
+        if mora_acumulada_sede > mayor_mora_valor:
+            mayor_mora_valor = mora_acumulada_sede
+            kpis['sede_mayor_mora'] = sede
+
+        if creditos_al_dia > mayor_al_dia_valor:
+            mayor_al_dia_valor = creditos_al_dia
+            kpis['sede_mas_al_dia'] = sede
 
         datos_sedes.append({
             'sede': sede,
-            'total_creditos': total_creditos,
-            'saldo_actual': saldo_actual_sede,
+            'total_creditos': len(creditos),
+            'saldo_actual': round(saldo_actual_sede, 2),
             'recaudo_mes': recaudo_mes_sede,
             'en_mora': creditos_en_mora,
             'al_dia': creditos_al_dia,
             'cancelados': creditos_cancelados
         })
+
+    if kpis['recaudo_mes'] > 0:
+        kpis['dso'] = round((kpis['saldo_total'] / kpis['recaudo_mes']) * 30, 1)
+
+    base_cobranza = kpis['recaudo_mes'] + deuda_vencida_total
+    if base_cobranza > 0:
+        kpis['cei'] = round((kpis['recaudo_mes'] / base_cobranza) * 100, 1)
+
+    total_activos = kpis['creditos_en_mora'] + kpis['creditos_al_dia']
+    if total_activos > 0:
+        kpis['indice_morosidad'] = round((kpis['creditos_en_mora'] / total_activos) * 100, 1)
+
+    if kpis['saldo_total'] > 0:
+        kpis['tasa_incobrabilidad'] = round((kpis['cartera_critica'] / kpis['saldo_total']) * 100, 1)
 
     for clave in kpis:
         if isinstance(kpis[clave], float):
@@ -3357,6 +3436,8 @@ def dashboard_gerencial():
     mora_sedes = [d['en_mora'] for d in datos_sedes]
     al_dia_sedes = [d['al_dia'] for d in datos_sedes]
     cancelados_sedes = [d['cancelados'] for d in datos_sedes]
+
+    db.session.commit()
 
     return render_template(
         'dashboard_gerencial.html',

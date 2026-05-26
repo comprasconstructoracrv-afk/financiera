@@ -322,6 +322,16 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        .k8 { background: linear-gradient(135deg, #be123c, #881337); }
+        .k9 { background: linear-gradient(135deg, #16a34a, #14532d); }
+        .k10 { background: linear-gradient(135deg, #2563eb, #1e3a8a); }
+        .k11 { background: linear-gradient(135deg, #0891b2, #164e63); }
+        .k12 { background: linear-gradient(135deg, #ea580c, #7c2d12); }
+        .k13 { background: linear-gradient(135deg, #f97316, #9a3412); }
+        .k14 { background: linear-gradient(135deg, #dc2626, #7f1d1d); }
+        .k15 { background: linear-gradient(135deg, #991b1b, #450a0a); }
+        .k16 { background: linear-gradient(135deg, #581c87, #3b0764); }
     </style>
 </head>
 <body>
@@ -403,6 +413,51 @@
                 <div class="card-kpi k7">
                     <div class="label">Mora acumulada</div>
                     <div class="valor">{{ kpis.mora_acumulada | cop }}</div>
+                </div>
+
+                <div class="card-kpi k8">
+                    <div class="label">Sede con mayor mora</div>
+                    <div class="valor">{{ kpis.sede_mayor_mora }}</div>
+                </div>
+
+                <div class="card-kpi k9">
+                    <div class="label">Sede con más al día</div>
+                    <div class="valor">{{ kpis.sede_mas_al_dia }}</div>
+                </div>
+
+                <div class="card-kpi k10">
+                    <div class="label">DSO aproximado</div>
+                    <div class="valor">{{ kpis.dso }} días</div>
+                </div>
+
+                <div class="card-kpi k11">
+                    <div class="label">CEI cobranza</div>
+                    <div class="valor">{{ kpis.cei }}%</div>
+                </div>
+
+                <div class="card-kpi k12">
+                    <div class="label">Índice de morosidad</div>
+                    <div class="valor">{{ kpis.indice_morosidad }}%</div>
+                </div>
+
+                <div class="card-kpi k13">
+                    <div class="label">Clientes con 2 cuotas vencidas</div>
+                    <div class="valor">{{ kpis.clientes_2_cuotas_vencidas }}</div>
+                </div>
+
+                <div class="card-kpi k14">
+                    <div class="label">Clientes con más de 3 cuotas vencidas</div>
+                    <div class="valor">{{ kpis.clientes_mas_3_cuotas_vencidas }}</div>
+                </div>
+
+                <div class="card-kpi k15">
+                    <div class="label">Cartera crítica</div>
+                    <div class="valor">{{ kpis.cartera_critica | cop }}</div>
+                </div>
+
+                <div class="card-kpi k16">
+                    <div class="label">Tasa posible incobrable</div>
+                    <div class="valor">{{ kpis.tasa_incobrabilidad }}%</div>
                 </div>
             </div>
         </div>
