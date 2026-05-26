@@ -88,7 +88,7 @@ class Pago(db.Model):
     valor_aplicado_prepago_capital = db.Column(db.Float, nullable=False, default=0)
 
     # Auditoría básica
-    observacion = db.Column(db.String(255), nullable=True)
+    observacion = db.Column(db.Text, nullable=True)
     tipo_pago = db.Column(db.String(30), nullable=True)
     dias_mora_pagados = db.Column(db.Integer, nullable=False, default=0)
     mora_generada_al_pago = db.Column(db.Float, nullable=False, default=0)
