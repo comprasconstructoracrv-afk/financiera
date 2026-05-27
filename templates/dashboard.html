@@ -389,6 +389,22 @@
         .btn-dash.rojo {
             background: linear-gradient(135deg, #ef4444, #7f1d1d);
         }
+
+        .btn-actualizar-mora {
+            display: inline-block;
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 700;
+            box-shadow: 0 6px 14px rgba(220, 38, 38, 0.25);
+        }
+
+        .btn-actualizar-mora:hover {
+            color: white;
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body>
@@ -409,6 +425,9 @@
 
                     <a href="/agregar_sede" class="btn-dash morado">Añadir sede</a>
 
+                    <a href="{{ url_for('actualizar_moras_dia') }}" class="btn-actualizar-mora">
+                        Actualizar mora del día
+                    </a>
 
                     <a href="/logout" class="btn-dash rojo">Cerrar sesión</a>
                 </div>

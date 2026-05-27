@@ -1494,7 +1494,7 @@ def ver_creditos(sede):
     resumen_creditos = []
 
     for credito in creditos:
-        actualizar_mora_credito(credito, hoy)
+        #actualizar_mora_credito(credito, hoy)
 
         cuotas = Cuota.query.filter_by(
             credito_id=credito.id
@@ -5176,6 +5176,22 @@ def exportar_clientes_mora_sede(sede):
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
+@app.route('/actualizar_moras_dia')
+def actualizar_moras_dia():
+    if 'user' not in session:
+        return redirect('/login')
+
+    hoy = date.today()
+
+    creditos = Credito.query.all()
+
+    for credito in creditos:
+        actualizar_mora_credito(credito, hoy)
+
+    db.session.commit()
+
+    flash("Moras actualizadas correctamente.", "success")
+    return redirect(url_for('dashboard'))
 
 if __name__ == "__main__":
     app.run(debug=True)
