@@ -427,6 +427,23 @@
             color: white;
             transform: translateY(-1px);
         }
+
+        .btn-actualizar-mora {
+            display: inline-block;
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: white;
+            padding: 10px 18px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 14px;
+            box-shadow: 0 4px 10px rgba(220, 38, 38, 0.25);
+        }
+
+        .btn-actualizar-mora:hover {
+            color: white;
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 
@@ -453,6 +470,10 @@
 
                 <a href="{{ url_for('exportar_clientes_mora_sede', sede=sede_actual) }}" class="btn-mora-excel">
                     Exportar clientes mora
+                </a>
+
+                <a href="{{ url_for('actualizar_moras_sede', sede=sede_actual) }}" class="btn-actualizar-mora">
+                    Actualizar mora
                 </a>
             </div>
         </div>

@@ -5176,22 +5176,23 @@ def exportar_clientes_mora_sede(sede):
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
-@app.route('/actualizar_moras_dia')
-def actualizar_moras_dia():
+@app.route('/actualizar_moras_sede/<sede>')
+def actualizar_moras_sede(sede):
     if 'user' not in session:
         return redirect('/login')
 
+    sede = sede.strip().upper()
     hoy = date.today()
 
-    creditos = Credito.query.all()
+    creditos = Credito.query.filter_by(sede=sede).all()
 
     for credito in creditos:
         actualizar_mora_credito(credito, hoy)
 
     db.session.commit()
 
-    flash("Moras actualizadas correctamente.", "success")
-    return redirect(url_for('dashboard'))
+    flash(f"Moras actualizadas correctamente para la sede {sede}.", "success")
+    return redirect(url_for('ver_creditos', sede=sede))
 
 if __name__ == "__main__":
     app.run(debug=True)
