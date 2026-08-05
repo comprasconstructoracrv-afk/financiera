@@ -416,14 +416,15 @@
                 <p>Panel general de cartera por sede</p>
 
                 <div class="acciones-dashboard">
+                     {% if session['rol'] == 'admin' %}
                     <a href="/crear_credito" class="btn-dash azul">Crear crédito</a>
-
-                    <a href="/paz_y_salvo" class="btn-dash naranja">Paz y salvo</a>
 
                     <a href="/configuracion_tasa" class="btn-dash verde">Configurar tasa mora</a>
 
-
                     <a href="/agregar_sede" class="btn-dash morado">Añadir sede</a>
+                    {% endif %}
+
+                    <a href="/paz_y_salvo" class="btn-dash naranja">Paz y salvo</a>
 
                     <a href="/logout" class="btn-dash rojo">Cerrar sesión</a>
                 </div>

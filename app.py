@@ -16,7 +16,6 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.lib.utils import ImageReader
 
-
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
@@ -29,7 +28,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
-from sqlalchemy import inspect
+from sqlalchemy import func, inspect
 
 with app.app_context():
     inspector = inspect(db.engine)
@@ -1288,11 +1287,10 @@ def login():
         password = request.form['password']
 
         usuario = Usuario.query.filter_by(
-            username=user,
-            password=password
+            username=user
         ).first()
 
-        if usuario:
+        if usuario and usuario.check_password(password):
             session['user'] = usuario.username
             session['rol'] = usuario.rol
             return redirect('/dashboard')
@@ -1422,8 +1420,18 @@ def dashboard():
     if 'user' not in session:
         return redirect('/login')
 
-    sedes_db = Sede.query.filter_by(activa=True).order_by(Sede.nombre.asc()).all()
+    rol = session.get('rol')
+    usuario = session.get('user')
+
     resumen_sedes = []
+
+    # Si el rol es  ADMIN tendra acceso a todas las sedes (VISUALIZA EL DASHBOARD COMPLETO)
+    if rol == 'admin':
+        sedes_db = Sede.query.filter_by(activa=True).order_by(Sede.nombre.asc()).all()
+    else:
+        # Si eL rol es SEDE solo tendra acceso a ver su propia sede
+        sedes_db = Sede.query.filter(func.lower(Sede.nombre) == usuario, Sede.activa == True).all()
+
 
     for sede_obj in sedes_db:
         sede = sede_obj.nombre
