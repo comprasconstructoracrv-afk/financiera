@@ -890,13 +890,15 @@
 
             <a href="/abono_capital/{{ credito.id }}" class="btn-accion btn-abono">Abono a capital</a>
 
-            <a href="/inyeccion_capital/{{ credito.id }}" class="btn-accion btn-inyeccion">Inyección de capital</a>
+            {% if session['rol']|lower == 'admin' %}
+                <a href="/inyeccion_capital/{{ credito.id }}" class="btn-accion btn-inyeccion">Inyección de capital</a>
+            {% endif %}
 
             <a href="/simular_inyeccion/{{ credito.id }}" class="btn-accion btn-simulador">Simulador inyección</a>
 
-            <a href="/cambiar_tasa_interes_credito/{{ credito.id }}" class="btn-accion btn-tasa">
-                Cambiar tasa de interés
-            </a>
+             {% if session['rol']|lower == 'admin' %}
+                <a href="/cambiar_tasa_interes_credito/{{ credito.id }}" class="btn-accion btn-tasa">Cambiar tasa de interés</a>
+            {% endif %}
 
             <a href="/historial_reversiones/{{ credito.id }}" class="btn-accion btn-reversiones">
                 Historial reversados
@@ -924,11 +926,13 @@
             <div class="label">Cliente</div>
             <div class="valor">{{ credito.cliente }}</div>
             <button class="mini-btn" onclick="toggleDetalleCliente()">Ver detalle</button>
-            <a href="{{ url_for('editar_cliente_credito', credito_id=credito.id) }}"
-            class="mini-btn"
-            style="display:block; text-decoration:none; margin-top:8px; text-align:center;">
-                Actualizar datos
-            </a>
+            {% if session['rol']|lower == 'admin' %}
+                <a href="{{ url_for('editar_cliente_credito', credito_id=credito.id) }}"
+                class="mini-btn"
+                style="display:block; text-decoration:none; margin-top:8px; text-align:center;">
+                    Actualizar datos
+                </a>
+            {% endif %}
         </div>
 
         <div class="card-info">
@@ -1255,11 +1259,13 @@
                                         Ver detalle
                                     </a>
 
-                                    <button type="button"
-                                            class="btn-detalle btn-reversar"
-                                            onclick="abrirModalReversion('{{ pago.id }}')">
-                                        Reversar
-                                    </button>
+                                    {% if session['rol']|lower == 'admin' %}
+                                        <button type="button"
+                                                class="btn-detalle btn-reversar"
+                                                onclick="abrirModalReversion('{{ pago.id }}')">
+                                            Reversar
+                                        </button>
+                                    {% endif %}
                                 </div>
                             {% endfor %}
                         {% else %}
@@ -1268,7 +1274,7 @@
                     </td>
 
                     <td>
-                        {% if cuota.estado in ['PENDIENTE', 'EN MORA', 'ABONO'] %}
+                        {% if cuota.estado in ['PENDIENTE', 'EN MORA', 'ABONO'] and session['rol']|lower == 'admin' %}
                             <a class="btn-pagar" href="/pagar_cuota/{{ cuota.id }}">Pagar</a>
                         {% else %}
                             —
