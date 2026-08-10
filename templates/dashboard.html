@@ -468,6 +468,8 @@
             </a>
             {% endfor %}
         </div>
+
+        {% if session['rol']|lower == 'admin' %}
         <div class="modulo-gerencial">
             <h2 class="modulo-etiqueta-general">MÓDULO GERENCIAL</h2>
 
@@ -487,6 +489,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
     </div>
 </body>
