@@ -260,7 +260,11 @@
         <input type="text" name="valor" id="valor_pago" oninput="formatearMoneda(this)">
 
         <div class="acciones">
-            <button type="submit" class="btn-azul">Registrar pago</button>
+            
+            {% if session['rol']|lower == 'admin' %}
+                <button type="submit" class="btn-azul">Registrar pago</button>
+            {% endif %}
+
             <a href="/ver_cuotas/{{ credito.id }}" class="btn-gris">Volver</a>
         </div>
 
