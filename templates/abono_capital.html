@@ -363,7 +363,10 @@
         </div>
 
         <div class="acciones">
-            <button type="submit">Registrar abono</button>
+            {% if session['rol']|lower == 'admin' %}
+                <button type="submit">Registrar abono</button>
+            {% endif %}
+            
             <a href="/ver_cuotas/{{ credito.id }}" class="btn-gris">Volver</a>
         </div>
 
