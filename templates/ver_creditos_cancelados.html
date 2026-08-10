@@ -408,11 +408,13 @@
                     </td>
 
                         <td>
+                            {% if session['rol'] == 'admin' %}
                             <form action="{{ url_for('eliminar_credito', credito_id=item.credito.id) }}" method="POST"
                                 onsubmit="return confirm('¿Seguro que deseas eliminar este crédito cancelado? Esta acción borrará también cuotas y pagos relacionados.');">
                                 <input type="hidden" name="origen" value="cancelados">
                                 <button type="submit" class="btn-eliminar">Eliminar</button>
                             </form>
+                            {% endif %}
                         </td>
 
                 </tr>
