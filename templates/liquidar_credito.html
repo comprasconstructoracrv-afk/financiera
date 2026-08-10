@@ -274,7 +274,11 @@
         <input type="text" name="valor" class="input-moneda" required>
 
         <div class="acciones">
-            <button type="submit" class="btn-rojo">Liquidar crédito</button>
+
+            {% if session['rol']|lower == 'admin' %}
+                <button type="submit" class="btn-rojo">Liquidar crédito</button>
+            {% endif %}
+            
             <a href="/ver_cuotas/{{ credito.id }}" class="btn-gris">Volver</a>
         </div>
 
