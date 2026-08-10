@@ -4269,8 +4269,13 @@ def paz_y_salvo():
         return redirect('/login')
 
     q = request.args.get('q', '').strip()
+    usuario = Usuario.query.filter_by(username=session['user']).first()
 
-    creditos = Credito.query.order_by(Credito.fecha_creacion.desc()).all()
+    if  usuario.rol=='admin':
+        creditos = Credito.query.order_by(Credito.fecha_creacion.desc()).all()
+    else:
+        creditos = Credito.query.filter(db.func.lower(Credito.sede) == usuario.username.lower()).order_by(Credito.fecha_creacion.desc()).all()
+
 
     resultados = []
     for credito in creditos:
