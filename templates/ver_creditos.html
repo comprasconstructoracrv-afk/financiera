@@ -600,6 +600,7 @@
                 </td>
 
                 <td class="accion-columna">
+                    {% if session['rol'] == 'admin' %}
                     <div class="accion-col">
                         <button
                             type="button"
@@ -608,6 +609,7 @@
                             Eliminar
                         </button>
                     </div>
+                    {% endif %}
                 </td>
 
             </tr>
