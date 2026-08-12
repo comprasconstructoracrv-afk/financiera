@@ -1464,9 +1464,19 @@ def dashboard():
             'al_dia': al_dia
         })
 
+    # Totales generales para resumen en el dashboard
+    total_creditos = sum(s['total'] for s in resumen_sedes)
+    creditos_en_mora = sum(s['en_mora'] for s in resumen_sedes)
+    creditos_cancelados = sum(s['cancelados'] for s in resumen_sedes)
+    creditos_al_dia = sum(s['al_dia'] for s in resumen_sedes)
+
     return render_template(
         'dashboard.html',
-        resumen_sedes=resumen_sedes
+        resumen_sedes=resumen_sedes,
+        total_creditos=total_creditos,
+        creditos_en_mora=creditos_en_mora,
+        creditos_cancelados=creditos_cancelados,
+        creditos_al_dia=creditos_al_dia
     )
 
 @app.route('/creditos/<sede>')

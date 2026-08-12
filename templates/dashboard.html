@@ -469,6 +469,38 @@
             {% endfor %}
         </div>
 
+
+        {% if session['rol']|lower == 'admin' %}
+        <div class="titulo-seccion">Resumen General 📊</div>
+
+        <div class="grid-sedes">
+            <div class="card-sede card-normal">
+
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-label"> Total créditos</div>
+                        <div class="stat-value total">{{ total_creditos }}</div>
+                    </div>
+
+                    <div class="stat-box">
+                        <div class="stat-label"> En mora</div>
+                        <div class="stat-value mora">{{ creditos_en_mora }}</div>
+                    </div>
+
+                    <div class="stat-box">
+                        <div class="stat-label"> Cancelados</div>
+                        <div class="stat-value cancelado">{{ creditos_cancelados }}</div>
+                    </div>
+
+                    <div class="stat-box">
+                        <div class="stat-label">Al día</div>
+                        <div class="stat-value dia">{{ creditos_al_dia }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         {% if session['rol']|lower == 'admin' %}
         <div class="modulo-gerencial">
             <h2 class="modulo-etiqueta-general">MÓDULO GERENCIAL</h2>
