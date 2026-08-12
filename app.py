@@ -1841,7 +1841,7 @@ def pagar_cuota(cuota_id):
                     cuota_actual_numero=cuota.numero,
                     fecha_base=cuota.fecha_pago
                 )
-
+        actualizar_mora_credito(credito, fecha_pago.date())
         db.session.commit()
 
         return redirect(url_for('ver_recibo_pago', pago_id=pago.id))
