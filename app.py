@@ -15,6 +15,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, KeepTogether
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.lib.utils import ImageReader
+from sqlalchemy.orm import aliased
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
@@ -929,11 +930,14 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
         db.session.commit()
         return pagos_creados_ids
 
+from datetime import datetime, date
 def calcular_componentes_liquidacion(credito, fecha_corte):
-    cuotas_activas = Cuota.query.filter(
-        Cuota.credito_id == credito.id,
-        Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
-    ).order_by(Cuota.numero).all()
+    # Obtener TODAS las cuotas del crédito ordenadas por número
+    todas_las_cuotas = Cuota.query.filter(
+        Cuota.credito_id == credito.id
+    ).order_by(Cuota.numero.asc()).all()
+
+    cuotas_activas = [c for c in todas_las_cuotas if c.estado in ['PENDIENTE', 'EN MORA', 'ABONO']]
 
     if not cuotas_activas:
         return {
@@ -944,41 +948,74 @@ def calcular_componentes_liquidacion(credito, fecha_corte):
             'total_liquidacion': 0
         }
 
-    cuotas_vencidas_o_del_mes = []
+    #  Verificar si existen pagos adelantados
+    # Obtenemos la última cuota pagada y la última cuota en mora
+    cuotas_pagadas = [c for c in todas_las_cuotas if c.estado == 'PAGADA']
+    cuotas_en_mora = [c for c in todas_las_cuotas if c.estado == 'EN MORA']
 
-    for cuota in cuotas_activas:
-        fecha_vencimiento = (
-            cuota.fecha_pago.date()
-            if isinstance(cuota.fecha_pago, datetime)
-            else cuota.fecha_pago
+    ultima_pagada_num = max([c.numero for c in cuotas_pagadas], default=0)
+    ultima_mora_num = max([c.numero for c in cuotas_en_mora], default=0)
+
+    # Determinar la cuota de referencia (cuota_actual)
+    if ultima_pagada_num > 0 and ultima_pagada_num >= ultima_mora_num:
+        # Caso 1: El cliente pagó una cuota posterior (ej. Pagó la 4 y la 3 quedó atrás)
+        # Toma la primera cuota PENDIENTE (Cuota 5)
+        cuota_actual = next(
+            (c for c in cuotas_activas if c.estado == 'PENDIENTE'),
+            cuotas_activas[-1]
         )
-
-        if fecha_vencimiento <= fecha_corte:
-            cuotas_vencidas_o_del_mes.append(cuota)
-
-    if cuotas_vencidas_o_del_mes:
-        cuota_actual = cuotas_vencidas_o_del_mes[0]
-        cuotas_a_cobrar = cuotas_vencidas_o_del_mes
     else:
-        cuota_actual = cuotas_activas[0]
-        cuotas_a_cobrar = [cuota_actual]
+        # Caso 2: El cliente nunca pagó o sus moras son recientes sin pagos posteriores
+        # Toma la PRIMERA cuota en mora (Cuota 1)
+        cuota_actual = cuotas_en_mora[0] if cuotas_en_mora else cuotas_activas[0]
 
+    # Capital insoluto según la cuota de referencia elegida
     capital_insoluto = round(cuota_actual.saldo_inicial or 0, 2)
 
+# ==========================================
+    # 🔹 VALIDACIÓN INTERÉS CORRIENTE (SOLO MES EN CURSO)
+    # ==========================================
+    hoy = date.today()
+
+    # Buscar cuota PENDIENTE únicamente del mismo mes y año actual
+    cuota_mes_en_curso = None
+    for c in todas_las_cuotas:
+        if c.estado == 'PENDIENTE' and c.fecha_pago:
+            f_pago = c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago
+            if f_pago.year == hoy.year and f_pago.month == hoy.month:
+                cuota_mes_en_curso = c
+                break
+
+    # Inicializamos el conjunto con los IDs de cuotas en mora y la cuota actual
+    ids_interes_a_sumar = {c.id for c in todas_las_cuotas if c.estado == 'EN MORA'}
+    
+    if cuota_actual and hasattr(cuota_actual, 'id'):
+        ids_interes_a_sumar.add(cuota_actual.id)
+
+    # Solo agregamos el ID de la cuota si pertenece al mes actual y no es None
+    if cuota_mes_en_curso is not None and hasattr(cuota_mes_en_curso, 'id'):
+        ids_interes_a_sumar.add(cuota_mes_en_curso.id)
+
+    # Sumatoria final de intereses corrientes
     interes_corriente = round(sum(
         c.interes or 0
-        for c in cuotas_a_cobrar
+        for c in todas_las_cuotas
+        if c.id in ids_interes_a_sumar
     ), 2)
 
+
+   #  Mora: solo cuotas vencidas
     total_mora = round(sum(
         c.interes_mora or 0
-        for c in cuotas_a_cobrar
+        for c in cuotas_activas
+        if c.fecha_pago and (
+            (c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago)
+            < (fecha_corte if isinstance(fecha_corte, date) else fecha_corte.date())
+        )
     ), 2)
 
-    total_liquidacion = round(
-        capital_insoluto + interes_corriente + total_mora,
-        2
-    )
+    #  Total de liquidación
+    total_liquidacion = round(capital_insoluto + interes_corriente + total_mora, 2)
 
     return {
         'cuota_actual': cuota_actual,
@@ -2170,6 +2207,7 @@ def liquidar_credito(credito_id):
         if not cuotas_activas:
             return "Este crédito ya se encuentra liquidado"
 
+        # Calcular componentes de liquidación
         componentes = calcular_componentes_liquidacion(credito, fecha_pago.date())
 
         cuota_actual = componentes['cuota_actual']
