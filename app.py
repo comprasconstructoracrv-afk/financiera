@@ -29,7 +29,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
-from sqlalchemy import func, inspect
+from sqlalchemy import cast, func, inspect
 
 with app.app_context():
     inspector = inspect(db.engine)
@@ -972,9 +972,8 @@ def calcular_componentes_liquidacion(credito, fecha_corte):
     # Capital insoluto según la cuota de referencia elegida
     capital_insoluto = round(cuota_actual.saldo_inicial or 0, 2)
 
-# ==========================================
-    # 🔹 VALIDACIÓN INTERÉS CORRIENTE (SOLO MES EN CURSO)
-    # ==========================================
+
+    # VALIDACIÓN INTERÉS CORRIENTE (SOLO MES EN CURSO)
     hoy = date.today()
 
     # Buscar cuota PENDIENTE únicamente del mismo mes y año actual
@@ -1347,6 +1346,20 @@ def crear_credito():
 
     sedes = Sede.query.filter_by(activa=True).order_by(Sede.nombre.asc()).all()
 
+    # Función interna para obtener SIEMPRE el número más actualizado
+    def obtener_siguiente_pagare():
+        try:
+            # Fuerza a leer el valor numérico máximo real sin importar el tipo de dato guardado antes
+            ultimo_raw = db.session.query(
+                func.max(cast(Credito.numero_pagare, db.Integer))
+            ).scalar()
+            ultimo = int(ultimo_raw) if ultimo_raw is not None else 0
+        except Exception:
+            ultimo = 0
+        return max(ultimo + 1, 106)
+
+    siguiente_pagare = obtener_siguiente_pagare()
+
     if request.method == 'POST':
         try:
             cliente = request.form['cliente'].strip()
@@ -1357,7 +1370,7 @@ def crear_credito():
             direccion_cliente = request.form.get('direccion_cliente', '').strip()
             correo_cliente = request.form.get('correo_cliente', '').strip()
 
-            numero_pagare = request.form['numero_pagare'].strip()
+            # numero_pagare = request.form['numero_pagare'].strip()
             sede = request.form.get('sede', 'CRV')
             monto = limpiar_valor_moneda(request.form['monto'])
             interes = float(request.form['interes'])
@@ -1383,14 +1396,14 @@ def crear_credito():
 
             if monto_financiado <= 0:
                 flash("El monto financiado debe ser mayor que cero", "error")
-                return render_template('crear_credito.html', sedes=sedes)
+                return render_template('crear_credito.html', sedes=sedes, siguiente_pagare=obtener_siguiente_pagare)
 
             cuota = calcular_cuota(monto_financiado, interes, cuotas)
 
             config_tasa = ConfiguracionTasa.query.filter_by(nombre='TASA_MORA').first()
 
             nuevo = Credito(
-                numero_pagare=numero_pagare,
+                #numero_pagare=siguiente_pagare,
                 cliente=cliente,
                 sede=sede,
                 tipo_documento=tipo_documento,
@@ -1448,9 +1461,9 @@ def crear_credito():
         except Exception as e:
             db.session.rollback()
             flash(f"Error al guardar el crédito: {str(e)}", "error")
-            return render_template('crear_credito.html', sedes=sedes)
+            return render_template('crear_credito.html', sedes=sedes, siguiente_pagare=obtener_siguiente_pagare)
 
-    return render_template('crear_credito.html', sedes=sedes)
+    return render_template('crear_credito.html', sedes=sedes, siguiente_pagare=siguiente_pagare)
 
 @app.route('/dashboard')
 def dashboard():
