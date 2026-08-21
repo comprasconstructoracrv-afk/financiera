@@ -14,6 +14,7 @@
             background: #eef2f7;
             color: #1f2937;
             padding: 24px;
+            font-size: 10px;
         }
 
         .contenedor {
@@ -71,7 +72,7 @@
             background: white;
             max-width: 850px;
             margin: 0 auto 20px auto;
-            padding: 38px 46px;
+            padding: 24px 36px;
             border-radius: 18px;
             box-shadow: 0 10px 28px rgba(0,0,0,0.08);
             page-break-after: always;
@@ -119,7 +120,7 @@
         }
 
         .bloque {
-            margin-bottom: 22px;
+            margin-bottom: 12px;
         }
 
         .bloque h3 {
@@ -183,10 +184,123 @@
             color: #102a43;
         }
 
+        /* Contenedor principal que activa las dos columnas */
+        .columnas-deudores {
+            display: flex;
+            gap: 20px; /* Separación entre el bloque Deudor y Codeudor */
+            margin-top: 15px;
+        }
+
+        /* Fuerza a que cada bloque ocupe exactamente el 50% del espacio */
+        .columnas-deudores .bloque {
+            flex: 1;
+            margin-bottom: 0; /* Evita márgenes inferiores innecesarios */
+        }
+
+        /* DISEÑO DE FIRMAS - LÍNEAS A LA MITAD Y TEXTO SOBRE LÍNEA */
+        .seccion-firmas-imagen {
+            width: 100%;
+            margin-top: 30px;
+            border-top: 1px solid #999;
+            border-bottom: 1px solid #999;
+            padding: 15px 0;
+        }
+
+        .bloque-persona {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+
+        .bloque-persona:last-child {
+            margin-bottom: 0;
+        }
+
+        .datos-persona {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .linea-campo {
+            display: flex;
+            align-items: flex-end;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+
+        .linea-campo strong {
+            white-space: nowrap;
+            margin-right: 6px;
+            color: #000;
+            width: 130px;
+        }
+
+        /* La zona de la línea ocupa sólo la mitad del espacio restante */
+        .campo-con-linea {
+            width: 50%;
+            border-bottom: 1px solid #000;
+            min-height: 18px;
+            display: flex;
+            align-items: flex-end;
+            padding-left: 4px;
+        }
+
+        .texto-sobre-linea {
+            font-weight: normal;
+            color: #000;
+            line-height: 1;
+            margin-bottom: 1px;
+        }
+
+        .caja-huella {
+            width: 85px;
+            height: 105px;
+            border: 1.5px solid #000;
+            flex-shrink: 0;
+            background: white;
+        }
+
+        /* CONFIGURACIÓN PARA IMPRESIÓN */
         @media print {
+            @page {
+                size: letter;
+                margin: 8mm 12mm 18mm 12mm;
+
+                @bottom-left {
+                    content: "⚖ NIVEL LEGAL: Este documento cumple estructura de título valor + soporte contractual para facilitar cobro jurídico en Colombia.";
+                    font-family: Arial, sans-serif;
+                    font-size: 6.5pt;
+                    color: #555555;
+                    border-top: 0.5px solid #cccccc;
+                    padding-top: 4px;
+                    vertical-align: top;
+                }
+
+                @bottom-right {
+                    content: "Página " counter(page) " de " counter(pages);
+                    font-family: Arial, sans-serif;
+                    font-size: 7.5pt;
+                    font-weight: bold;
+                    color: #333333;
+                    border-top: 0.5px solid #cccccc;
+                    padding-top: 4px;
+                    vertical-align: top;
+                    white-space: nowrap;
+                }
+            }
+
             body {
-                background: white;
-                padding: 0;
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                color: #000000 !important;
+                font-size: 9.5pt !important;
+                line-height: 1.3 !important;
+                width: 100% !important;
             }
 
             .barra-acciones {
@@ -194,16 +308,26 @@
             }
 
             .pagina {
-                box-shadow: none;
-                border-radius: 0;
-                margin: 0;
-                max-width: 100%;
-                min-height: auto;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                max-width: 100% !important;
                 page-break-after: always;
             }
 
             .pagina:last-child {
                 page-break-after: auto;
+            }
+
+            .columnas-deudores {
+                display: flex !important;
+                flex-direction: row !important;
+            }
+
+            .bloque, .seccion-firmas-imagen {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
             }
         }
 
@@ -228,6 +352,7 @@
     </style>
 </head>
 <body>
+
     <div class="contenedor">
 
         <div class="barra-acciones">
@@ -253,7 +378,7 @@
                 </div>
 
                 <div class="titulo-doc">
-                    <h2 style="margin-bottom: 5px;">CONSTRUCCIONES Y URBANIZACIONES S.A.S</h2>
+                    <h2 style="margin-bottom: 5px;">CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S</h2>
                     <p style="margin: 0;"><strong>NIT:</strong> 901.527.083-2</p>
                     <p style="margin-top: 5px;"><strong>PAGARÉ N° {{ credito.numero_pagare }}</strong></p>
                 </div>
@@ -266,30 +391,33 @@
                 <div><strong>Fecha de suscripción:</strong> {{ fecha_suscripcion_texto }}</div>
             </div>
 
-            <div class="bloque">
-                <h3>Deudor(es)</h3>
-                <div class="linea"><strong>Nombre(s):</strong> {{ credito.cliente }}</div>
-                <div class="linea">
-                    <strong>Identificación:</strong>
-                    {{ credito.tipo_documento or 'CC' }} {{ credito.cedula_cliente or '' }}
+            <!-- Nuevo contenedor para las 2 columnas -->
+            <div class="columnas-deudores">
+                <div class="bloque">
+                    <h3>DEUDOR(es)</h3>
+                    <div class="linea"><strong>Nombre(s):</strong> {{ credito.cliente }}</div>
+                    <div class="linea">
+                        <strong>Identificación:</strong>
+                        {{ credito.tipo_documento or 'CC' }} {{ credito.cedula_cliente or '' }}
+                    </div>
+                    <div class="linea"><strong>Dirección:</strong> {{ credito.direccion_cliente or '' }}</div>
+                    <div class="linea"><strong>Teléfono:</strong> {{ credito.telefono_1 or credito.telefono_2 or '' }}</div>
+                    <div class="linea"><strong>Correo:</strong> {{ credito.correo_cliente or '' }}</div>
                 </div>
-                <div class="linea"><strong>Dirección:</strong> {{ credito.direccion_cliente or '' }}</div>
-                <div class="linea"><strong>Teléfono:</strong> {{ credito.telefono_1 or credito.telefono_2 or '' }}</div>
-                <div class="linea"><strong>Correo:</strong> {{ credito.correo_cliente or '' }}</div>
+
+                <div class="bloque">
+                    <h3>CODEUDOR(es) SOLIDARIO(s)</h3>
+                    <div class="linea"><strong>Nombre(s):</strong> {{ credito.codeudor_nombre or '' }}</div>
+                    <div class="linea"><strong>Identificación:</strong> {{ credito.codeudor_identificacion or '' }}</div>
+                    <div class="linea"><strong>Dirección:</strong> {{ credito.codeudor_direccion or '' }}</div>
+                    <div class="linea"><strong>Teléfono:</strong> {{ credito.codeudor_telefono or '' }}</div>
+                    <div class="linea"><strong>Correo:</strong> {{ credito.codeudor_correo or '' }}</div>
+                </div>
             </div>
 
             <div class="bloque">
-                <h3>Codeudor(es) solidario(s)</h3>
-                <div class="linea"><strong>Nombre(s):</strong> {{ credito.codeudor_nombre or '' }}</div>
-                <div class="linea"><strong>Identificación:</strong> {{ credito.codeudor_identificacion or '' }}</div>
-                <div class="linea"><strong>Dirección:</strong> {{ credito.codeudor_direccion or '' }}</div>
-                <div class="linea"><strong>Teléfono:</strong> {{ credito.codeudor_telefono or '' }}</div>
-                <div class="linea"><strong>Correo:</strong> {{ credito.codeudor_correo or '' }}</div>
-            </div>
-
-            <div class="bloque">
-                <h3>Acreedor</h3>
-                <div class="linea"><strong>Acreedor:</strong> CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S.</div>
+                <h3></h3>
+                <div class="linea"><strong>ACREEDOR:</strong> CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S.</div>
                 <div class="linea"><strong>NIT:</strong> 901527083-2</div>
                 <div class="linea"><strong>Domicilio:</strong> Av. Ambala N° 27-126 piso 3 Barrio La Granja</div>
                 <div class="linea"><strong>Ciudad:</strong> Ibagué Tolima</div>
@@ -297,54 +425,97 @@
             </div>
 
             <div class="bloque">
-                <h3>Condiciones del pagaré</h3>
-                <div class="linea"><strong>Valor:</strong> $ {{ "{:,.0f}".format(valor_pagare).replace(",", ".") }} ({{ valor_pagare_letras }} PESOS M/CTE)</div>
-                <div class="linea"><strong>Plazo:</strong> {{ plazo_meses }} meses, así mismo cada una de ellas los {{ dia_pago }} de cada mes.</div>
-                <div class="linea"><strong>Fecha inicial de pagos:</strong> {{ fecha_inicial_pagos_texto }}</div>
-                <div class="linea"><strong>Fecha de vencimiento final:</strong> {{ fecha_vencimiento_final_texto }}</div>
-                <div class="linea"><strong>Lugar de pago:</strong> Ibagué Tolima</div>
+                <h3>CONDICIONES DEL PAGARÉ</h3>
+                <div class="linea"><strong>VALOR:</strong> $ {{ "{:,.0f}".format(valor_pagare).replace(",", ".") }} ({{ valor_pagare_letras }} PESOS M/CTE)</div>
+                <div class="linea"><strong>PLAZO:</strong> {{ plazo_meses }} meses, así mismo cada una de ellas los {{ dia_pago }} de cada mes, con un valor unitario de cuota por $ {{ "{:,.0f}".format(cuota_mensual).replace(",", ".") }}</div>
+                <div class="linea"><strong>FRECUENCIA:</strong> Mensual</div>
+                <div class="linea"><strong>TASA DE INTERÉS:</strong>
+                    {% if credito.tipo_interes == 'VARIABLE' %}
+                                Variable
+                            {% else %}
+                                {{ interes_mensual }} %
+                            {% endif %}
+                </div>
+                <div class="linea"><strong>SEDE:</strong> {{ credito.sede }}</div>
+                <div class="linea"><strong>NUMERO DE PAGARÉ:</strong> {{ credito.numero_pagare }}</div>
+                <div class="linea"><strong>FECHA INICIAL DE PAGOS:</strong> {{ fecha_inicial_pagos_texto }}</div>
+                <div class="linea"><strong>FECHA DE VENCIMIENTO FINAL:</strong> {{ fecha_vencimiento_final_texto }}</div>
+                <div class="linea"><strong>LUGAR DE PAGO:</strong> Ibagué Tolima</div>
             </div>
 
+            
+
             <div class="bloque">
-                <h3>Promesa incondicional de pago</h3>
+                <h3>PROMESA INCONDICIONAL DE PAGO</h3>
                 <div class="texto-legal">
-                    Yo (nosotros), identificado(s) como aparece al pie de mi (nuestra) firma, prometo(emos) pagar incondicionalmente a la orden de CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S., o a quien represente sus derechos, la suma indicada, junto con los intereses, gastos y demás conceptos aquí pactados.
+                    Yo (nosotros), identificado(s) como aparece al pie de mi (nuestra) firma, prometo(emos) pagar <strong>incondicionalmente</strong> a la orden de <strong>CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S.</strong>, o a quien represente sus derechos, la suma indicada, junto con los intereses, gastos y demás conceptos aquí pactados.
                 </div>
             </div>
 
             <div class="bloque">
                 <h3>Intereses</h3>
                 <div class="texto-legal">
-                    <strong>Interés corriente:</strong> Se causará a la tasa pactada, liquidado sobre el saldo de capital y por períodos vencidos, sin exceder la tasa máxima legal certificada por la Superintendencia Financiera de Colombia.
+                    <strong>• Interés corriente:</strong> Se causará a la tasa pactada, liquidado sobre el saldo de capital y por períodos vencidos, sin exceder la tasa máxima legal certificada por la Superintendencia Financiera de Colombia.
                 </div>
                 <div class="texto-legal">
-                    <strong>Interés de mora:</strong> En caso de incumplimiento, se causarán intereses de mora a la máxima tasa legal permitida, liquidados sobre las sumas vencidas y no pagadas, desde el día siguiente al incumplimiento y hasta su pago total.
+                    <strong>• Interés de mora:</strong> En caso de incumplimiento, se causarán intereses de mora a la máxima tasa legal permitida, liquidados sobre las sumas vencidas y no pagadas, desde el día siguiente al incumplimiento y hasta su pago total.
                 </div>
             </div>
 
             <div class="bloque">
-                <h3>Cláusulas</h3>
-                <div class="texto-legal"><strong>Cláusula de aceleración:</strong> El incumplimiento de una sola cuota o de cualquiera de las obligaciones derivadas del crédito facultará al acreedor para declarar vencida la totalidad de la obligación y exigir el pago inmediato del saldo total.</div>
-                <div class="texto-legal"><strong>Gastos de cobranza:</strong> El deudor y el(los) codeudor(es) asumen los gastos de cobranza prejurídica y jurídica, incluidos honorarios de abogado, costas y agencias en derecho.</div>
-                <div class="texto-legal"><strong>Mérito ejecutivo y renuncias:</strong> El presente pagaré presta mérito ejecutivo. El deudor renuncia a requerimientos de constitución en mora, avisos y demás formalidades para su exigibilidad.</div>
-                <div class="texto-legal"><strong>Endoso:</strong> Este pagaré es endosable y transferible conforme a la ley.</div>
+                <h3>CLÁUSULAS</h3>
+                <div class="texto-legal"><strong>CLAUSULA DE ACCELERACIÓN:</strong> El incumplimiento de <strong> una sola cuota</strong> o de cualquiera de las obligaciones derivadas del crédito facultará al acreedor para <strong> declarar vencida la totalidad de la obligación</strong> y exigir el pago inmediato del saldo total.</div>
+                <div class="texto-legal"><strong>GASTOS DE COBRANZA:</strong> El deudor y el(los) codeudor(es) asumen los <strong>gastos de cobranza prejurídica y jurídica,</strong> incluidos honorarios de abogado, costas y agencias en derecho.</div>
+                <div class="texto-legal"><strong>MÉRITO EJECUTIVO Y RENUNCIAS:</strong> El presente pagaré presta <strong>mérito ejecutivo</strong>. El deudor renuncia a requerimientos de constitución en mora, avisos y demás formalidades para su exigibilidad.</div>
+                <div class="texto-legal"><strong>ENDOSO:</strong> Este pagaré es <strong>endosable</strong> y transferible conforme a la ley.</div>
                 <div class="texto-legal">Las partes acuerdan como domicilio contractual la ciudad de Ibagué.</div>
                 <div class="texto-legal">Este pagaré respalda las obligaciones derivadas del contrato de crédito suscrito entre las partes.</div>
             </div>
 
-            <div class="firmas">
-                <div class="firma-box">
-                    <div class="linea-firma"></div>
-                    <div><strong>FIRMA DEUDOR</strong></div>
-                    <div>Nombre: {{ credito.cliente }}</div>
-                    <div>C.C./C.E.: {{ credito.cedula_cliente or '' }}</div>
+            <!-- FIRMAS: LÍNEAS HASTA LA MITAD Y TEXTO AUTOMÁTICO ENCIMA DE LA LÍNEA -->
+            <div class="seccion-firmas-imagen">
+                <div class="bloque-persona">
+                    <div class="datos-persona">
+                        <div class="linea-campo">
+                            <strong>FIRMA DEUDOR:</strong>
+                            <div class="campo-con-linea"></div>
+                        </div>
+                        <div class="linea-campo">
+                            <strong>Nombre:</strong>
+                            <div class="campo-con-linea">
+                                <span class="texto-sobre-linea">{{ credito.cliente }}</span>
+                            </div>
+                        </div>
+                        <div class="linea-campo">
+                            <strong>C.C./C.E.:</strong>
+                            <div class="campo-con-linea">
+                                <span class="texto-sobre-linea">{{ credito.cedula_cliente or '' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="caja-huella"></div>
                 </div>
 
-                <div class="firma-box">
-                    <div class="linea-firma"></div>
-                    <div><strong>FIRMA CODEUDOR</strong></div>
-                    <div>Nombre: {{ credito.codeudor_nombre or '' }}</div>
-                    <div>C.C./C.E.: {{ credito.codeudor_identificacion or '' }}</div>
+                <div class="bloque-persona" style="margin-top: 15px;">
+                    <div class="datos-persona">
+                        <div class="linea-campo">
+                            <strong>FIRMA CODEUDOR:</strong>
+                            <div class="campo-con-linea"></div>
+                        </div>
+                        <div class="linea-campo">
+                            <strong>Nombre:</strong>
+                            <div class="campo-con-linea">
+                                <span class="texto-sobre-linea">{{ credito.codeudor_nombre or '' }}</span>
+                            </div>
+                        </div>
+                        <div class="linea-campo">
+                            <strong>C.C./C.E.:</strong>
+                            <div class="campo-con-linea">
+                                <span class="texto-sobre-linea">{{ credito.codeudor_identificacion or '' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="caja-huella"></div>
                 </div>
             </div>
         </div>
@@ -364,144 +535,73 @@
                 <div style="width:120px;"></div>
             </div>
 
-            <div class="texto-legal">
+            <div class="texto-legal"> 
                 Señores<br>
                 CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S.
             </div>
 
             <div class="texto-legal">
-                Yo (nosotros), <strong>{{ credito.cliente }}</strong>, autorizo(amos) de manera expresa, irrevocable y permanente a CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S. para diligenciar los espacios en blanco del pagaré suscrito, conforme a:
+                Yo (nosotros), <strong>{{ credito.cliente }}</strong>, autorizo(amos) de manera <strong>expresa, irrevocable y permanente</strong> a CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S. para diligenciar los espacios en blanco del pagaré suscrito, conforme a:
             </div>
 
-            <div class="texto-legal">• Podrá ser llenado por el saldo total de la obligación, incluyendo capital, intereses corrientes y de mora, seguros, gastos y honorarios.</div>
-            <div class="texto-legal">• La fecha de vencimiento podrá fijarse en caso de incumplimiento de cualquiera de las obligaciones.</div>
-            <div class="texto-legal">• La tasa de interés será la máxima legal vigente al momento del diligenciamiento.</div>
-            <div class="texto-legal">• Podrá hacerse exigible en su totalidad por mora en una sola cuota.</div>
-            <div class="texto-legal">• Autorizo(amos) el reporte a centrales de riesgo.</div>
-            <div class="texto-legal">• Este documento presta mérito ejecutivo.</div>
+            <div class="texto-legal">1. Podrá ser llenado por el <strong>saldo total de la obligación</strong>, incluyendo capital, intereses corrientes y de mora, seguros, gastos y honorarios.</div>
+            <div class="texto-legal">2. La <strong>fecha de vencimiento</strong> podrá fijarse en caso de incumplimiento de cualquiera de las obligaciones.</div>
+            <div class="texto-legal">3. La <strong>tasa de interés</strong> será la máxima legal vigente al momento del diligenciamiento.</div>
+            <div class="texto-legal">4. Podrá hacerse exigible en su totalidad por <strong>mora en una sola cuota.</strong></div>
+            <div class="texto-legal">5. Autorizo(amos) el <strong>reporte a centrales de riesgo</strong>.</div>
+            <div class="texto-legal">6. Este documento presta mérito ejecutivo.</div>
 
             <div class="bloque" style="margin-top:40px;">
                 <div class="linea"><strong>Firma en:</strong> {{ lugar_suscripcion }}, a los {{ fecha_carta_texto }}</div>
             </div>
 
-            <div class="firmas">
-                <div class="firma-box">
-                    <div class="linea-firma"></div>
-                    <div><strong>FIRMA DEUDOR</strong></div>
-                    <div>Cédula: {{ credito.cedula_cliente or '' }}</div>
+            <!-- FIRMAS: LÍNEAS HASTA LA MITAD Y TEXTO AUTOMÁTICO ENCIMA DE LA LÍNEA -->
+            
+                <div class="bloque-persona">
+                    <div class="datos-persona">
+                        <div class="linea-campo">
+                            <strong></strong>
+                            <div></div>
+                        </div>
+                        <div class="linea-campo">
+                            <strong>FIRMA DEUDOR:</strong>
+                            <div class="campo-con-linea">
+                                <span class="texto-sobre-linea"></span>
+                            </div>
+                        </div>
+                        <div class="linea-campo">
+                            <strong>C.C./C.E.:</strong>
+                            <div class="campo-con-linea">
+                                <span class="texto-sobre-linea">{{ credito.cedula_cliente or '' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="caja-huella"></div>
                 </div>
 
-                <div class="firma-box">
-                    <div class="linea-firma"></div>
-                    <div><strong>FIRMA CODEUDOR</strong></div>
-                    <div>Cédula: {{ credito.codeudor_identificacion or '' }}</div>
+                <div class="bloque-persona" style="margin-top: 15px;">
+                    <div class="datos-persona">
+                        <div class="linea-campo">
+                            <strong></strong>
+                            <div></div>
+                        </div>
+                        <div class="linea-campo">
+                            <strong>FIRMA CODEUDOR:</strong>
+                            <div class="campo-con-linea">
+                                <span class="texto-sobre-linea"></span>
+                            </div>
+                        </div>
+                        <div class="linea-campo">
+                            <strong>C.C./C.E.:</strong>
+                            <div class="campo-con-linea">
+                                <span class="texto-sobre-linea">{{ credito.codeudor_identificacion or '' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="caja-huella"></div>
                 </div>
-            </div>
         </div>
 
-        <!-- PÁGINA 3: CONTRATO RESUMEN OPERATIVO -->
-        <div class="pagina">
-            <div class="encabezado-doc">
-                <div class="logo">
-                    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
-                </div>
-
-                <div class="titulo-doc">
-                    <h1>CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S.</h1>
-                    <h2>CONTRATO DE CRÉDITO - RESUMEN OPERATIVO</h2>
-                </div>
-
-                <div style="width:120px;"></div>
-            </div>
-
-            <div class="texto-legal">
-                Entre CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S. (acreedor) y el deudor, se acuerda:
-            </div>
-
-            <table class="tabla-resumen">
-                <tr>
-                    <th>Concepto</th>
-                    <th>Detalle</th>
-                </tr>
-                <tr>
-                    <td>Deudor</td>
-                    <td>{{ credito.cliente }}</td>
-                </tr>
-                <tr>
-                    <td>Identificación</td>
-                    <td>
-                        {{ credito.tipo_documento or 'CC' }}
-                        {{ credito.cedula_cliente or '' }}
-                    </td>
-                </tr>
-                <tr>
-                    <td>Objeto</td>
-                    <td>Financiamiento para adquisición de bien/servicio.</td>
-                </tr>
-                <tr>
-                    <td>Valor financiado</td>
-                    <td>$ {{ "{:,.0f}".format(credito.monto_financiado or 0).replace(",", ".") }}</td>
-                </tr>
-                <tr>
-                    <td>Cuotas</td>
-                    <td>
-                        {% if credito.tipo_cuota == 'VARIABLE' %}
-                            {{ credito.cuotas }} cuotas de valor variable
-                        {% else %}
-                            {{ credito.cuotas }} cuotas de $ {{ "{:,.0f}".format(cuota_mensual).replace(",", ".") }}
-                        {% endif %}
-                    </td>
-                </tr>
-                <tr>
-                    <td>Frecuencia</td>
-                    <td>Mensual</td>
-                </tr>
-                <tr>
-                    <td>Tasa de interés</td>
-                    <td>
-                        {% if credito.tipo_interes == 'VARIABLE' %}
-                            Variable
-                        {% else %}
-                            {{ interes_mensual }} %
-                        {% endif %}
-                    </td>
-                </tr>
-                <tr>
-                    <td>Sede</td>
-                    <td>{{ credito.sede }}</td>
-                </tr>
-                <tr>
-                    <td>Número de pagaré</td>
-                    <td>{{ credito.numero_pagare }}</td>
-                </tr>
-                <tr>
-                    <td>Fecha inicial de pagos</td>
-                    <td>{{ fecha_inicial_pagos_texto }}</td>
-                </tr>
-                <tr>
-                    <td>Fecha de vencimiento final</td>
-                    <td>{{ fecha_vencimiento_final_texto }}</td>
-                </tr>
-            </table>
-
-            <div class="texto-legal" style="margin-top:24px;">
-                El incumplimiento activa cláusula de aceleración.
-            </div>
-
-            <div class="firmas">
-                <div class="firma-box">
-                    <div class="linea-firma"></div>
-                    <div><strong>FIRMA DEUDOR</strong></div>
-                    <div>{{ credito.cliente }}</div>
-                </div>
-
-                <div class="firma-box">
-                    <div class="linea-firma"></div>
-                    <div><strong>FIRMA CODEUDOR</strong></div>
-                    <div>{{ credito.codeudor_nombre or '' }}</div>
-                </div>
-            </div>
-        </div>
 
         <!-- PÁGINA 4: AUTORIZACIONES -->
         <div class="pagina">
@@ -519,43 +619,96 @@
             </div>
 
             <div class="bloque">
-                <h3>Autorización centrales de riesgo</h3>
                 <div class="texto-legal">
+                    <h3>CONTRATO DE CRÉDITO (RESUMEN OPERATIVO)</h3>
+                    Entre CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S (acreedor) y el deudor, se acuerda:
+                </div>
+
+                <div class="linea">• <strong>Objeto:</strong> Financiamiento para adquisión de bien/ servicio. </div>
+                <div class="linea">• <strong>Valor Financiado:</strong> $ {{ "{:,.0f}".format(credito.monto_financiado or 0).replace(",", ".") }} </div>
+                <div class="linea">• <strong>Cuotas:</strong> {% if credito.tipo_cuota == 'VARIABLE' %}
+                            {{ credito.cuotas }} cuotas de valor variable
+                        {% else %}
+                            {{ credito.cuotas }} Cuotas de $ {{ "{:,.0f}".format(cuota_mensual).replace(",", ".") }}
+                        {% endif %} 
+                </div>
+                <div class="linea">• <strong>Frecuencia:</strong> Mensual </div>
+                <div class="linea">• <strong>Tasa:</strong> {% if credito.tipo_interes == 'VARIABLE' %}
+                            Variable
+                        {% else %}
+                            {{ interes_mensual }} %
+                        {% endif %} 
+                </div>
+
+                <div class="linea">
+                    El incumplimiento activa cláusula de aceleración.
+                </div>
+
+            </div>
+
+            <div class="bloque">
+                <h3></h3>
+                <div class="texto-legal">
+                    <h3>AUTORIZACIÓN CENTRALES DE RIESGO</h3>
                     Autorizo a CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S. a reportar, consultar y actualizar mi información en centrales de riesgo (Data crédito).
                 </div>
 
-                <div class="firmas">
-                    <div class="firma-box">
-                        <div class="linea-firma"></div>
-                        <div><strong>FIRMA</strong></div>
-                        <div>Cédula: {{ credito.cedula_cliente or '' }}</div>
-                    </div>
-                    <div></div>
-                </div>
+
+                <div class="bloque-persona">
+                    <div class="datos-persona">
+                                <div class="linea-campo">
+                                    <strong></strong>
+                                    <div></div>
+                                </div>
+                                <div class="linea-campo">
+                                    <strong>FIRMA DEUDOR:</strong>
+                                    <div class="campo-con-linea">
+                                        <span class="texto-sobre-linea"></span>
+                                    </div>
+                                </div>
+                                <div class="linea-campo">
+                                    <strong>C.C./C.E.:</strong>
+                                    <div class="campo-con-linea">
+                                        <span class="texto-sobre-linea">{{ credito.cedula_cliente or '' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="caja-huella"></div>
+                
+                </div>  
             </div>
 
             <div class="bloque">
-                <h3>Autorización tratamiento de datos (Ley 1581 de 2012)</h3>
+                <h3></h3>
                 <div class="texto-legal">
+                    <h3>AUTORIZACIÓN TRATAMIENDO DE DATOS (LEY 1581 DE 2012)</h3>
                     De conformidad con la Ley 1581 de 2012, autorizo a CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S. para recolectar, almacenar, usar y tratar mis datos personales con fines comerciales, contractuales y de cobranza.
                 </div>
 
-                <div class="firmas">
-                    <div class="firma-box">
-                        <div class="linea-firma"></div>
-                        <div><strong>FIRMA</strong></div>
-                        <div>Cédula: {{ credito.cedula_cliente or '' }}</div>
-                    </div>
-                    <div></div>
-                </div>
+                <div class="bloque-persona">
+                    <div class="datos-persona">
+                                <div class="linea-campo">
+                                    <strong></strong>
+                                    <div></div>
+                                </div>
+                                <div class="linea-campo">
+                                    <strong>FIRMA DEUDOR:</strong>
+                                    <div class="campo-con-linea">
+                                        <span class="texto-sobre-linea"></span>
+                                    </div>
+                                </div>
+                                <div class="linea-campo">
+                                    <strong>C.C./C.E.:</strong>
+                                    <div class="campo-con-linea">
+                                        <span class="texto-sobre-linea">{{ credito.cedula_cliente or '' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="caja-huella"></div>
+                
+                </div> 
             </div>
 
-            <div class="bloque">
-                <h3>Nivel legal</h3>
-                <div class="texto-legal">
-                    Este documento cumple estructura de título valor + soporte contractual para facilitar cobro jurídico en Colombia.
-                </div>
-            </div>
         </div>
 
     </div>
