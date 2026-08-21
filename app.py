@@ -411,13 +411,31 @@ def actualizar_mora_credito(credito, fecha_corte=None):
         cuota.saldo_pendiente = saldo_base
 
         if fecha_corte > fecha_vencimiento:
-            dias_mora = (fecha_corte - fecha_vencimiento).days
-            interes_mora = saldo_base * tasa_diaria * dias_mora
+            # 1. Verificar si la cuota ya tuvo un pago registrado en esta misma fecha de corte
+            pago_hoy = any(
+                (p.fecha.date() if isinstance(p.fecha, datetime) else p.fecha) == fecha_corte
+                for p in pagos_activos
+            )
 
-            cuota.dias_mora = dias_mora
+            # 2. Si ya pagó hoy, no recalculamos nuevos días/mora sobre el saldo pendiente residual
+            if pago_hoy:
+                cuota.dias_mora = 0
+                interes_mora = 0.0
+            else:
+                dias_mora = (fecha_corte - fecha_vencimiento).days
+                cuota.dias_mora = dias_mora
+                interes_mora = saldo_base * tasa_diaria * dias_mora
+
             cuota.interes_mora = round(interes_mora + mora_pendiente_historica, 2)
             cuota.total_cobro = round(saldo_base + cuota.interes_mora, 2)
-            cuota.estado = 'EN MORA'
+            
+            # Asignar estado según si le queda interés o si solo es un abono de capital
+            if cuota.interes_mora > 1:
+                cuota.estado = 'EN MORA'
+            elif total_pagado_activo > 0:
+                cuota.estado = 'ABONO'
+            else:
+                cuota.estado = 'EN MORA'
         else:
             cuota.dias_mora = 0
             cuota.interes_mora = round(mora_pendiente_historica, 2)
@@ -816,58 +834,77 @@ def recalcular_cuotas_variables_pendientes(credito, cuota_actual_numero, fecha_b
 
     credito.saldo_actual = round(saldo, 2)
 
-def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
-    actualizar_mora_credito(credito, fecha_pago)
+from datetime import datetime, date
 
-    cuotas_exigibles = Cuota.query.filter(
+def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
+    # 0. Normalizar 'fecha_pago' para asegurar que sea siempre un objeto date puro
+    if isinstance(fecha_pago, str):
+        fecha_pago = datetime.strptime(fecha_pago, '%Y-%m-%d').date()
+    elif isinstance(fecha_pago, datetime):
+        fecha_pago = fecha_pago.date()
+
+    # 1. Recalcular mora obligatoriamente basándonos en la fecha_pago parametrizada
+    actualizar_mora_credito(credito, fecha_pago)
+    db.session.flush()
+
+    # Función auxiliar para extraer solo la fecha (date) de cada cuota
+    def obtener_fecha_cuota(c):
+        if isinstance(c.fecha_pago, datetime):
+            return c.fecha_pago.date()
+        elif isinstance(c.fecha_pago, str):
+            return datetime.strptime(c.fecha_pago[:10], '%Y-%m-%d').date()
+        return c.fecha_pago
+
+    # 2. Traer TODAS las cuotas activas del crédito
+    todas_cuotas_pendientes = Cuota.query.filter(
         Cuota.credito_id == credito.id,
         Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
-    ).order_by(Cuota.numero).all()
+    ).order_by(Cuota.numero.asc()).all()
 
+    # Separación estricta comparando objetos date vs date
     cuotas_exigibles = [
-        cuota for cuota in cuotas_exigibles
-        if (cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago) <= fecha_pago
+        c for c in todas_cuotas_pendientes
+        if obtener_fecha_cuota(c) <= fecha_pago
+    ]
+    
+    cuotas_futuras = [
+        c for c in todas_cuotas_pendientes
+        if obtener_fecha_cuota(c) > fecha_pago
     ]
 
-    restante = round(valor_pago, 2)
-    hubo_abono_extra_capital = False
-    ultima_cuota_tocada = None
+    restante = round(float(valor_pago), 2)
     pagos_creados_ids = []
 
+    # ----------------------------------------------------------------------
+    # FASE 1: PAGAR DEUDA EXIGIBLE A LA FECHA (Mora + Saldo Pendiente)
+    # ----------------------------------------------------------------------
     for cuota in cuotas_exigibles:
         if restante <= 0:
             break
 
-        ultima_cuota_tocada = cuota
-
         dias_mora_al_pago = cuota.dias_mora or 0
         mora_generada_al_pago = round(cuota.interes_mora or 0, 2)
         saldo_pendiente_antes_pago = round(cuota.saldo_pendiente or 0, 2)
-        total_exigible_al_pago = round((cuota.saldo_pendiente or 0) + (cuota.interes_mora or 0), 2)
+        total_exigible_al_pago = round(saldo_pendiente_antes_pago + mora_generada_al_pago, 2)
 
-        pago = Pago(
-            cuota_id=cuota.id,
-            fecha=datetime.combine(fecha_pago, datetime.min.time()),
-            valor=0,
-            medio_pago=medio_pago,
-            tipo_pago='PAGO_DEUDA_FECHA',
-            dias_mora_pagados=dias_mora_al_pago,
-            mora_generada_al_pago=mora_generada_al_pago,
-            saldo_pendiente_antes_pago=saldo_pendiente_antes_pago,
-            total_exigible_al_pago=total_exigible_al_pago
-        )
+        valor_aplicado_mora = 0.0
+        valor_aplicado_cuota = 0.0
+        valor_aplicado_interes= 0.0
+        valor_aplicado_capital= 0.0
 
-        valor_aplicado_cuota = 0
-        valor_aplicado_mora = 0
-        valor_aplicado_interes = 0
-        valor_aplicado_capital = 0
+        # A. Cubrir mora primero
+        if cuota.interes_mora > 0 and restante > 0:
+            aplicado_mora = min(restante, round(cuota.interes_mora, 2))
+            cuota.interes_mora = round(cuota.interes_mora - aplicado_mora, 2)
+            restante = round(restante - aplicado_mora, 2)
+            valor_aplicado_mora = aplicado_mora
 
-        # 1. Cubrir cuota primero
+        # B. Cubrir saldo pendiente de la cuota
         if cuota.saldo_pendiente > 0 and restante > 0:
             aplicado_cuota = min(restante, round(cuota.saldo_pendiente, 2))
             cuota.saldo_pendiente = round(cuota.saldo_pendiente - aplicado_cuota, 2)
             restante = round(restante - aplicado_cuota, 2)
-            valor_aplicado_cuota = round(aplicado_cuota, 2)
+            valor_aplicado_cuota = aplicado_cuota
 
             interes_cuota = round(cuota.interes or 0, 2)
             valor_aplicado_interes = min(valor_aplicado_cuota, interes_cuota)
@@ -875,60 +912,96 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
 
             if cuota.saldo_pendiente <= 0:
                 cuota.saldo_pendiente = 0
-                credito.saldo_actual = round(cuota.saldo_restante, 2)
+                if hasattr(cuota, 'saldo_restante') and cuota.saldo_restante is not None:
+                    credito.saldo_actual = round(cuota.saldo_restante, 2)
 
-        # 2. Luego cubrir mora
-        if cuota.interes_mora > 0 and restante > 0:
-            aplicado_mora = min(restante, round(cuota.interes_mora, 2))
-            cuota.interes_mora = round(cuota.interes_mora - aplicado_mora, 2)
-            restante = round(restante - aplicado_mora, 2)
-            valor_aplicado_mora = aplicado_mora
+        # Actualizar estado de la cuota exigible
+        cuota.saldo_pendiente = round(max(cuota.saldo_pendiente, 0), 2)
+        cuota.interes_mora = round(max(cuota.interes_mora, 0), 2)
+        cuota.total_cobro = round(cuota.saldo_pendiente + cuota.interes_mora, 2)
 
-        pago.valor = round(valor_aplicado_cuota + valor_aplicado_mora, 2)
-        pago.valor_aplicado_interes = round(valor_aplicado_interes, 2)
-        pago.valor_aplicado_capital = round(valor_aplicado_capital, 2)
-        pago.valor_aplicado_mora = round(valor_aplicado_mora, 2)
-        if pago.valor > 0:
+        if cuota.saldo_pendiente <= 0 and cuota.interes_mora <= 0:
+            cuota.dias_mora = 0
+            cuota.estado = 'PAGADA'
+        else:
+            cuota.estado = 'ABONO'
+
+        # Registrar Pago
+        monto_pago = round(valor_aplicado_cuota + valor_aplicado_mora, 2)
+        if monto_pago > 0:
+            pago = Pago(
+                cuota_id=cuota.id,
+                fecha=datetime.combine(fecha_pago, datetime.min.time()),
+                valor=monto_pago,
+                medio_pago=medio_pago,
+                tipo_pago='PAGO_DEUDA_FECHA',
+                dias_mora_pagados=dias_mora_al_pago,
+                mora_generada_al_pago=mora_generada_al_pago,
+                saldo_pendiente_antes_pago=saldo_pendiente_antes_pago,
+                total_exigible_al_pago=total_exigible_al_pago,
+                valor_aplicado_interes=round(valor_aplicado_interes, 2),
+                valor_aplicado_capital=round(valor_aplicado_capital, 2),
+                valor_aplicado_mora=round(valor_aplicado_mora, 2)
+            )
             db.session.add(pago)
             db.session.flush()
             pagos_creados_ids.append(pago.id)
 
-        cuota.saldo_pendiente = round(max(cuota.saldo_pendiente, 0), 2)
-        cuota.interes_mora = round(max(cuota.interes_mora, 0), 2)
+    # ----------------------------------------------------------------------
+    # FASE 2: SI SOBRA DINERO -> ABONAR A LA(S) CUOTA(S) FUTURAS
+    # ----------------------------------------------------------------------
+    if restante > 0 and cuotas_futuras:
+        for cuota_futura in cuotas_futuras:
+            if restante <= 0:
+                break
 
-        if cuota.saldo_pendiente <= 0 and cuota.interes_mora <= 0:
-            cuota.saldo_pendiente = 0
-            cuota.dias_mora = 0
-            cuota.interes_mora = 0
-            cuota.total_cobro = 0
-            cuota.estado = 'PAGADA'
-        elif cuota.saldo_pendiente <= 0 and cuota.interes_mora > 0:
-            cuota.saldo_pendiente = 0
-            cuota.total_cobro = round(cuota.interes_mora, 2)
-            cuota.estado = 'ABONO'
-        else:
-            cuota.total_cobro = round(cuota.saldo_pendiente + cuota.interes_mora, 2)
-            if cuota.dias_mora > 0:
-                cuota.estado = 'EN MORA'
+            saldo_pendiente_antes_pago = round(cuota_futura.saldo_pendiente or 0, 2)
+            if saldo_pendiente_antes_pago <= 0:
+                continue
+
+            abono_a_futura = min(restante, saldo_pendiente_antes_pago)
+            cuota_futura.saldo_pendiente = round(saldo_pendiente_antes_pago - abono_a_futura, 2)
+            restante = round(restante - abono_a_futura, 2)
+
+            cuota_futura.total_cobro = round(cuota_futura.saldo_pendiente + (cuota_futura.interes_mora or 0), 2)
+            
+            if cuota_futura.saldo_pendiente <= 0:
+                cuota_futura.estado = 'ADELANTADO'
+                if hasattr(cuota_futura, 'saldo_restante') and cuota_futura.saldo_restante is not None:
+                    credito.saldo_actual = round(cuota_futura.saldo_restante, 2)
             else:
-                cuota.estado = 'ABONO'
+                cuota_futura.estado = 'ABONO'
 
-    # Solo si ya cubrió toda la deuda exigible a hoy y sobra dinero, va a capital
+            interes_futuro = round(cuota_futura.interes or 0, 2)
+            v_int = min(abono_a_futura, interes_futuro)
+            v_cap = round(max(abono_a_futura - v_int, 0), 2)
+
+            pago_adelantado = Pago(
+                cuota_id=cuota_futura.id,
+                fecha=datetime.combine(fecha_pago, datetime.min.time()),
+                valor=abono_a_futura,
+                medio_pago=medio_pago,
+                tipo_pago='ADELANTO_CUOTA_SIGUIENTE',
+                dias_mora_pagados=0,
+                mora_generada_al_pago=0,
+                saldo_pendiente_antes_pago=saldo_pendiente_antes_pago,
+                total_exigible_al_pago=saldo_pendiente_antes_pago,
+                valor_aplicado_interes=round(v_int, 2),
+                valor_aplicado_capital=round(v_cap, 2),
+                valor_aplicado_mora=0
+            )
+            db.session.add(pago_adelantado)
+            db.session.flush()
+            pagos_creados_ids.append(pago_adelantado.id)
+
+    # ----------------------------------------------------------------------
+    # FASE 3: EXCEDENTE
+    # ----------------------------------------------------------------------
     if restante > 0:
-        credito.saldo_actual = round(credito.saldo_actual - restante, 2)
-        if credito.saldo_actual < 0:
-            credito.saldo_actual = 0
-        hubo_abono_extra_capital = True
+        credito.saldo_a_favor = round(float(getattr(credito, 'saldo_a_favor', 0) or 0) + restante, 2)
 
-    if hubo_abono_extra_capital and ultima_cuota_tocada:
-        recalcular_cuotas_pendientes(
-            credito=credito,
-            cuota_actual_numero=ultima_cuota_tocada.numero,
-            fecha_base=ultima_cuota_tocada.fecha_pago
-        )
-
-        db.session.commit()
-        return pagos_creados_ids
+    db.session.commit()
+    return pagos_creados_ids
 
 from datetime import datetime, date
 def calcular_componentes_liquidacion(credito, fecha_corte):
@@ -1568,25 +1641,43 @@ def ver_creditos(sede):
             credito_id=credito.id
         ).all()
 
+        if not cuotas:
+                continue
+
         saldo_actual_credito = sum(
             (c.saldo_pendiente or 0) + (c.interes_mora or 0)
             for c in cuotas
-            if c.estado not in ['PAGADA', 'LIQUIDADA']
+            if c.estado not in ['PAGADA', 'LIQUIDADA' ]
         )
 
-        if not cuotas:
-            continue
+        # 1. Determinar si hay morosidad a la fecha actual
+        tiene_mora = any(
+            c.estado == 'EN MORA' or 
+            (
+                (c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago) < hoy 
+                and ((c.saldo_pendiente or 0) > 0 or (c.interes_mora or 0) > 0)
+            )
+            for c in cuotas
+        )
 
-        if any(c.estado == 'EN MORA' for c in cuotas):
+        # 2. Verificar si el crédito se pagó por adelantado (tiene cuotas en el futuro)
+        tiene_cuotas_futuras = any(
+            (c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago) > hoy
+            for c in cuotas
+        )
+
+        if tiene_mora:
             estado_credito = 'EN MORA'
-        elif all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
-            estado_credito = 'CANCELADO'
-        elif any(c.estado == 'ABONO' for c in cuotas):
-            estado_credito = 'CON ABONOS'
+       
+        elif tiene_cuotas_futuras:
+            estado_credito = 'AL DIA'
+
+        elif  all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
+            estado_credito ='CANCELADO'
         else:
             estado_credito = 'AL DÍA'
 
-        if all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
+        if estado_credito == 'ADELANTADO':
             continue
 
         total_inyecciones = db.session.query(
@@ -1922,10 +2013,10 @@ def pagar_deuda_fecha(credito_id):
     credito = Credito.query.get_or_404(credito_id)
 
     if request.method == 'POST':
+        # 1. Lee la fecha REAL de pago ingresada en el calendario
         fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d').date()
         valor_pago = limpiar_valor_moneda(request.form['valor'])
         medio_pago = request.form['medio_pago']
-        observacion = request.form.get('observacion', '').strip()
 
         if medio_pago == 'OTRO':
             medio_pago_otro = request.form.get('medio_pago_otro', '').strip()
@@ -1936,6 +2027,7 @@ def pagar_deuda_fecha(credito_id):
         if valor_pago <= 0:
             return "El pago debe ser mayor que cero"
 
+        # Se aplica el pago calculando mora a la FECHA REAL DE PAGO
         pagos_ids = aplicar_pago_deuda_fecha(
             credito=credito,
             fecha_pago=fecha_pago,
@@ -1949,33 +2041,41 @@ def pagar_deuda_fecha(credito_id):
         ids_texto = ",".join(str(x) for x in pagos_ids)
         return redirect(url_for('ver_recibo_deuda_fecha', credito_id=credito.id, pagos=ids_texto))
 
-    actualizar_mora_credito(credito, datetime.utcnow().date())
-    db.session.commit()
+    # --- MODO GET ---
+    # Lee la fecha seleccionada en la URL (si existe) o toma la fecha de hoy por defecto
+    fecha_param = request.args.get('fecha_pago')
+    if fecha_param:
+        fecha_evaluar = datetime.strptime(fecha_param, '%Y-%m-%d').date()
+    else:
+        fecha_evaluar = datetime.utcnow().date()
+
+    # CAMBIO CLAVE: Actualiza la mora proyectada A LA FECHA SELECCIONADA, no a hoy
+    actualizar_mora_credito(credito, fecha_evaluar)
 
     cuotas = Cuota.query.filter(
         Cuota.credito_id == credito.id,
         Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
     ).order_by(Cuota.numero).all()
 
-    hoy = datetime.utcnow().date()
-    cuotas_exigibles_hoy = [
+    # Filtra cuotas vencidas/exigibles A LA FECHA EVALUADA
+    cuotas_exigibles = [
         cuota for cuota in cuotas
-        if (cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago) <= hoy
+        if (cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago) <= fecha_evaluar
     ]
 
-    cuota_pendiente_total = round(sum((c.saldo_pendiente or 0) for c in cuotas_exigibles_hoy), 2)
-    mora_total = round(sum((c.interes_mora or 0) for c in cuotas_exigibles_hoy), 2)
+    cuota_pendiente_total = round(sum((c.saldo_pendiente or 0) for c in cuotas_exigibles), 2)
+    mora_total = round(sum((c.interes_mora or 0) for c in cuotas_exigibles), 2)
     deuda_total_fecha = round(cuota_pendiente_total + mora_total, 2)
 
     return render_template(
         'pagar_deuda_fecha.html',
         credito=credito,
-        cuotas_exigibles_hoy=cuotas_exigibles_hoy,
+        cuotas_exigibles_hoy=cuotas_exigibles,
         cuota_pendiente_total=cuota_pendiente_total,
         mora_total=mora_total,
-        deuda_total_fecha=deuda_total_fecha
+        deuda_total_fecha=deuda_total_fecha,
+        fecha_seleccionada=fecha_evaluar.strftime('%Y-%m-%d')
     )
-
 
 @app.route('/abono_capital/<int:credito_id>', methods=['GET', 'POST'])
 def abono_capital(credito_id):

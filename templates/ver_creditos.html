@@ -577,10 +577,13 @@
                 <td>
                     {% if item.estado_credito == 'EN MORA' %}
                         <span class="estado-mora">EN MORA</span>
-                    {% elif item.estado_credito == 'AL DÍA' %}
+                    {% elif item.estado_credito == 'AL DÍA' or item.estado_credito == 'AL DIA' or item.estado_credito == 'CON ABONOS' %}
                         <span class="estado-dia">AL DÍA</span>
-                    {% else %}
+                    {% elif item.estado_credito == 'CANCELADO' %}
                         <span class="estado-cancelado">CANCELADO</span>
+                    {% else %}
+                        <!-- Por seguridad, cualquier otro estado activo se muestra AL DÍA -->
+                        <span class="estado-dia">AL DÍA</span>
                     {% endif %}
                 </td>
 

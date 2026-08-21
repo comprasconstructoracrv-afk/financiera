@@ -234,13 +234,20 @@
 
         <div class="form-grid">
 
-            <div>
-                <label>Fecha de pago</label>
-                <input type="date" name="fecha_pago" required>
+           <div>
+                <label for="fecha_pago">Fecha de pago</label>
+                <input 
+                    type="date" 
+                    id="fecha_pago" 
+                    name="fecha_pago" 
+                    value="{{ fecha_seleccionada }}" 
+                    required 
+                    onchange="recalcularMoraPorFecha(this.value)"
+                >
             </div>
 
             <div>
-                <label>Medio de pago</label>
+                <label for="medio_pago">Medio de pago</label>
                 <select name="medio_pago" id="medio_pago" onchange="mostrarOtroMedio()" required>
                     <option value="">Seleccione</option>
                     <option value="Bancolombia">Bancolombia</option>
@@ -282,6 +289,15 @@
 
         valor = valor.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
         input.value = "$ " + valor;
+    }
+
+
+    function recalcularMoraPorFecha(nuevaFecha) {
+        if (!nuevaFecha) return;
+        // Recarga la página enviando la nueva fecha para recalcular la mora exacta en backend
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('fecha_pago', nuevaFecha);
+        window.location.href = currentUrl.toString();
     }
     </script>
 </body>

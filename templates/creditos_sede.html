@@ -110,6 +110,10 @@
             border-left: 8px solid #198754;
         }
 
+        .card-reestructurados {
+            border-left: 8px solid #871919;
+        }
+
         .etiqueta {
             display: inline-block;
             padding: 6px 12px;
@@ -129,6 +133,11 @@
         .etiqueta-cancelados {
             background: #eaf7ef;
             color: #157347;
+        }
+
+        .etiqueta-reestructurados {
+            background: #eaf7ef;
+            color: #b42b08;
         }
 
         .card-opcion h2 {
@@ -168,6 +177,10 @@
 
         .btn-cancelados {
             background: linear-gradient(135deg, #198754, #157347);
+        }
+
+        .btn-reestructurados {
+            background: linear-gradient(135deg, #872919, #c22408);
         }
 
         @media (max-width: 900px) {
@@ -214,6 +227,7 @@
             <div class="card-opcion card-activos">
                 <div>
                     <div class="etiqueta etiqueta-activos">Vista operativa</div>
+
                     <h2>Créditos activos</h2>
                     <p>
                         Consulta los créditos vigentes de la sede, incluyendo los que están al día,
@@ -237,6 +251,23 @@
                 </div>
 
                 <a href="/ver_creditos_cancelados/{{ sede_actual }}" class="btn-abrir btn-cancelados">
+                    Abrir créditos cancelados
+                </a>
+            </div>
+
+
+
+            <div class="card-opcion card-reestructurados">
+                <div>
+                    <div class="etiqueta etiqueta-reestructurados">Histórico</div>
+                    <h2>Créditos reestructurados</h2>
+                    <p>
+                        Consulta los créditos reestructurados. Permite visualizar las condiciones previas de los créditos modificados
+                        del cliente, ya sea por pago  parcial o reestructuración.
+                    </p>
+                </div>
+
+                <a href="/ver_creditos_reestructurados/{{ sede_actual }}" class="btn-abrir btn-reestructurados">
                     Abrir créditos cancelados
                 </a>
             </div>
