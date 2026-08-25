@@ -402,14 +402,26 @@
                                 </select>
                             </div>
 
-                            <div class="campo campo-completo">
+                           <div class="campo campo-completo">
                                 <label>Sede</label>
-                            <select name="sede" required>
-                                <option value="">Seleccione una sede</option>
-                                {% for sede in sedes %}
-                                    <option value="{{ sede.nombre }}">{{ sede.nombre }}</option>
-                                {% endfor %}
-                            </select>
+                                {% if session.get('rol', '')|lower == 'admin' %}
+                                    <!-- El Administrador puede elegir cualquier sede -->
+                                    <select name="sede" required>
+                                        <option value="">Seleccione una sede</option>
+                                        {% for sede in sedes %}
+                                            <option value="{{ sede.nombre }}">{{ sede.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% else %}
+                                    <!-- Muestra la sede bloqueada visualmente -->
+                                    <input type="text" 
+                                        value="{{ session.get('user', '')|upper }}" 
+                                        disabled 
+                                        style="background-color: #e9ecef; cursor: not-allowed;">
+
+                                    <!-- Envía el valor real de la sede al backend POST -->
+                                    <input type="hidden" name="sede" value="{{ session.get('user')|upper }}">
+                                {% endif %}
                             </div>
                         </div>
                     </div>

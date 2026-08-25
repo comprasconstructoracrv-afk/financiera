@@ -324,9 +324,13 @@ def actualizar_mora_credito(credito, fecha_corte=None):
     ).order_by(Cuota.numero).all()
 
     for cuota in cuotas_credito:
+
+        if cuota.estado in [ 'LIQUIDADA', 'REESTRUCTURADO']:
+            continue
+        
         fecha_vencimiento = cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago
 
-        if cuota.estado == 'LIQUIDADA':
+        if cuota.estado == 'LIQUIDADA' :
             cuota.saldo_pendiente = 0
             cuota.dias_mora = 0
             cuota.interes_mora = 0
@@ -836,7 +840,7 @@ def recalcular_cuotas_variables_pendientes(credito, cuota_actual_numero, fecha_b
 
 from datetime import datetime, date
 
-def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
+def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago, observacion=""):
     # 0. Normalizar 'fecha_pago' para asegurar que sea siempre un objeto date puro
     if isinstance(fecha_pago, str):
         fecha_pago = datetime.strptime(fecha_pago, '%Y-%m-%d').date()
@@ -941,7 +945,8 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
                 total_exigible_al_pago=total_exigible_al_pago,
                 valor_aplicado_interes=round(valor_aplicado_interes, 2),
                 valor_aplicado_capital=round(valor_aplicado_capital, 2),
-                valor_aplicado_mora=round(valor_aplicado_mora, 2)
+                valor_aplicado_mora=round(valor_aplicado_mora, 2),
+                observacion=observacion if observacion else "Pago a fecha registrado en el sistema"
             )
             db.session.add(pago)
             db.session.flush()
@@ -960,8 +965,13 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
                 continue
 
             abono_a_futura = min(restante, saldo_pendiente_antes_pago)
+            valor_capital= abono_a_futura
+
             cuota_futura.saldo_pendiente = round(saldo_pendiente_antes_pago - abono_a_futura, 2)
             restante = round(restante - abono_a_futura, 2)
+
+            if hasattr(cuota_futura, 'capital') and cuota_futura.capital is not None:
+                cuota_futura.capital = round(max((cuota_futura.capital or 0) - valor_capital, 0), 2)
 
             cuota_futura.total_cobro = round(cuota_futura.saldo_pendiente + (cuota_futura.interes_mora or 0), 2)
             
@@ -981,14 +991,15 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago):
                 fecha=datetime.combine(fecha_pago, datetime.min.time()),
                 valor=abono_a_futura,
                 medio_pago=medio_pago,
-                tipo_pago='ADELANTO_CUOTA_SIGUIENTE',
+                tipo_pago='ABONO_CAPITAL_SIGUIENTE',
                 dias_mora_pagados=0,
                 mora_generada_al_pago=0,
                 saldo_pendiente_antes_pago=saldo_pendiente_antes_pago,
                 total_exigible_al_pago=saldo_pendiente_antes_pago,
-                valor_aplicado_interes=round(v_int, 2),
-                valor_aplicado_capital=round(v_cap, 2),
-                valor_aplicado_mora=0
+                valor_aplicado_interes=0.0,
+                valor_aplicado_capital=round(valor_capital, 2),
+                valor_aplicado_mora=0.0,
+                observacion=observacion if observacion else "Pago a fecha registrado en el sistema"
             )
             db.session.add(pago_adelantado)
             db.session.flush()
@@ -1565,6 +1576,7 @@ def dashboard():
         en_mora = 0
         cancelados = 0
         al_dia = 0
+        reestructurados=0
 
         for credito in creditos:
             cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
@@ -1576,15 +1588,19 @@ def dashboard():
                 en_mora += 1
             elif all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
                 cancelados += 1
-            else:
+            elif all (c.estado in ['PENDIENTE', 'PAGADA', 'ABONO', 'AL DIA'] for c in cuotas):
                 al_dia += 1
+            else:
+                 reestructurados+= 1
 
         resumen_sedes.append({
             'sede': sede,
             'total': total,
             'en_mora': en_mora,
             'cancelados': cancelados,
-            'al_dia': al_dia
+            'al_dia': al_dia,
+            'reestructurados': reestructurados
+            
         })
 
     # Totales generales para resumen en el dashboard
@@ -1592,6 +1608,7 @@ def dashboard():
     creditos_en_mora = sum(s['en_mora'] for s in resumen_sedes)
     creditos_cancelados = sum(s['cancelados'] for s in resumen_sedes)
     creditos_al_dia = sum(s['al_dia'] for s in resumen_sedes)
+    creditos_reestructurados = sum(s['reestructurados'] for s in resumen_sedes)
 
     return render_template(
         'dashboard.html',
@@ -1599,7 +1616,8 @@ def dashboard():
         total_creditos=total_creditos,
         creditos_en_mora=creditos_en_mora,
         creditos_cancelados=creditos_cancelados,
-        creditos_al_dia=creditos_al_dia
+        creditos_al_dia=creditos_al_dia,
+        creditos_reestructurados=creditos_reestructurados
     )
 
 @app.route('/creditos/<sede>')
@@ -1636,13 +1654,15 @@ def ver_creditos(sede):
 
     for credito in creditos:
         #actualizar_mora_credito(credito, hoy)
-
-        cuotas = Cuota.query.filter_by(
-            credito_id=credito.id
-        ).all()
+        cuotas = Cuota.query.filter_by( credito_id=credito.id ).all()
 
         if not cuotas:
-                continue
+                        continue
+
+        es_reestructurado= any(c.estado == 'REESTRUCTURADO' for c in cuotas)
+
+        if es_reestructurado:
+            continue
 
         saldo_actual_credito = sum(
             (c.saldo_pendiente or 0) + (c.interes_mora or 0)
@@ -1676,6 +1696,9 @@ def ver_creditos(sede):
             estado_credito ='CANCELADO'
         else:
             estado_credito = 'AL DÍA'
+
+        if all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
+            continue
 
         if estado_credito == 'ADELANTADO':
             continue
@@ -1746,6 +1769,108 @@ def ver_creditos_cancelados(sede):
         sede_actual=sede
     )
 
+@app.route('/ver_creditos_reestructurados/<sede>')
+def ver_creditos_reestructurados(sede):
+    if 'user' not in session:
+        return redirect('/login')
+
+    sede = sede.strip().upper()
+
+    creditos = Credito.query.filter_by(
+        sede=sede
+    ).order_by(Credito.fecha_creacion.desc()).all()
+
+    resumen_creditos = []
+
+    for credito in creditos:
+        cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+
+        # Un crédito es REESTRUCTURADO si alguna de sus cuotas fue marcada así
+        if any(c.estado == 'REESTRUCTURADO' for c in cuotas):
+            saldo_actual_credito = sum(
+                (c.saldo_pendiente or 0) + (c.interes_mora or 0)
+                for c in cuotas
+                if c.estado not in ['PAGADA', 'LIQUIDADA']
+            )
+
+            resumen_creditos.append({
+                'credito': credito,
+                'estado_credito': 'REESTRUCTURADO',
+                'saldo_actual_credito': saldo_actual_credito
+            })
+
+    return render_template(
+        'ver_creditos_reestructurados.html',
+        resumen_creditos=resumen_creditos,
+        sede_actual=sede
+    )
+
+# 1. Ruta para mostrar la pantalla de confirmación
+@app.route('/formulario_reestructurar/<int:credito_id>')
+def formulario_reestructurar(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+    return render_template('formulario_reestructurar.html', credito=credito)
+
+
+@app.route('/reestructurar_credito/<int:credito_id>', methods=['GET', 'POST'])
+def reestructurar_credito(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    cuotas_activas = Cuota.query.filter(
+        Cuota.credito_id == credito.id,
+        Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
+    ).order_by(Cuota.numero).all()
+
+    if not cuotas_activas:
+        return "Este crédito ya se encuentra liquidado o reestructurado"
+
+    if request.method == 'POST':
+        responsable = request.form.get('responsable', '').strip()
+        observacion = request.form.get('observacion', '').strip()
+
+        if not responsable or not observacion:
+            flash('Todos los campos son obligatorios.', 'error')
+            return redirect(url_for('reestructurar_credito', credito_id=credito.id))
+
+        # Al igual que en la liquidación: congelamos cobros y cerramos los estados
+        for cuota in cuotas_activas:
+            cuota.saldo_pendiente = 0
+            cuota.dias_mora = 0
+            cuota.interes_mora = 0
+            cuota.total_cobro = 0
+            cuota.estado = 'REESTRUCTURADO'
+
+        credito.saldo_actual = 0
+        credito.cuota_mensual = 0
+
+        # Guardar la observación del responsable
+        nota_registro = f"REESTRUCTURADO por {responsable}: {observacion}"
+        if hasattr(credito, 'observacion') and credito.observacion:
+            credito.observacion += f" | {nota_registro}"
+        elif hasattr(credito, 'observacion'):
+            credito.observacion = nota_registro
+
+        db.session.commit()
+
+        flash('El crédito ha sido reestructurado con éxito.', 'success')
+        return redirect(url_for('ver_creditos_reestructurados', sede=credito.sede))
+
+    # --- GET ---
+    actualizar_mora_credito(credito, datetime.utcnow().date())
+    db.session.commit()
+
+    return render_template(
+        'formulario_reestructurar.html',
+        credito=credito,
+        cuotas_activas=cuotas_activas
+    )
+
 @app.route('/ver_cuotas/<int:credito_id>')
 def ver_cuotas(credito_id):
     if 'user' not in session:
@@ -1804,7 +1929,7 @@ def ver_cuotas(credito_id):
     for cuota in cuotas:
         fecha_cuota = cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago
 
-        if cuota.estado in ['PENDIENTE', 'EN MORA', 'ABONO'] and fecha_cuota <= hoy:
+        if cuota.estado in ['PENDIENTE', 'EN MORA', 'ABONO'] and cuota.estado !='REESTRUCTURADO' and fecha_cuota <= hoy:
             cuotas_exigibles_hoy.append(cuota)
 
     cuota_pendiente_total = round(
@@ -1818,8 +1943,9 @@ def ver_cuotas(credito_id):
     )
 
     deuda_total_fecha = round(cuota_pendiente_total + mora_total, 2)
-
-    if any(c.estado == 'EN MORA' for c in cuotas):
+    if any(c.estado == 'REESTRUCTURADO' for c in cuotas):
+        estado_credito = 'REESTRUCTURADO'
+    elif any(c.estado == 'EN MORA' for c in cuotas):
         estado_credito = 'EN MORA'
     elif all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
         estado_credito = 'CANCELADO'
@@ -2017,6 +2143,7 @@ def pagar_deuda_fecha(credito_id):
         fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d').date()
         valor_pago = limpiar_valor_moneda(request.form['valor'])
         medio_pago = request.form['medio_pago']
+        observacion = request.form.get('observacion','').strip()
 
         if medio_pago == 'OTRO':
             medio_pago_otro = request.form.get('medio_pago_otro', '').strip()
@@ -2032,7 +2159,8 @@ def pagar_deuda_fecha(credito_id):
             credito=credito,
             fecha_pago=fecha_pago,
             valor_pago=valor_pago,
-            medio_pago=medio_pago
+            medio_pago=medio_pago,
+            observacion=observacion
         )
 
         if not pagos_ids:
@@ -3731,6 +3859,10 @@ def ver_recibo_deuda_fecha(credito_id):
 
     filas = []
     total_pagado = 0
+    observacion_general=""
+
+    if pagos:
+        observacion_general=pagos[0].observacion or ""
 
     for pago in pagos:
         cuota = Cuota.query.get(pago.cuota_id)
@@ -3751,7 +3883,8 @@ def ver_recibo_deuda_fecha(credito_id):
         credito=credito,
         pagos=pagos,
         filas=filas,
-        total_pagado=round(total_pagado, 2)
+        total_pagado=round(total_pagado, 2),
+        observacion=observacion_general
     )
 
 @app.route('/extracto_credito_pdf/<int:credito_id>')

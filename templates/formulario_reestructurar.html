@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Confirmar Reestructuración</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f9;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+        }
+        .card-reestructurar {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 550px;
+            width: 100%;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        }
+        h2 {
+            margin-top: 0;
+            color: #d97706;
+        }
+        .info-credito {
+            background: #fffbe3;
+            border-left: 4px solid #f59e0b;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #333;
+        }
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        .acciones {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 25px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            text-align: center;
+        }
+        .btn-cancelar {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-confirmar {
+            background: #d97706;
+            color: white;
+        }
+        .btn-confirmar:hover {
+            background: #b45309;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card-reestructurar">
+    <h2>Reestructurar Crédito Número {{ credito.numero_pagare }}</h2>
+    
+    <div class="info-credito">
+        <p><strong>Cliente:</strong> {{ credito.cliente }}</p>
+        <p><strong>Monto Solicitado:</strong> {{ credito.monto | cop }}</p>
+        <p><strong>Sede:</strong> {{ credito.sede }}</p>
+    </div>
+
+    <form action="{{ url_for('reestructurar_credito', credito_id=credito.id) }}" method="POST">
+        <div class="form-group">
+            <label for="responsable">Nombre del Responsable:</label>
+            <input type="text" id="responsable" name="responsable" required class="form-control" placeholder="Escribe tu nombre completo">
+        </div>
+
+        <div class="form-group">
+            <label for="observacion">Observación / Motivo:</label>
+            <textarea id="observacion" name="observacion" rows="4" required class="form-control" placeholder="Describe los términos o causas de la reestructuración..."></textarea>
+        </div>
+
+        <div class="acciones">
+            <a href="/ver_cuotas/{{ credito.id }}" class="btn btn-cancelar">Volver</a>
+            <button type="submit" class="btn btn-confirmar">Confirmar Reestructuración</button>
+        </div>
+    </form>
+</div>
+
+</body>
+</html>

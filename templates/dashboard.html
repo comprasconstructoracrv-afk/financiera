@@ -132,7 +132,7 @@
 
         .stats {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(100px,2fr));
             gap: 12px;
         }
 
@@ -158,6 +158,7 @@
         .mora { color: #dc3545; }
         .dia { color: #198754; }
         .cancelado { color: #0d6efd; }
+        .reestructurado { color: #fda90d; }
         .total { color: #111827; }
 
         .modulo-reporte {
@@ -416,9 +417,10 @@
                 <p>Panel general de cartera por sede</p>
 
                 <div class="acciones-dashboard">
-                     {% if session['rol'] == 'admin' %}
+
                     <a href="/crear_credito" class="btn-dash azul">Crear crédito</a>
 
+                     {% if session['rol'] == 'admin' %}
                     <a href="/configuracion_tasa" class="btn-dash verde">Configurar tasa mora</a>
 
                     <a href="/agregar_sede" class="btn-dash morado">Añadir sede</a>
@@ -464,6 +466,12 @@
                         <div class="stat-label">Al día</div>
                         <div class="stat-value dia">{{ s.al_dia }}</div>
                     </div>
+
+                    <div class="stat-box">
+                        <div class="stat-label">Reestructurados</div>
+                        <div class="stat-value total">{{ s.reestructurados }}</div>
+                    </div>
+
                 </div>
             </a>
             {% endfor %}
@@ -496,6 +504,13 @@
                         <div class="stat-label">Al día</div>
                         <div class="stat-value dia">{{ creditos_al_dia }}</div>
                     </div>
+
+                    <div class="stat-box">
+                        <div class="stat-label"> Reestructurados </div>
+                        <div class="stat-value reestructurado">{{ creditos_reestructurados }}</div>
+                    </div>
+
+
                 </div>
             </div>
         </div>

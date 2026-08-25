@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Créditos Reestructurados</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            padding: 30px;
+        }
+
+        .contenedor {
+            max-width: 1800px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+        }
+
+        .header-creditos {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .header-izquierda {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .header-izquierda h1 {
+            margin: 0;
+            font-size: 38px;
+        }
+
+        .header-izquierda p {
+            margin: 0;
+            font-size: 15px;
+            color: #555;
+        }
+
+        .header-logo {
+            flex-shrink: 0;
+            text-align: right;
+        }
+
+        .header-logo img {
+            max-height: 200px;
+            width: 180px;
+        }
+
+        .acciones-superiores {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 18px;
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            transition: 0.2s ease;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            opacity: 0.96;
+        }
+
+        .btn-volver {
+            background: linear-gradient(135deg, #6c757d, #495057);
+        }
+
+        .btn-volver-sede {
+            background: linear-gradient(135deg, #1677ff, #0d6efd);
+        }
+
+        .btn-cuotas {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1677ff, #0d6efd);
+            color: white;
+            text-decoration: none;
+            padding: 9px 15px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 13px;
+            box-shadow: 0 6px 16px rgba(13, 110, 253, 0.18);
+        }
+
+        .btn-extracto {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #7c3aed, #6f42c1);
+            color: white;
+            text-decoration: none;
+            padding: 9px 15px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 13px;
+            box-shadow: 0 6px 16px rgba(111, 66, 193, 0.18);
+        }
+
+        .btn-editar {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            text-decoration: none;
+            padding: 9px 15px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 13px;
+            box-shadow: 0 6px 16px rgba(245, 158, 11, 0.18);
+        }
+
+        .tabla-wrapper {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .tabla-creditos {
+            width: 100%;
+            min-width: 1500px;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        th, td {
+            padding: 14px 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+            vertical-align: middle;
+            word-wrap: break-word;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+
+        td {
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .cliente-columna {
+            min-width: 220px;
+            max-width: 260px;
+            text-align: left;
+            white-space: normal;
+            word-break: break-word;
+            font-weight: bold;
+        }
+
+        .valor-columna {
+            white-space: nowrap;
+            min-width: 110px;
+        }
+
+        .estado-reestructurado {
+            color: #d97706;
+            font-weight: bold;
+        }
+
+        .buscador-box {
+            margin: 20px 0;
+        }
+
+        .buscador-box input {
+            width: 100%;
+            max-width: 520px;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="contenedor">
+    <div class="header-creditos">
+        <div class="header-izquierda">
+            <h1>Créditos Reestructurados</h1>
+            <p><strong>Sede:</strong> {{ sede_actual }}</p>
+            <p>Historial de créditos congelados por reestructuración. Lectura protegida sin ediciones directas.</p>
+
+            <div class="acciones-superiores">
+                <a href="/creditos/{{ sede_actual }}" class="btn btn-volver-sede">Volver a sede</a>
+                <a href="/dashboard" class="btn btn-volver">Inicio</a>
+            </div>
+        </div>
+
+        <div class="header-logo">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo empresa">
+        </div>
+    </div>
+
+    <div class="buscador-box">
+        <input
+            type="text"
+            id="buscadorCreditosReestructurados"
+            placeholder="Buscar por cliente, pagaré o fecha..."
+            onkeyup="filtrarTablaReestructurados()"
+        >
+    </div>
+
+    <div class="tabla-wrapper">
+        <table class="tabla-creditos" id="tablaCreditosReestructurados">
+            <colgroup>
+                <col style="width: 90px;">
+                <col style="width: 110px;">
+                <col style="width: 250px;">
+                <col style="width: 140px;">
+                <col style="width: 120px;">
+                <col style="width: 150px;">
+                <col style="width: 80px;">
+                <col style="width: 70px;">
+                <col style="width: 130px;">
+                <col style="width: 120px;">
+                <col style="width: 120px;">
+                <col style="width: 120px;">
+                <col style="width: 120px;">
+                <col style="width: 120px;">
+            </colgroup>
+            <thead>
+                <tr>
+                    <th>Número de pagaré</th>
+                    <th>Fecha inicio</th>
+                    <th>Cliente</th>
+                    <th>Monto solicitado</th>
+                    <th>Abono inicial</th>
+                    <th>Monto financiado</th>
+                    <th>Interés</th>
+                    <th>Cuotas</th>
+                    <th>Cuota mensual</th>
+                    <th>Estado</th>
+                    <th>Saldo actual</th>
+                    <th>Ver cuotas</th>
+                    <th>Extracto</th>
+                    <th>Editar</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for item in resumen_creditos %}
+                <tr>
+                    <td>{{ item.credito.numero_pagare }}</td>
+                    <td>{{ item.credito.fecha_creacion.strftime('%d/%m/%Y') if item.credito.fecha_creacion else '' }}</td>
+                    <td class="cliente-columna">{{ item.credito.cliente }}</td>
+                    <td class="valor-columna">{{ item.credito.monto | cop }}</td>
+                    <td class="valor-columna">{{ item.credito.abono_inicial | cop }}</td>
+                    <td class="valor-columna">{{ item.credito.monto_financiado | cop }}</td>
+                    <td>{{ item.credito.interes }}%</td>
+                    <td>{{ item.credito.cuotas }}</td>
+                    <td class="valor-columna">{{ item.credito.cuota_mensual | cop }}</td>
+                    <td><span class="estado-reestructurado">{{ item.estado_credito }}</span></td>
+                    <td class="valor-columna">{{ item.credito.saldo_actual | cop }}</td>
+                    <td>
+                        <a href="/ver_cuotas/{{ item.credito.id }}" class="btn-cuotas">Ver cuotas</a>
+                    </td>
+                    <td>
+                        <a href="/extracto_credito/{{ item.credito.id }}" class="btn-extracto">Extracto</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="14">No hay créditos reestructurados en esta sede.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function filtrarTablaReestructurados() {
+    const input = document.getElementById("buscadorCreditosReestructurados");
+    const filtro = input.value.toLowerCase();
+    const tabla = document.getElementById("tablaCreditosReestructurados");
+    const filas = tabla.getElementsByTagName("tr");
+
+    for (let i = 1; i < filas.length; i++) {
+        const textoFila = filas[i].innerText.toLowerCase();
+        filas[i].style.display = textoFila.includes(filtro) ? "" : "none";
+    }
+}
+</script>
+
+</body>
+</html>
