@@ -917,9 +917,9 @@
 
             <a href="{{ url_for('ver_pagare', credito_id=credito.id) }}" class="btn-ver-pagare">Ver pagaré</a>    
             
-            {% if session['rol']|lower == 'admin' %}
-                <a href="/formulario_reestructurar/{{ credito.id }}" class="btn-accion btn-reestructurar">Reestructurar crédito</a>
-            {% endif %}
+            
+            <a href="/formulario_reestructurar/{{ credito.id }}" class="btn-accion btn-reestructurar">Reestructurar crédito</a>
+           
 
         </div>
     </div>
