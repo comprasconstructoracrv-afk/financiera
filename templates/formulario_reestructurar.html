@@ -99,7 +99,10 @@
 
         <div class="acciones">
             <a href="/ver_cuotas/{{ credito.id }}" class="btn btn-cancelar">Volver</a>
+
+            {% if session['rol'] == 'admin' %}
             <button type="submit" class="btn btn-confirmar">Confirmar Reestructuración</button>
+            {% endif %}
         </div>
     </form>
 </div>
