@@ -925,7 +925,7 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago, observ
     # 2. Obtener cuotas activas
     todas_cuotas_pendientes = Cuota.query.filter(
         Cuota.credito_id == credito.id,
-        Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
+        Cuota.estado.in_(['PENDIENTE', 'EN MORA','ABONO'])
     ).order_by(Cuota.numero.asc()).all()
 
     cuotas_exigibles = [
@@ -934,12 +934,14 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago, observ
     ]
 
     restante = round(float(valor_pago), 2)
-    pagos_creados_ids = []
+
     ultima_cuota_procesada_numero = 0
 
     # ----------------------------------------------------------------------
     # FASE 1: PAGAR MORA Y CUOTAS VENCIDAS/EXIGIBLES
     # ----------------------------------------------------------------------
+    pagos_creados_ids = []
+
     for cuota in cuotas_exigibles:
         if restante <= 0:
             break
@@ -977,6 +979,12 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago, observ
             if valor_aplicado_capital > 0 and credito.saldo_actual:
                 credito.saldo_actual = round(max(credito.saldo_actual - valor_aplicado_capital, 0), 2)
 
+       # 3. Si es la última cuota exigible y AÚN SOBRA DINERO (Ej: los $8.563 de excedente)
+        excedente_cuota = 0.0
+        if restante > 0 and cuota == cuotas_exigibles[-1]:
+            excedente_cuota = round(restante, 2)
+            valor_aplicado_capital= round(valor_aplicado_capital + excedente_cuota, 2)
+
         cuota.saldo_pendiente = round(max(cuota.saldo_pendiente, 0), 2)
         cuota.interes_mora = round(max(cuota.interes_mora, 0), 2)
         cuota.total_cobro = round(cuota.saldo_pendiente + cuota.interes_mora, 2)
@@ -987,7 +995,7 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago, observ
         else:
             cuota.estado = 'ABONO'
 
-        monto_pago = round(valor_aplicado_cuota + valor_aplicado_mora, 2)
+        monto_pago = round(valor_aplicado_cuota + valor_aplicado_mora +excedente_cuota, 2)
         if monto_pago > 0:
             pago = Pago(
                 cuota_id=cuota.id,
@@ -1009,28 +1017,29 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago, observ
             pagos_creados_ids.append(pago.id)
 
     # ----------------------------------------------------------------------
-    # FASE 2: SI SOBRA DINERO -> ABONO A CAPITAL + REESTRUCTURACIÓN
+    # FASE 2: SI SOBRA DINERO -> APLICAR EXCEDENTE AL SALDO RESTANTE DE LA CUOTA ACTUAL
     # ----------------------------------------------------------------------
     if restante > 0:
         monto_excedente = round(restante, 2)
 
-        # 1. Descontar el abono a capital directamente del saldo actual del crédito
-        credito.saldo_actual = round(max((credito.saldo_actual or 0) - monto_excedente, 0), 2)
+        # 1. Obtener la última cuota procesada/pagada
+        cuota_actual = Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.numero == ultima_cuota_procesada_numero
+        ).first()
+
+        # 2. Descontar del saldo restante de la cuota actual
+        if cuota_actual:
+            if hasattr(cuota_actual, 'saldo_restante') and cuota_actual.saldo_restante:
+                cuota_actual.saldo_restante = round(max(cuota_actual.saldo_restante - monto_excedente, 0), 2)
+
+        # 3. Actualizar el saldo general del crédito
+        if credito.saldo_actual:
+            credito.saldo_actual = round(max(credito.saldo_actual - monto_excedente, 0), 2)
+
         db.session.flush()
 
-        # 2. Guardar el registro en AbonoCapital
-        abono = AbonoCapital(
-            credito_id=credito.id,
-            fecha=datetime.combine(fecha_pago, datetime.min.time()),
-            valor=monto_excedente,
-            medio_pago=medio_pago,
-            observacion=observacion if observacion else "Abono a capital por excedente de pago"
-        )
-        db.session.add(abono)
-        db.session.flush()
-        pagos_creados_ids.append(abono.id)
-
-        # 3. Disparar el recálculo enviando la última cuota pagada como número de corte
+        # 4. Disparar recálculo sobre las cuotas pendientes
         if getattr(credito, 'tipo_cuota', None) == 'VARIABLE' and getattr(credito, 'tipo_interes', None) == 'VARIABLE':
             recalcular_cuotas_variables_pendientes(
                 credito=credito,
@@ -3884,13 +3893,10 @@ def ver_recibo_deuda_fecha(credito_id):
     if not pagos_param:
         return redirect(f'/ver_cuotas/{credito.id}')
 
-    ids = []
-    for item in pagos_param.split(','):
-        item = item.strip()
-        if item.isdigit():
-            ids.append(int(item))
+    ids = [int(item.strip()) for item in pagos_param.split(',') if item.isdigit()]
 
-    pagos = Pago.query.filter(Pago.id.in_(ids)).order_by(Pago.fecha.asc()).all()
+
+    pagos = Pago.query.filter(Pago.id.in_(ids)).order_by(Pago.id.asc()).all()
 
     filas = []
     total_pagado = 0
