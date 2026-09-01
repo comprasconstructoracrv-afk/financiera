@@ -190,9 +190,8 @@
         }
 
         @media print {
-
             @page {
-                size: landscape;
+                size: portrait;
                 margin: 10mm;
             }
 
@@ -205,11 +204,8 @@
                 line-height: 1.2;
             }
 
-            /* Oculta todo lo general */
-            .barra-acciones,
-            .header,
-            .pie,
-            .bloque:not(.bloque-tabla) {
+            /* Oculta únicamente la barra de acciones y el pie general si deseas */
+            .barra-acciones {
                 display: none !important;
             }
 
@@ -224,98 +220,43 @@
                 background: white !important;
             }
 
-            /* Solo muestra el bloque de la tabla */
-            .bloque-tabla {
-                display: flex !important;
-                flex-direction: column;
-                align-items: center;
-                justify-content: flex-start;
-                margin: 0 auto !important;
-                padding: 0 !important;
-                border: none !important;
-                background: white !important;
-                break-inside: avoid;
-                page-break-inside: avoid;
-                width: 100% !important;
-                position: relative;
-            }
-
-            /* Oculta el título grande de pantalla */
-            .bloque-tabla h2 {
-                display: none !important;
-            }
-
-            /* Encabezado de impresión */
-            .encabezado-impresion-tabla {
+            /* Permite mostrar todos los bloques necesarios al imprimir */
+            .bloque {
                 display: block !important;
-                margin-bottom: 10px;
-                text-align: center;
-                width: 100%;
-                position: relative;
-                z-index: 2;
+                background: white !important;
+                border: 1px solid #ccc !important;
+                box-shadow: none !important;
+                margin-bottom: 15px !important;
             }
 
-            /* Marca de agua */
-            .marca-agua-impresion {
-                display: flex !important;
-                justify-content: center;
-                align-items: center;
-                position: absolute;
-                inset: 0;
-                z-index: 0;
-                pointer-events: none;
+            .grid-datos {
+                display: grid !important;
+                grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+                gap: 8px !important;
             }
 
-            .marca-agua-impresion img {
-                width: 320px;
-                max-width: 40%;
-                opacity: 0.08;
+            .dato {
+                background: #f9f9f9 !important;
+                border: 1px solid #ddd !important;
+                padding: 8px !important;
             }
 
             .tabla-wrapper {
                 overflow: visible !important;
                 margin: 0 auto !important;
-                padding: 0 !important;
-                border-radius: 0 !important;
-                width: 94% !important;
-                position: relative;
-                z-index: 2;
+                width: 100% !important;
             }
 
             table {
                 width: 100% !important;
                 min-width: 0 !important;
-                table-layout: fixed !important;
-                border-collapse: collapse !important;
                 font-size: 10px !important;
-                page-break-inside: avoid !important;
-                margin: 0 auto !important;
-                background: transparent !important;
             }
 
             th, td {
                 padding: 4px 6px !important;
                 font-size: 10px !important;
                 white-space: nowrap !important;
-                text-align: center !important;
-                background: transparent !important;
-            }
-
-            th {
-                font-weight: bold !important;
-            }
-
-            .titulo-impresion {
-                font-size: 16px !important;
-                font-weight: bold !important;
-                color: #102a43 !important;
-                margin-bottom: 2px !important;
-            }
-
-            .subtitulo-impresion {
-                font-size: 11px !important;
-                color: #4b5563 !important;
-                margin-bottom: 6px !important;
             }
         }
 
@@ -323,29 +264,6 @@
             .grid-datos {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
-        }
-
-        .encabezado-impresion-tabla {
-            display: none;
-        }
-
-        .titulo-impresion {
-            font-size: 18px;
-            font-weight: bold;
-            color: #102a43;
-            text-align: center;
-            margin-bottom: 4px;
-        }
-
-        .subtitulo-impresion {
-            font-size: 11px;
-            color: #4b5563;
-            text-align: center;
-            margin-bottom: 10px;
-        }
-
-        .marca-agua-impresion {
-            display: none;
         }
     </style>
 </head>
@@ -373,6 +291,7 @@
                 </div>
             </div>
 
+            <!-- DATOS DEL CRÉDITO -->
             <div class="bloque">
                 <h2>Datos del crédito</h2>
 
@@ -439,17 +358,8 @@
                 </div>
             </div>
 
-            <div class="encabezado-impresion-tabla">
-                <div class="titulo-impresion">PLAN DE PAGOS</div>
-                <div class="subtitulo-impresion">
-                    Pagaré N° {{ credito.numero_pagare }}
-                </div>
-            </div>
-
-            <div class="marca-agua-impresion">
-                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
-            </div>
-
+            <!-- TABLA DE AMORTIZACIÓN -->
+            <div class="bloque">
                 <h2>Tabla de amortización</h2>
 
                 <div class="tabla-wrapper">
