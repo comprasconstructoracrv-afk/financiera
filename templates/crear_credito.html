@@ -97,6 +97,9 @@
             display: flex;
             flex-direction: column;
         }
+        .campo-obligatorio {
+            color: #dc3545;
+        }
 
         .campo-completo {
             grid-column: 1 / -1;
@@ -296,13 +299,13 @@
 
                         <div class="grid-formulario">
                             <div class="campo campo-completo">
-                                <label>Nombre completo</label>
+                                <label>Nombre completo <span class="campo-obligatorio">*</span></label>
                                 <input type="text" name="cliente" required>
                             </div>
 
                             <div class="grupo-formulario">
 
-                                <label>Tipo de documento</label>
+                                <label>Tipo de documento<span class="campo-obligatorio">*</span></label>
 
                                 <select name="tipo_documento" required>
                                     <option value="CC">CC - Cédula de ciudadanía</option>
@@ -311,24 +314,24 @@
                                     <option value="OTRO">OTRO</option>
                                 </select>
 
-                            </div>
-
+                            </div>   
+     
                             <div class="grupo-formulario">
 
-                                <label>Número de documento</label>
+                                <label>Número de documento<span class="campo-obligatorio">*</span></label>
 
                                 <input type="text" name="cedula_cliente" id="cedula_cliente" oninput="formatearNumeroDocumento(this)">
 
                             </div>
 
                             <div class="campo">
-                                <label>Correo electrónico</label>
-                                <input type="email" name="correo_cliente">
+                                <label>Correo electrónico<span class="campo-obligatorio">*</span></label>
+                                <input type="email" name="correo_cliente" required>
                             </div>
 
                             <div class="campo">
-                                <label>Teléfono 1</label>
-                                <input type="text" name="telefono_1">
+                                <label>Teléfono 1<span class="campo-obligatorio">*</span></label>
+                                <input type="text" name="telefono_1" required>
                             </div>
 
                             <div class="campo">
@@ -337,8 +340,8 @@
                             </div>
 
                             <div class="campo campo-completo">
-                                <label>Dirección</label>
-                                <input type="text" name="direccion_cliente">
+                                <label>Dirección<span class="campo-obligatorio">*</span></label>
+                                <input type="text" name="direccion_cliente" required>
                             </div>
                         </div>
                     </div>
@@ -354,12 +357,12 @@
                             </div>
 
                             <div class="campo">
-                                <label>Fecha del crédito</label>
+                                <label>Fecha del crédito<span class="campo-obligatorio">*</span></label>
                                 <input type="date" name="fecha_credito" required>
                             </div>
 
-                            <div class="campo">
-                                <label>Monto solicitado</label>
+                            <div class="campo">  
+                                <label>Monto solicitado<span class="campo-obligatorio">*</span></label>
                                 <input type="text" name="monto" class="input-moneda" inputmode="numeric" required>
                             </div>
 
@@ -369,17 +372,17 @@
                             </div>
 
                             <div class="campo">
-                                <label>Interés mensual (%)</label>
+                                <label>Interés mensual (%)<span class="campo-obligatorio">*</span></label>
                                 <input type="number" name="interes" step="0.01" required>
                             </div>
 
                             <div class="campo">
-                                <label>Cuotas</label>
+                                <label>Cuotas<span class="campo-obligatorio">*</span></label>
                                 <input type="number" name="cuotas" required>
                             </div>
 
                             <div class="form-group">
-                                <label>Tipo de cuota</label>
+                                <label>Tipo de cuota<span class="campo-obligatorio">*</span></label>
                                 <select name="tipo_cuota" required>
                                     <option value="FIJA">Cuota fija</option>
                                     <option value="VARIABLE">Cuota variable</option>
@@ -387,14 +390,14 @@
                             </div>
 
                             <div class="form-group">
-                                <label>Tipo de interés</label>
+                                <label>Tipo de interés<span class="campo-obligatorio">*</span></label>
                                 <select name="tipo_interes" required>
                                     <option value="FIJO">Interés fijo</option>
                                     <option value="VARIABLE">Interés variable</option>
                                 </select>
                             </div>
 
-                            <div class="form-group">
+                            <div class="form-group">   
                                 <label>¿Permite inyección de capital?</label>
                                 <select name="permite_inyeccion_capital">
                                     <option value="NO">No</option>
@@ -403,7 +406,7 @@
                             </div>
 
                            <div class="campo campo-completo">
-                                <label>Sede</label>
+                                <label>Sede<span class="campo-obligatorio">*</span></label>
                                 {% if session.get('rol', '')|lower == 'admin' %}
                                     <!-- El Administrador puede elegir cualquier sede -->
                                     <select name="sede" required>
