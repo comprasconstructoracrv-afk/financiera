@@ -5049,9 +5049,28 @@ def inyeccion_capital(credito_id):
         else:
             saldo = credito.monto_financiado
 
-        # Tomamos el valor de la cuota original fija de referencia
-        cuota_referencia = Cuota.query.filter_by(credito_id=credito.id).first()
-        valor_cuota_original = cuota_referencia.valor_cuota if cuota_referencia else 0
+        # Cálculo de la nueva cuota fija uniforme para el resto del plazo si el crédito es fijo
+        nuevo_valor_cuota_fija = 0
+        if tipo_cuota_upper in ['FIJA', 'FIJO']:
+            cuotas_restantes_total = credito.cuotas - numero_cuota + 1
+            tasa_decimal = (credito.interes or 0) / 100
+
+            inyecciones_iniciales = InyeccionCapital.query.filter_by(
+                credito_id=credito.id,
+                numero_cuota=numero_cuota
+            ).all()
+            adicion_inicial = sum(i.valor or 0 for i in inyecciones_iniciales)
+            saldo_base_fija = round(saldo + adicion_inicial, 2)
+
+            if tasa_decimal > 0:
+                n = cuotas_restantes_total
+                i_tasa = tasa_decimal
+                nuevo_valor_cuota_fija = round(
+                    saldo_base_fija * (i_tasa * (1 + i_tasa)**n) / ((1 + i_tasa)**n - 1),
+                    2
+                )
+            else:
+                nuevo_valor_cuota_fija = round(saldo_base_fija / max(cuotas_restantes_total, 1), 2)
 
         # Borrar solo cuotas desde la inyección hacia adelante
         Cuota.query.filter(
@@ -5061,7 +5080,6 @@ def inyeccion_capital(credito_id):
         db.session.commit()
 
         dia_original = credito.fecha_creacion.day
-        valor_cuota_fija_nueva = 0
 
         for numero in range(numero_cuota, credito.cuotas + 1):
             fecha_pago = sumar_meses(
@@ -5086,19 +5104,11 @@ def inyeccion_capital(credito_id):
             interes_mes = round(saldo_inicial * (tasa_mes / 100), 2)
 
             if tipo_cuota_upper in ['FIJA', 'FIJO']:
-                if numero == numero_cuota:
-                    # En la cuota de la inyección, el valor de la cuota sube absorbiendo la inyección
-                    valor_cuota = round(valor_cuota_original + adicion_capital, 2)
-                    valor_cuota_fija_nueva = valor_cuota # Fijamos este nuevo valor si deseas mantenerlo constante hacia adelante, o usa valor_cuota_original si prefieres que la cuota total no sufra alteración alguna y solo cambie el saldo.
-                else:
-                    # Las cuotas siguientes mantienen su valor de cuota fijo original
-                    valor_cuota = valor_cuota_original
-
-                # El capital se ajusta por diferencia (Cuota Fija - Interés del mes), haciendo que crezca progresivamente
+                # Mantiene el valor fijo unificado idéntico para todas las cuotas restantes desde la inyección
+                valor_cuota = nuevo_valor_cuota_fija
                 capital = round(valor_cuota - interes_mes, 2)
                 saldo = round(saldo_inicial - capital, 2)
             else:
-                # Lógica original para créditos variables
                 cuotas_restantes = credito.cuotas - numero + 1
                 capital = round(saldo_inicial / max(cuotas_restantes, 1), 2)
                 valor_cuota = round(capital + interes_mes, 2)
