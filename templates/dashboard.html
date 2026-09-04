@@ -406,6 +406,104 @@
             color: white;
             transform: translateY(-1px);
         }
+        /* VENTANA EMERGENTE DE CUANTOS CLIENTES ESTAN EN MORA A LA FECHA*/
+        .modal-mora-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(15, 23, 42, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-mora-contenido {
+            background: #ffffff;
+            border: 4px solid #ffc107;
+            padding: 35px 30px 25px 30px;
+            border-radius: 28px;
+            width: 90%;
+            max-width: 340px;
+            text-align: center;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+            position: relative;
+            animation: escalarModal 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .icono-alerta-container {
+            position: absolute;
+            top: -45px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 80px;
+            background: #ffffff;
+            border: 4px solid #ffc107;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .icono-alerta {
+            font-size: 40px;
+        }
+
+        .modal-mora-contenido h3 {
+            margin-top: 25px;
+            font-size: 26px;
+            font-weight: 800;
+            color: #1e293b;
+            letter-spacing: 0.5px;
+        }
+
+        .modal-mora-contenido p {
+            font-size: 14px;
+            color: #334155;
+            margin: 15px 0 25px 0;
+            line-height: 1.5;
+        }
+
+        .modal-mora-contenido strong {
+            font-size: 20px;
+            color: #b91c1c;
+            background: #fef2f2;
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+
+        .btn-alerta-ok {
+            background-color: #ff3b30;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(255, 59, 48, 0.3);
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .btn-alerta-ok:hover {
+            background-color: #e03229;
+        }
+
+        .btn-alerta-ok:active {
+            transform: scale(0.98);
+        }
+
+        @keyframes escalarModal {
+            from { transform: scale(0.7); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
     </style>
 </head>
 <body>
@@ -452,9 +550,9 @@
                         <div class="stat-value total">{{ s.total }}</div>
                     </div>
 
-                    <div class="stat-box">
+                    <div class="stat-box">   
                         <div class="stat-label">En mora</div>
-                        <div class="stat-value mora">{{ s.en_mora }}</div>
+                        <div class="stat-value mora valor-en-mora">{{ s.en_mora }}</div>
                     </div>
 
                     <div class="stat-box">
@@ -492,7 +590,7 @@
 
                     <div class="stat-box">
                         <div class="stat-label"> En mora</div>
-                        <div class="stat-value mora">{{ creditos_en_mora }}</div>
+                        <div class="stat-value mora" id="valorEnMora">{{ creditos_en_mora }}</div>
                     </div>
 
                     <div class="stat-box">
@@ -539,5 +637,79 @@
         {% endif %}
 
     </div>
+
+    <div id="modalAlertaMora" class="modal-mora-overlay" style="display: none;">
+        <div class="modal-mora-contenido">
+            <div class="icono-alerta-container">
+                <div class="icono-alerta">⚠️</div>
+            </div>
+            <h3>¡Atención a la Cartera!</h3>
+            <p>A fecha de hoy, hay un total de <strong id="cantidadMoraAlerta" class="mora">0</strong> cliente(s) en mora pendientes para su gestión.</p>
+            <button onclick="cerrarAlertaMora()" class="btn-alerta-ok">OK</button>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const ahora = new Date();
+            const hoy = ahora.toISOString().slice(0, 10);
+            
+            // Obtenemos la hora y los minutos actuales
+            const hora = ahora.getHours();
+            const minutos = ahora.getMinutes();
+            const minutosTotales = (hora * 60) + minutos;
+
+            // Definimos los rangos en minutos:
+            // Mañana: 08:00 AM (480 min) hasta las 12:00 PM (720 min)
+            // Tarde:  02:00 PM (840 min) hasta las 06:00 PM (1080 min)
+            let periodo = null;
+
+            if (minutosTotales >= 480 && minutosTotales < 720) {
+                periodo = 'mañana';
+            } else if (minutosTotales >= 840 && minutosTotales < 1080) {
+                periodo = 'tarde';
+            }
+
+            // Si el usuario ingresa dentro de los horarios permitidos
+            if (periodo) {
+                // Si es el administrador, busca el valor global
+                const adminMora = document.getElementById('valorEnMora');
+                if (adminMora) {
+                    let totalEnMoraGlobal = parseInt(adminMora.textContent.trim()) || 0;
+                    const claveStorage = 'alertaMora_admin_' + hoy + '_' + periodo;
+                    
+                    if (totalEnMoraGlobal > 0 && !localStorage.getItem(claveStorage)) {
+                        document.getElementById('cantidadMoraAlerta').textContent = totalEnMoraGlobal;
+                        document.getElementById('modalAlertaMora').style.display = 'flex';
+                        localStorage.setItem(claveStorage, 'true');
+                    }
+                } else {
+                    // Si es una sede, recorremos las tarjetas de sedes pintadas en el HTML
+                    const tarjetasSedes = document.querySelectorAll('.card-sede');
+                    
+                    tarjetasSedes.forEach(tarjeta => {
+                        const nombreSede = tarjeta.querySelector('h3').textContent.trim();
+                        const valorMoraEl = tarjeta.querySelector('.valor-en-mora');
+                        
+                        if (valorMoraEl) {
+                            let enMora = parseInt(valorMoraEl.textContent.trim()) || 0;
+                            const claveStorage = 'alertaMora_' + nombreSede + '_' + hoy + '_' + periodo;
+
+                            if (enMora > 0 && !localStorage.getItem(claveStorage)) {
+                                document.getElementById('cantidadMoraAlerta').textContent = enMora;
+                                document.getElementById('modalAlertaMora').style.display = 'flex';
+                                localStorage.setItem(claveStorage, 'true');
+                            }
+                        }
+                    });
+                }
+            }
+        });
+
+        function cerrarAlertaMora() {
+            document.getElementById('modalAlertaMora').style.display = 'none';
+        }
+    </script>
 </body>
 </html>
