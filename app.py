@@ -2610,7 +2610,10 @@ def liquidar_credito(credito_id):
         total_liquidacion=total_liquidacion
     )
 
-def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
+
+
+
+def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_seleccionado):
     def fecha_solo_fecha(valor):
         if valor is None:
             return None
@@ -2713,16 +2716,25 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
     ]
 
     # ===============================
-    # RESUMEN GENERAL
+    # RESUMEN GENERAL (Excluyendo Reestructurados del Prestado)
     # ===============================
-    total_prestado_creditos = round(sum(c.monto_financiado or 0 for c in creditos_anio), 2)
+   
+    ids_reest = [c.id for c in creditos_filtrados if getattr(c, 'estado', '').strip().upper() == 'REESTRUCTURADO']
+    
+    total_prestado_creditos = round(sum(
+        c.saldo_actual or 0 for c in creditos_anio 
+        if c.id not in ids_reest
+    ), 2)
 
     total_inyecciones_anio = round(sum(
         total_inyecciones_credito(c.id, anio_seleccionado)
         for c in creditos_filtrados
+        if c.id not in ids_reest
     ), 2)
 
-    total_prestado = round(total_prestado_creditos + total_inyecciones_anio, 2)
+
+    total_prestado = round(total_prestado_creditos+ total_inyecciones_anio, 2)
+    print(f"VALOR DEPURADO -> creditos: {total_prestado_creditos} | inyecciones: {total_inyecciones_anio} | final: {total_prestado}")
 
     total_pagos_anio = round(sum(p.valor or 0 for p, q, c in pagos_anio), 2)
 
@@ -2758,6 +2770,12 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
 
     diferencia_total = round(diferencia_interes_corriente + diferencia_mora, 2)
 
+    # Cálculo extra por si deseas inyectarlo en los KPIs limpios del PDF/Web
+    capital_reestructurados = round(sum(
+        c.saldo_actual or 0 for c in creditos_filtrados 
+        if c.id not in ids_reest
+    ), 2)
+
     resumen_general = {
         'total_prestado': total_prestado,
         'total_recaudado': total_recaudado,
@@ -2768,11 +2786,12 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
         'mora_recaudada': mora_recaudada,
         'diferencia_interes_corriente': diferencia_interes_corriente,
         'diferencia_mora': diferencia_mora,
-        'diferencia_total': diferencia_total
+        'diferencia_total': diferencia_total,
+        'capital_reestructurados': capital_reestructurados
     }
 
     # ===============================
-    # RESUMEN POR SEDE
+    # RESUMEN POR SEDE (Excluyendo Reestructurados del Prestado)
     # ===============================
     resumen_por_sede = []
 
@@ -2799,8 +2818,8 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
         ]
 
         prestado_sede = round(
-            sum(c.monto_financiado or 0 for c in creditos_sede_anio)
-            + sum(total_inyecciones_credito(c.id, anio_seleccionado) for c in creditos_sede),
+            sum(c.monto_financiado or 0 for c in creditos_sede_anio if getattr(c, 'estado', 'ACTIVO').strip().upper() != 'REESTRUCTURADO')
+            + sum(total_inyecciones_credito(c.id, anio_seleccionado) for c in creditos_sede if getattr(c, 'estado', 'ACTIVO').strip().upper() != 'REESTRUCTURADO'),
             2
         )
 
@@ -2890,7 +2909,6 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
 
     # ===============================
     # TABLAS DETALLADAS
-    # Mantiene IBAGUE/GIRARDOT/ESPINAL/CRV para no romper el HTML actual.
     # ===============================
     sedes_tabla = ['IBAGUE', 'GIRARDOT', 'ESPINAL', 'CRV']
 
@@ -2899,7 +2917,6 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
 
         for mes in range(1, 13):
             fila = {'mes': MESES_ES[mes]}
-
             total = 0
 
             for sede in sedes_tabla:
@@ -3016,8 +3033,186 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
     diferencia_mora_meses = [fila['diferencia_mora'] for fila in resumen_mensual]
     total_ingresos_meses = [fila['total_ingresos'] for fila in resumen_mensual]
 
+    # ===============================
+    # ANÁLISIS GLOBAL POR ESTADO DE CARTERA (LÓGICA PURA DE CUOTAS)
+    # ===============================
+    volumen_activos = 0
+    cap_activos = 0
+    saldo_activos = 0
+
+    volumen_mora = 0
+    cap_mora = 0
+    saldo_mora = 0
+
+    volumen_liquidados = 0
+    cap_liquidados = 0
+    saldo_liquidados = 0
+
+    volumen_reest = 0
+    cap_reest = 0
+    saldo_reest = 0
+
+    ids_activos = []
+    ids_mora = []
+    ids_liquidados = []
+    ids_reest = []
+
+    for credito in creditos_filtrados:
+        cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+        
+        monto_ini = float(getattr(credito, 'monto_financiado', 0) or 0)
+
+
+        # Saldo actual dinámico (si está en cero y tiene cuotas)
+        s_act = float(getattr(credito, 'saldo_actual', 0) or 0)
+        if s_act <= 0 and cuotas:
+            s_act = sum(float(getattr(c, 'valor_pend', 0) or getattr(c, 'valor_cuota', 0) or 0) for c in cuotas if c.estado not in ['PAGADA', 'LIQUIDADA'])
+
+        if not cuotas:
+            volumen_activos += 1
+            cap_activos += monto_ini
+            saldo_activos += s_act
+            ids_activos.append(credito.id)
+            continue
+       
+        # CONDICIONES DE ESTADO DE CARTERA BASADAS EN CUOTAS
+
+        es_liquidado_total = all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas) or s_act <= 0
+
+        if es_liquidado_total:
+            volumen_liquidados += 1
+            cap_liquidados += monto_ini
+            saldo_liquidados += s_act
+            ids_liquidados.append(credito.id)
+
+        elif any(c.estado == 'EN MORA' for c in cuotas):
+            volumen_mora += 1
+            cap_mora += monto_ini
+            saldo_actual = sum(
+                float(getattr(c, 'valor_pend', 0) or getattr(c, 'total_cobro', 0) or 0) 
+                for c in cuotas if c.estado == 'EN MORA'
+            )
+            saldo_mora += saldo_actual
+            ids_mora.append(credito.id)
+            print(f"Crédito ID {credito.id} está en MORA. Saldo actual de cuotas en mora: {saldo_actual}")
+
+        elif all(c.estado in ['PENDIENTE', 'PAGADA', 'ABONO', 'AL DIA'] for c in cuotas):
+            volumen_activos += 1
+            cap_activos += monto_ini
+            saldo_activos += s_act
+            ids_activos.append(credito.id)
+
+        else:
+            volumen_reest += 1
+            ids_reest.append(credito.id)
+
+    
+    def calcular_recaudado(lista_ids, es_historico_total=False):
+        if not lista_ids:
+            return 0
+            
+        if es_historico_total:
+            # Para los LIQUIDADOS: Sumamos el valor total de sus cuotas que quedaron 
+            # como PAGADA o LIQUIDADA, más cualquier abono a capital histórico.
+            valor_cuotas = db.session.query(
+                db.func.coalesce(db.func.sum(Cuota.valor_cuota), 0)
+            ).filter(
+                Cuota.credito_id.in_(lista_ids),
+                Cuota.estado.in_(['PAGADA', 'LIQUIDADA'])
+            ).scalar() or 0
+
+            abonos = db.session.query(
+                db.func.coalesce(db.func.sum(AbonoCapital.valor), 0)
+            ).filter(
+                AbonoCapital.credito_id.in_(lista_ids), 
+                AbonoCapital.activo == True, 
+                AbonoCapital.reversado == False
+            ).scalar() or 0
+
+            return round(valor_cuotas + abonos, 2)
+        else:
+            # Para los demás (Activos, Mora, Reestructurados), usamos los pagos reales del año
+            query_pagos = db.session.query(db.func.coalesce(db.func.sum(Pago.valor), 0)).join(Cuota, Pago.cuota_id == Cuota.id).filter(Cuota.credito_id.in_(lista_ids), Pago.activo == True, Pago.reversado == False)
+            query_abonos = db.session.query(db.func.coalesce(db.func.sum(AbonoCapital.valor), 0)).filter(AbonoCapital.credito_id.in_(lista_ids), AbonoCapital.activo == True, AbonoCapital.reversado == False)
+
+            if anio_seleccionado:
+                query_pagos = query_pagos.filter(db.extract('year', Pago.fecha) == anio_seleccionado)
+                query_abonos = query_abonos.filter(db.extract('year', AbonoCapital.fecha) == anio_seleccionado)
+
+            pagos_est = query_pagos.scalar() or 0
+            abonos_est = query_abonos.scalar() or 0
+            return round(pagos_est + abonos_est, 2)
+            
+    # Consultas limpias para los reestructurados
+    cap_reest_limpio = db.session.query(
+        db.func.coalesce(db.func.sum(Credito.monto_financiado), 0)
+    ).filter(Credito.id.in_(ids_reest)).scalar() or 0
+
+    saldo_reest_limpio = 0
+    if ids_reest:
+        for rid in ids_reest:
+            credito_obj = Credito.query.get(rid)
+            monto_ini_cred = float(getattr(credito_obj, 'monto_financiado', 0) or 0)
+
+            # 1. Encontramos la última cuota pagada o liquidada
+            ultima_pagada = Cuota.query.filter_by(credito_id=rid).filter(
+                Cuota.estado.in_(['PAGADA', 'LIQUIDADA'])
+            ).order_by(Cuota.id.desc()).first()
+
+            val_cuota = 0
+
+            if not ultima_pagada:
+                # Si no tiene pagos, tomamos la primera cuota absoluta
+                primera_cuota = Cuota.query.filter_by(credito_id=rid).order_by(Cuota.id.asc()).first()
+                if primera_cuota:
+                    val_cuota = float(getattr(primera_cuota, 'saldo_inicial', 0) or 0)
+                
+                if val_cuota <= 0:
+                    val_cuota = monto_ini_cred
+            else:
+                # Si tiene pagos, saltamos a la inmediata siguiente (+1)
+                siguiente_cuota = Cuota.query.filter_by(credito_id=rid).filter(
+                    Cuota.id > ultima_pagada.id
+                ).order_by(Cuota.id.asc()).first()
+
+                if siguiente_cuota:
+                    val_cuota = float(getattr(siguiente_cuota, 'saldo_inicial', 0) or 0)
+                
+                if val_cuota <= 0:
+                    val_cuota = monto_ini_cred
+
+            saldo_reest_limpio += val_cuota
+           
+    analisis_cartera = {
+        'activos': {
+            'volumen': volumen_activos,
+            'capital_inicial': round(cap_activos, 2),
+            'saldo_actual': round(saldo_activos, 2),
+            'recaudado': calcular_recaudado(ids_activos, es_historico_total=False)
+        },
+        'mora': {
+            'volumen': volumen_mora,
+            'capital_inicial': round(cap_mora, 2),
+            'saldo_actual': round(saldo_mora, 2),
+            'recaudado': calcular_recaudado(ids_mora, es_historico_total=False)
+        },
+        'liquidados': {
+            'volumen': volumen_liquidados,
+            'capital_inicial': round(cap_liquidados, 2),
+            'saldo_actual': round(saldo_liquidados, 2),
+            'recaudado': calcular_recaudado(ids_liquidados, es_historico_total=True) # Histórico general acumulado
+        },
+        'reestructurados': {
+            'volumen': volumen_reest,
+            'capital_inicial': round(cap_reest_limpio, 2),
+            'saldo_actual': round(saldo_reest_limpio, 2),
+            'recaudado': calcular_recaudado(ids_reest, es_historico_total=False)
+        }
+    }
+
     return {
         'resumen_general': resumen_general,
+        'analisis_cartera': analisis_cartera,
         'resumen_por_sede': resumen_por_sede,
         'resumen_mensual': resumen_mensual,
 
@@ -3063,9 +3258,10 @@ def reporte_financiero():
 
     anio_actual = date.today().year
     anio_seleccionado = request.args.get('anio', type=int) or anio_actual
+    mes_seleccionado = request.args.get('mes', type=int) or None
     sede_seleccionada = request.args.get('sede', default='TODAS', type=str).strip().upper()
 
-    datos = construir_datos_reporte(anio_seleccionado, sede_seleccionada)
+    datos = construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_seleccionado)
 
     # =========================
     # SEDES DINÁMICAS
@@ -3145,6 +3341,7 @@ def reporte_financiero():
         anio_actual=anio_actual,
         anio_seleccionado=anio_seleccionado,
         anios_disponibles=list(range(2022, anio_actual + 2)),
+        mes_seleccionado=mes_seleccionado,
         sede_seleccionada=sede_seleccionada,
         sedes_disponibles=sedes_disponibles,
         reporte_acumulado=reporte_acumulado,
@@ -4798,8 +4995,9 @@ def inyeccion_capital(credito_id):
 
     credito = Credito.query.get_or_404(credito_id)
 
-    if credito.tipo_cuota != 'VARIABLE':
-        flash("Este crédito no es de cuota variable.", "error")
+    tipo_cuota_upper = str(credito.tipo_cuota).upper().strip()
+    if tipo_cuota_upper not in ['VARIABLE', 'FIJA', 'FIJO']:
+        flash("Este crédito no es de cuota variable ni fija.", "error")
         return redirect(url_for('ver_cuotas', credito_id=credito.id))
 
     if not credito.permite_inyeccion_capital:
@@ -4812,7 +5010,6 @@ def inyeccion_capital(credito_id):
         valor = limpiar_valor_moneda(request.form['valor'])
         observacion = request.form.get('observacion', '').strip()
 
-        # No permitir recalcular cuotas futuras que ya tengan pagos
         cuotas_futuras_ids = [
             c.id for c in Cuota.query.filter(
                 Cuota.credito_id == credito.id,
@@ -4842,7 +5039,6 @@ def inyeccion_capital(credito_id):
         db.session.add(nueva)
         db.session.flush()
 
-        # Tomar saldo desde la cuota anterior para NO tocar historia ya pagada
         cuota_anterior = Cuota.query.filter(
             Cuota.credito_id == credito.id,
             Cuota.numero < numero_cuota
@@ -4853,6 +5049,10 @@ def inyeccion_capital(credito_id):
         else:
             saldo = credito.monto_financiado
 
+        # Tomamos el valor de la cuota original fija de referencia
+        cuota_referencia = Cuota.query.filter_by(credito_id=credito.id).first()
+        valor_cuota_original = cuota_referencia.valor_cuota if cuota_referencia else 0
+
         # Borrar solo cuotas desde la inyección hacia adelante
         Cuota.query.filter(
             Cuota.credito_id == credito.id,
@@ -4861,6 +5061,7 @@ def inyeccion_capital(credito_id):
         db.session.commit()
 
         dia_original = credito.fecha_creacion.day
+        valor_cuota_fija_nueva = 0
 
         for numero in range(numero_cuota, credito.cuotas + 1):
             fecha_pago = sumar_meses(
@@ -4882,15 +5083,26 @@ def inyeccion_capital(credito_id):
             adicion_capital = round(sum(i.valor or 0 for i in inyecciones), 2)
 
             saldo_inicial = round(saldo + adicion_capital, 2)
-
             interes_mes = round(saldo_inicial * (tasa_mes / 100), 2)
 
-            cuotas_restantes = credito.cuotas - numero + 1
-            capital = round(saldo_inicial / max(cuotas_restantes, 1), 2)
+            if tipo_cuota_upper in ['FIJA', 'FIJO']:
+                if numero == numero_cuota:
+                    # En la cuota de la inyección, el valor de la cuota sube absorbiendo la inyección
+                    valor_cuota = round(valor_cuota_original + adicion_capital, 2)
+                    valor_cuota_fija_nueva = valor_cuota # Fijamos este nuevo valor si deseas mantenerlo constante hacia adelante, o usa valor_cuota_original si prefieres que la cuota total no sufra alteración alguna y solo cambie el saldo.
+                else:
+                    # Las cuotas siguientes mantienen su valor de cuota fijo original
+                    valor_cuota = valor_cuota_original
 
-            valor_cuota = round(capital + interes_mes, 2)
-
-            saldo = round(saldo_inicial - capital, 2)
+                # El capital se ajusta por diferencia (Cuota Fija - Interés del mes), haciendo que crezca progresivamente
+                capital = round(valor_cuota - interes_mes, 2)
+                saldo = round(saldo_inicial - capital, 2)
+            else:
+                # Lógica original para créditos variables
+                cuotas_restantes = credito.cuotas - numero + 1
+                capital = round(saldo_inicial / max(cuotas_restantes, 1), 2)
+                valor_cuota = round(capital + interes_mes, 2)
+                saldo = round(saldo_inicial - capital, 2)
 
             if saldo < 0:
                 capital = round(capital + saldo, 2)
