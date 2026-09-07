@@ -12,6 +12,8 @@
             background: #eef2f7;
             padding: 24px;
             color: #1f2937;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
 
         .wrapper {
@@ -266,8 +268,8 @@
 
         @media print {
             @page {
-                size: A4 portrait;
-                margin: 8mm;
+                size: auto;
+                margin: 15mm;
             }
 
             body {
@@ -285,6 +287,8 @@
                 box-shadow: none;
                 border-radius: 0;
                 padding: 10px 12px 12px 12px;
+                page-break-inside: avoid;
+                width: 900px !important;
             }
 
             .acciones {
