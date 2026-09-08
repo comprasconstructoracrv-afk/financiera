@@ -486,6 +486,93 @@
         box-shadow: 0 6px 14px rgba(13, 110, 253, 0.25);
     }
 
+    /* MODAL DE ALERTA PERSONALIZADO */
+    .modal-alerta-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        padding: 20px;
+        animation: fadeIn 0.2s ease-out;
+    }
+
+    .modal-alerta-card {
+        background: #ffffff;
+        width: 100%;
+        max-width: 420px;
+        border-radius: 20px;
+        padding: 28px 24px;
+        text-align: center;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        border: 1px solid #fecaca;
+        animation: scaleUp 0.25s ease-out;
+    }
+
+    .modal-alerta-icono {
+        width: 64px;
+        height: 64px;
+        background: #fef2f2;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px auto;
+        border: 1px solid #fee2e2;
+    }
+
+    .modal-alerta-card h2 {
+        margin: 0 0 8px 0;
+        font-size: 22px;
+        color: #0f172a;
+        font-weight: 700;
+    }
+
+    .modal-alerta-card p {
+        margin: 0 0 6px 0;
+        color: #475569;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    .modal-alerta-card .subtexto {
+        font-size: 13px;
+        color: #94a3b8;
+        margin-bottom: 22px;
+    }
+
+    .btn-modal-cerrar {
+        width: 100%;
+        padding: 12px 20px;
+        border-radius: 12px;
+        border: none;
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        font-weight: 700;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+    }
+
+    .btn-modal-cerrar:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35);
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes scaleUp {
+        from { transform: scale(0.92); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+
     @media (max-width: 900px) {
         .encabezado-principal {
             flex-direction: column;
@@ -1391,6 +1478,25 @@ sincronizarScroll("scroll-top-cuotas", "scroll-bottom-cuotas");
     </div>
 </div>
 
+<!-- MODAL DE ALERTA: CORREO REQUERIDO -->
+<div id="modalSinCorreo" class="modal-alerta-overlay" style="display: none;">
+    <div class="modal-alerta-card">
+        <div class="modal-alerta-icono">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+        </div>
+        <h2>Correo no registrado</h2>
+        <p>No se puede realizar esta acción porque el cliente no tiene una dirección de correo electrónico vinculada en el sistema.</p>
+        <p class="subtexto">Por favor, actualice los datos del cliente para continuar.</p>
+        <div class="modal-alerta-acciones">
+            <button type="button" class="btn-modal-cerrar" onclick="cerrarModalCorreo()">Entendido</button>
+        </div>
+    </div>
+</div>
+
 <script>
 function abrirModalReversarAbono(actionUrl) {
     document.getElementById('formReversarAbono').action = actionUrl;
@@ -1439,20 +1545,23 @@ function toggleDetalleTasas() {
 </script>
 
 <script>
-    // Se pasa el valor como texto limpio a JavaScript
     const correoCliente = "{{ (credito.correo_cliente or '')|trim }}";
-    
     const tieneCorreoCliente = correoCliente !== "" && correoCliente !== "No registrado";
 
     function verificarCorreoCliente(event) {
         if (!tieneCorreoCliente) {
-            event.preventDefault();
-            alert("⚠️ Atención: No se puede realizar esta acción porque el cliente no tiene un correo electrónico registrado en el sistema. Por favor, actualice sus datos primero.");
+            if (event) event.preventDefault();
+            document.getElementById('modalSinCorreo').style.display = 'flex';
             return false;
         }
         return true;
     }
+
+    function cerrarModalCorreo() {
+        document.getElementById('modalSinCorreo').style.display = 'none';
+    }
 </script>
+  
 
 </body>
 </html>
