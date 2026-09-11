@@ -2236,7 +2236,7 @@ from flask_mail import Message
 from smtplib import SMTPException, SMTPRecipientsRefused, SMTPResponseException
 
 def get_html2image_instance():
-    # Rutas comunes donde Nixpacks / Railway ubica Chromium
+    # Detectar el binario de Chromium instalado por Nixpacks
     chrome_bin = (
         shutil.which('chromium') 
         or shutil.which('chromium-browser') 
@@ -2246,11 +2246,10 @@ def get_html2image_instance():
     )
 
     if not chrome_bin:
-        print("ERROR: No se encontró ningún ejecutable de Chromium en el sistema.")
+        print("ERROR: No se encontró Chromium en el sistema.")
         return None
 
     try:
-        # Usamos únicamente las banderas esenciales para entornos serverless/docker
         return Html2Image(
             browser_executable=chrome_bin,
             custom_flags=[
@@ -2258,14 +2257,16 @@ def get_html2image_instance():
                 '--disable-gpu',
                 '--headless',
                 '--disable-dev-shm-usage',
-                '--disable-software-rasterizer'
+                '--disable-software-rasterizer',
+                '--no-zygote'
             ],
             output_path='static/'
         )
     except Exception as e:
+        print(f"Error al instanciar Html2Image: {e}")
         traceback.print_exc()
         return None
-    
+
 def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
     ruta_imagen = None
     try:
@@ -2295,7 +2296,6 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
         mora_aplicada = getattr(pago, 'mora_generada_al_pago', None) or getattr(cuota, 'mora_generada_al_pago', 0) or 0
         saldo_pendiente = getattr(credito, 'saldo_actual', None) or getattr(credito, 'saldo_actual', 0) or 0
 
-        
         # 1. Renderizar HTML del recibo
         html_recibo = render_template(
             'recibo_pago.html', 
@@ -2306,11 +2306,9 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
             saldo_pendiente_credito=saldo_pendiente
         )
 
-        ruta_absoluta_proyecto = os.path.abspath('static')
-        
-        # Reemplaza /static/ o static/ por la ruta absoluta completa file:///
-        html_final = html_recibo.replace('src="/static/', f'src="file:///{ruta_absoluta_proyecto}/')
-        html_final = html_final.replace('src="static/', f'src="file:///{ruta_absoluta_proyecto}/')
+        ruta_static_abs = os.path.abspath('static')
+        html_final = html_recibo.replace('src="/static/', f'src="file:///{ruta_static_abs}/')
+        html_final = html_final.replace('src="static/', f'src="file:///{ruta_static_abs}/')
 
         # 2. Generar imagen PNG
         os.makedirs('static', exist_ok=True)
@@ -2335,7 +2333,6 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
                 "exito": False,
                 "mensaje": "No se pudo generar la imagen del recibo."
             }
-
 
         # 3. Leer imagen
         with open(ruta_imagen, 'rb') as f:
@@ -2363,7 +2360,7 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
             data=img_bytes
         )
         
-        # 6. Enviar correo vía Brevo (SMTP)
+        # 6. Enviar correo vía SMTP
         mail.send(msg)
 
         return {
@@ -2371,14 +2368,12 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
             "mensaje": f"Comprobante enviado exitosamente al correo {correo_cliente}."
         }
 
-    # Captura cuando el servidor de destino rechaza la dirección (Correo no encontrado/invalido)
     except smtplib.SMTPRecipientsRefused:
         return {
             "exito": False,
             "mensaje": f"Correo rebotado: La dirección '{correo_cliente}' no existe o fue rechazada por el proveedor."
         }
 
-    # Captura errores generales del protocolo SMTP
     except (SMTPException, smtplib.SMTPResponseException) as e:
         return {
             "exito": False,
@@ -2387,16 +2382,15 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
 
     except Exception as e:
         print(f"ERROR AL ENVIAR EL CORREO: {str(e)}")
+        traceback.print_exc()
         return {
             "exito": False, 
             "mensaje": f"No se pudo enviar el correo (Rebotado/Error): {str(e)}"
         }
 
     finally:
-        # Asegura limpiar la imagen temporal incluso si hay error
         if ruta_imagen and os.path.exists(ruta_imagen):
             os.remove(ruta_imagen)
-
 
 
 @app.route('/pagar_deuda_fecha/<int:credito_id>', methods=['GET', 'POST'])
