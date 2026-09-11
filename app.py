@@ -1,3 +1,5 @@
+import smtplib
+
 from flask import Flask, render_template, request, redirect, session, flash, url_for, send_file
 from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo, Sede, TasaInteresVariable, InyeccionCapital, CambioTasaInteresCredito, AbonoCapital
 from datetime import datetime, date, timedelta
@@ -6,6 +8,9 @@ import os
 from io import BytesIO
 from math import floor
 import pandas as pd
+
+from flask_mail import Mail, Message
+from dotenv import load_dotenv
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
@@ -26,6 +31,16 @@ if database_url.startswith("postgres://"):
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True') == 'True'
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = ("Financiera CRV", os.environ.get('MAIL_DEFAULT_SENDER'))
+
+
+mail = Mail(app)
 
 db.init_app(app)
 
@@ -2010,7 +2025,7 @@ def ver_cuotas(credito_id):
     for cuota in cuotas:
         fecha_cuota = cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago
 
-        if cuota.estado in ['PENDIENTE', 'EN MORA', 'ABONO'] and fecha_cuota <= hoy:
+        if cuota.estado in ['PENDIENTE', 'EN MORA'] and fecha_cuota <= hoy:
             cuotas_exigibles_hoy.append(cuota)
 
     cuota_pendiente_total = round(
@@ -2029,10 +2044,8 @@ def ver_cuotas(credito_id):
         estado_credito = 'EN MORA'
     elif all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
         estado_credito = 'CANCELADO'
-    elif any(c.estado == 'ABONO' for c in cuotas):
-        estado_credito = 'CON ABONOS'
     else:
-        estado_credito = 'AL DÍA'
+        estado_credito = 'AL DIA'
 
     esta_al_dia = deuda_total_fecha <= 0
 
@@ -2201,6 +2214,9 @@ def pagar_cuota(cuota_id):
                 )
         actualizar_mora_credito(credito, fecha_pago.date())
         db.session.commit()
+           
+        resultado_correo= enviar_recibo_cuota_por_correo(pago_id=pago.id, mora_aplicada=pago.mora_generada_al_pago, saldo_pendiente=credito.saldo_actual)
+        flash(resultado_correo, 'estado_correo')
 
         return redirect(url_for('ver_recibo_pago', pago_id=pago.id))
 
@@ -2210,6 +2226,132 @@ def pagar_cuota(cuota_id):
     cuota = Cuota.query.get_or_404(cuota_id)
 
     return render_template('pagar_cuota.html', cuota=cuota)
+
+
+import os
+from flask import render_template
+from html2image import Html2Image
+from flask_mail import Message
+from smtplib import SMTPException, SMTPRecipientsRefused, SMTPResponseException
+
+hti = Html2Image(output_path='static/')
+
+def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
+    ruta_imagen = None
+    try:
+        pago = Pago.query.get_or_404(pago_id)
+        cuota = Cuota.query.get(pago.cuota_id) if pago.cuota_id else None
+        
+        credito = None
+        if cuota and hasattr(cuota, 'credito_id'):
+            credito = Credito.query.get(cuota.credito_id)
+        elif hasattr(pago, 'credito_id') and pago.credito_id:
+            credito = Credito.query.get(pago.credito_id)
+
+        if credito:
+            db.session.refresh(credito)
+        if pago:
+            db.session.refresh(pago)
+
+        correo_cliente = getattr(credito, 'correo_cliente', None)
+
+        if not correo_cliente or correo_cliente == 'No registrado':
+            return {
+                "exito": False, 
+                "mensaje": "El cliente no cuenta con un correo electrónico registrado."
+            }
+
+        nombre_cliente = getattr(credito, 'cliente', 'Cliente')
+        mora_aplicada = getattr(pago, 'mora_generada_al_pago', None) or getattr(cuota, 'mora_generada_al_pago', 0) or 0
+        saldo_pendiente = getattr(credito, 'saldo_actual', None) or getattr(credito, 'saldo_actual', 0) or 0
+
+        
+        # 1. Renderizar HTML del recibo
+        html_recibo = render_template(
+            'recibo_pago.html', 
+            pago=pago, 
+            cuota=cuota, 
+            credito=credito,
+            mora_aplicada=mora_aplicada,
+            saldo_pendiente_credito=saldo_pendiente
+        )
+
+        ruta_absoluta_proyecto = os.path.abspath('.').replace('\\', '/')
+        
+        # Reemplaza /static/ o static/ por la ruta absoluta completa file:///
+        html_final = html_recibo.replace('src="/static/', f'src="file:///{ruta_absoluta_proyecto}/static/')
+        html_final = html_final.replace('src="static/', f'src="file:///{ruta_absoluta_proyecto}/static/')
+
+        # 2. Generar imagen PNG
+        nombre_imagen = f"Recibo_Caja_{pago.id}.png"
+        ruta_imagen = os.path.join('static/', nombre_imagen)
+
+        hti.screenshot(
+            html_str=html_final,
+            save_as=nombre_imagen,
+            size=(1050, 750)
+        )
+
+        # 3. Leer imagen
+        with open(ruta_imagen, 'rb') as f:
+            img_bytes = f.read()
+
+        # 4. Construir correo
+        msg = Message(
+            subject=f"Comprobante de Caja - Recibo N° {pago.id}",
+            recipients=[correo_cliente],                  
+            reply_to="carteraconstructoracrv@hotmail.com"
+        )
+        
+        msg.html = render_template(
+            'correo_cliente.html',
+            nombre_cliente=nombre_cliente,
+            pago=pago,
+            mora_aplicada=mora_aplicada,
+            saldo_pendiente=saldo_pendiente
+        )
+        
+        # 5. Adjuntar imagen
+        msg.attach(
+            filename=f"Recibo_Caja_{pago.id}.png",
+            content_type="image/png",
+            data=img_bytes
+        )
+        
+        # 6. Enviar correo vía Brevo (SMTP)
+        mail.send(msg)
+
+        return {
+            "exito": True, 
+            "mensaje": f"Comprobante enviado exitosamente al correo {correo_cliente}."
+        }
+
+    # Captura cuando el servidor de destino rechaza la dirección (Correo no encontrado/invalido)
+    except smtplib.SMTPRecipientsRefused:
+        return {
+            "exito": False,
+            "mensaje": f"Correo rebotado: La dirección '{correo_cliente}' no existe o fue rechazada por el proveedor."
+        }
+
+    # Captura errores generales del protocolo SMTP
+    except (SMTPException, smtplib.SMTPResponseException) as e:
+        return {
+            "exito": False,
+            "mensaje": f"Error de entrega con '{correo_cliente}': El servidor rebotó el mensaje."
+        }
+
+    except Exception as e:
+        print(f"ERROR AL ENVIAR EL CORREO: {str(e)}")
+        return {
+            "exito": False, 
+            "mensaje": f"No se pudo enviar el correo (Rebotado/Error): {str(e)}"
+        }
+
+    finally:
+        # Asegura limpiar la imagen temporal incluso si hay error
+        if ruta_imagen and os.path.exists(ruta_imagen):
+            os.remove(ruta_imagen)
+
 
 
 @app.route('/pagar_deuda_fecha/<int:credito_id>', methods=['GET', 'POST'])
@@ -2235,6 +2377,23 @@ def pagar_deuda_fecha(credito_id):
         if valor_pago <= 0:
             return "El pago debe ser mayor que cero"
 
+        # CAMBIO CLAVE: Actualiza la mora proyectada A LA FECHA SELECCIONADA, no a hoy
+        actualizar_mora_credito(credito, fecha_pago)
+        
+        cuotas_post = Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.estado.in_(['PENDIENTE', 'EN MORA'])
+        ).order_by(Cuota.numero).all()
+
+        # Filtra cuotas vencidas/exigibles A LA FECHA EVALUADA  
+        cuotas_exigibles_post = [
+            c for c in cuotas_post
+            if (c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago) <= fecha_pago
+        ]
+        cuota_pendiente_total = round(sum((c.saldo_pendiente or 0) for c in cuotas_exigibles_post), 2)
+        mora_total = round(sum((c.interes_mora or 0) for c in cuotas_exigibles_post), 2)
+        deuda_total_fecha = round(cuota_pendiente_total + mora_total, 2)
+
         # Se aplica el pago calculando mora a la FECHA REAL DE PAGO
         pagos_ids = aplicar_pago_deuda_fecha(
             credito=credito,
@@ -2250,8 +2409,7 @@ def pagar_deuda_fecha(credito_id):
         ids_texto = ",".join(str(x) for x in pagos_ids)
         return redirect(url_for('ver_recibo_deuda_fecha', credito_id=credito.id, pagos=ids_texto))
 
-    # --- MODO GET ---
-    # Lee la fecha seleccionada en la URL (si existe) o toma la fecha de hoy por defecto
+    # --- MODO GET --- Lee la fecha seleccionada en la URL (si existe) o toma la fecha de hoy por defecto
     fecha_param = request.args.get('fecha_pago')
     if fecha_param:
         fecha_evaluar = datetime.strptime(fecha_param, '%Y-%m-%d').date()
@@ -2263,7 +2421,7 @@ def pagar_deuda_fecha(credito_id):
 
     cuotas = Cuota.query.filter(
         Cuota.credito_id == credito.id,
-        Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
+        Cuota.estado.in_(['PENDIENTE', 'EN MORA'])
     ).order_by(Cuota.numero).all()
 
     # Filtra cuotas vencidas/exigibles A LA FECHA EVALUADA
@@ -2285,6 +2443,7 @@ def pagar_deuda_fecha(credito_id):
         deuda_total_fecha=deuda_total_fecha,
         fecha_seleccionada=fecha_evaluar.strftime('%Y-%m-%d')
     )
+
 
 @app.route('/abono_capital/<int:credito_id>', methods=['GET', 'POST'])
 def abono_capital(credito_id):
