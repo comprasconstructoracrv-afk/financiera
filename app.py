@@ -2306,6 +2306,14 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
         nombre_imagen = f"Recibo_Caja_{pago.id}.png"
         ruta_imagen = os.path.join('static/', nombre_imagen)
 
+        hti = get_html2image_instance()
+        if not hti:
+            print("Error: No se pudo inicializar Html2Image")
+            return {
+                "exito": False,
+                "mensaje": "No se pudo generar la imagen del recibo."
+            }
+
         hti.screenshot(
             html_str=html_final,
             save_as=nombre_imagen,
