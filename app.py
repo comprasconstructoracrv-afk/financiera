@@ -2234,11 +2234,27 @@ from html2image import Html2Image
 from flask_mail import Message
 from smtplib import SMTPException, SMTPRecipientsRefused, SMTPResponseException
 
-hti = Html2Image(
-    browser_executable='/usr/bin/chromium',  # O '/usr/bin/chromium-browser'
-    custom_flags=['--no-sandbox', '--disable-gpu', '--headless'],
-    output_path='static/'
-)
+import shutil
+from html2image import Html2Image
+
+def get_html2image_instance():
+    # Detectar dinámicamente la ruta de Chromium instalada por Nixpacks
+    chrome_bin = (
+        shutil.which('chromium') 
+        or shutil.which('chromium-browser') 
+        or shutil.which('google-chrome')
+        or '/usr/bin/chromium'
+    )
+    
+    try:
+        return Html2Image(
+            browser_executable=chrome_bin,
+            custom_flags=['--no-sandbox', '--disable-gpu', '--headless', '--disable-dev-shm-usage'],
+            output_path='static/'
+        )
+    except Exception as e:
+        print(f"Advertencia: No se pudo inicializar Html2Image: {e}")
+        return None
 
 def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
     ruta_imagen = None
