@@ -2234,7 +2234,11 @@ from html2image import Html2Image
 from flask_mail import Message
 from smtplib import SMTPException, SMTPRecipientsRefused, SMTPResponseException
 
-hti = Html2Image(output_path='static/')
+hti = Html2Image(
+    browser_executable='/usr/bin/chromium',  # O '/usr/bin/chromium-browser'
+    custom_flags=['--no-sandbox', '--disable-gpu', '--headless'],
+    output_path='static/'
+)
 
 def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
     ruta_imagen = None
