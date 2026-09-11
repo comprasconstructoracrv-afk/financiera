@@ -2229,6 +2229,7 @@ def pagar_cuota(cuota_id):
 
 import os
 import shutil
+import traceback
 from flask import render_template
 from html2image import Html2Image
 from flask_mail import Message
@@ -2262,7 +2263,7 @@ def get_html2image_instance():
             output_path='static/'
         )
     except Exception as e:
-        print(f"Error al instanciar Html2Image: {e}")
+        traceback.print_exc()
         return None
     
 def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
@@ -2305,16 +2306,16 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
             saldo_pendiente_credito=saldo_pendiente
         )
 
-        ruta_absoluta_proyecto = os.path.abspath('.').replace('\\', '/')
+        ruta_absoluta_proyecto = os.path.abspath('static')
         
         # Reemplaza /static/ o static/ por la ruta absoluta completa file:///
-        html_final = html_recibo.replace('src="/static/', f'src="file:///{ruta_absoluta_proyecto}/static/')
-        html_final = html_final.replace('src="static/', f'src="file:///{ruta_absoluta_proyecto}/static/')
+        html_final = html_recibo.replace('src="/static/', f'src="file:///{ruta_absoluta_proyecto}/')
+        html_final = html_final.replace('src="static/', f'src="file:///{ruta_absoluta_proyecto}/')
 
         # 2. Generar imagen PNG
-        os.makedirs('static/', exist_ok=True)
+        os.makedirs('static', exist_ok=True)
         nombre_imagen = f"Recibo_Caja_{pago.id}.png"
-        ruta_imagen = os.path.join('static/', nombre_imagen)
+        ruta_imagen = os.path.join('static', nombre_imagen)
 
         hti = get_html2image_instance()
         if not hti:
