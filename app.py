@@ -2227,7 +2227,6 @@ def pagar_cuota(cuota_id):
 
     return render_template('pagar_cuota.html', cuota=cuota)
 
-
 import os
 import shutil
 from flask import render_template
@@ -2236,15 +2235,21 @@ from flask_mail import Message
 from smtplib import SMTPException, SMTPRecipientsRefused, SMTPResponseException
 
 def get_html2image_instance():
-    # Detectar la ruta exacta del ejecutable de Chromium instalado en Linux
+    # Rutas comunes donde Nixpacks / Railway ubica Chromium
     chrome_bin = (
         shutil.which('chromium') 
         or shutil.which('chromium-browser') 
         or shutil.which('google-chrome')
-        or '/usr/bin/chromium'
+        or (os.path.exists('/root/.nix-profile/bin/chromium') and '/root/.nix-profile/bin/chromium')
+        or (os.path.exists('/usr/bin/chromium') and '/usr/bin/chromium')
     )
-    
+
+    if not chrome_bin:
+        print("ERROR: No se encontró ningún ejecutable de Chromium en el sistema.")
+        return None
+
     try:
+        # Usamos únicamente las banderas esenciales para entornos serverless/docker
         return Html2Image(
             browser_executable=chrome_bin,
             custom_flags=[
@@ -2252,15 +2257,14 @@ def get_html2image_instance():
                 '--disable-gpu',
                 '--headless',
                 '--disable-dev-shm-usage',
-                '--disable-software-rasterizer',
-                '--remote-debugging-port=9222'
+                '--disable-software-rasterizer'
             ],
             output_path='static/'
         )
     except Exception as e:
         print(f"Error al instanciar Html2Image: {e}")
         return None
-
+    
 def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
     ruta_imagen = None
     try:
