@@ -1,2 +1,4 @@
+providers = ["python"]
+
 [phases.setup]
 nixPkgs = ["cairo", "pkg-config", "pango", "chromium"]
