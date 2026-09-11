@@ -1,0 +1,31 @@
+<div style="background-color: #f4f6f8; padding: 30px 10px; font-family: Arial, sans-serif;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e1e6eb; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+        
+        <!-- Encabezado corporativo -->
+        <div style="background-color: #005d52; padding: 25px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 18px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;">
+                CONSTRUCCIONES Y URBANIZACIONES S.A.S
+            </h1>
+        </div>
+
+        <!-- Cuerpo del mensaje -->
+        <div style="padding: 30px; color: #333333; line-height: 1.6;">
+            <h2 style="color: #005d52; margin-top: 0; font-size: 20px;">¡Hola, {{ nombre_cliente }}!</h2>
+            <p>Te confirmamos que tu pago ha sido registrado de manera exitosa en nuestro sistema.</p>
+            
+            <!-- Cuadro resumen de pago -->
+            <div style="background-color: #f8faf9; border-left: 4px solid #005d52; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                <p style="margin: 5px 0;"><strong>Total Recibido Hoy:</strong> <span style="color: #005d52; font-weight: bold;">$ {{ "{:,.2f}".format(pago.valor) }}</span></p>
+                <p style="margin: 5px 0;"><strong>Mora Aplicada:</strong> $ {{ "{:,.2f}".format(mora_aplicada) }}</p>
+                <p style="margin: 5px 0;"><strong>Saldo Pendiente del Crédito:</strong> $ {{ "{:,.2f}".format(saldo_pendiente) }}</p>
+            </div>
+
+            <p>Adjunto a este correo encontrarás tu <strong>Recibo de Caja Oficial N° {{ pago.id }}</strong> en formato PNG.</p>
+            
+            <p style="font-size: 13px; color: #777777; margin-top: 30px; border-top: 1px solid #eeeeee; padding-top: 15px;">
+                Atentamente,<br>
+                <strong>CONSTRUCCIONES Y URBANIZACIONES S.A.S</strong>
+            </p>
+        </div>
+    </div>
+</div>
