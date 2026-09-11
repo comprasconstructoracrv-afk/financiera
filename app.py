@@ -2229,16 +2229,14 @@ def pagar_cuota(cuota_id):
 
 
 import os
+import shutil
 from flask import render_template
 from html2image import Html2Image
 from flask_mail import Message
 from smtplib import SMTPException, SMTPRecipientsRefused, SMTPResponseException
 
-import shutil
-from html2image import Html2Image
-
 def get_html2image_instance():
-    # Detectar dinámicamente la ruta de Chromium instalada por Nixpacks
+    # Detectar la ruta exacta del ejecutable de Chromium instalado en Linux
     chrome_bin = (
         shutil.which('chromium') 
         or shutil.which('chromium-browser') 
@@ -2249,11 +2247,18 @@ def get_html2image_instance():
     try:
         return Html2Image(
             browser_executable=chrome_bin,
-            custom_flags=['--no-sandbox', '--disable-gpu', '--headless', '--disable-dev-shm-usage'],
+            custom_flags=[
+                '--no-sandbox',
+                '--disable-gpu',
+                '--headless',
+                '--disable-dev-shm-usage',
+                '--disable-software-rasterizer',
+                '--remote-debugging-port=9222'
+            ],
             output_path='static/'
         )
     except Exception as e:
-        print(f"Advertencia: No se pudo inicializar Html2Image: {e}")
+        print(f"Error al instanciar Html2Image: {e}")
         return None
 
 def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
@@ -2303,15 +2308,15 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
         html_final = html_final.replace('src="static/', f'src="file:///{ruta_absoluta_proyecto}/static/')
 
         # 2. Generar imagen PNG
+        os.makedirs('static/', exist_ok=True)
         nombre_imagen = f"Recibo_Caja_{pago.id}.png"
         ruta_imagen = os.path.join('static/', nombre_imagen)
 
         hti = get_html2image_instance()
         if not hti:
-            print("Error: No se pudo inicializar Html2Image")
             return {
                 "exito": False,
-                "mensaje": "No se pudo generar la imagen del recibo."
+                "mensaje": "Error del servidor: No se pudo iniciar el generador de imágenes."
             }
 
         hti.screenshot(
@@ -2319,6 +2324,13 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
             save_as=nombre_imagen,
             size=(1050, 750)
         )
+
+        if not os.path.exists(ruta_imagen):
+            return {
+                "exito": False,
+                "mensaje": "No se pudo generar la imagen del recibo."
+            }
+
 
         # 3. Leer imagen
         with open(ruta_imagen, 'rb') as f:
