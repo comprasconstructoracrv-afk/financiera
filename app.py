@@ -1652,7 +1652,6 @@ def dashboard():
 
     rol = session.get('rol')
     usuario = session.get('user')
-    hoy =date.today()
 
     resumen_sedes = []
 
@@ -1686,7 +1685,6 @@ def dashboard():
         reestructurados=0
 
         for credito in creditos:
-            actualizar_mora_credito(credito, hoy)
             cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
 
             if not cuotas:
