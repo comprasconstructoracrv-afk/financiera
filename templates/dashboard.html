@@ -589,14 +589,13 @@
                     </div>
 
 
-                    <!-- Caja de En Mora con el Total Arriba y el Desglose Abajo -->
-                    <div class="stat-box" style="display: flex; flex-direction: column; justify-content: space-between;">
+                    <!-- ENLACE A LA NUEVA PANTALLA AL HACER CLIC -->
+                    <a href="{{ url_for('ver_creditos_en_mora') }}" class="stat-box" style="display: flex; flex-direction: column; justify-content: space-between; text-decoration: none; color: inherit; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)';" onmouseout="this.style.transform='scale(1)';">
                         <div>
                             <div class="stat-label">En mora</div>
                             <div class="stat-value mora" id="valorEnMora" style="font-size: 22px; font-weight: bold;">{{ creditos_en_mora }}</div>
                         </div>
                         
-                        <!-- Desglose vertical en lista -->
                         <div style="display: flex; flex-direction: column; gap: 3px; margin-top: 6px; border-top: 1px dashed #cbd5e1; padding-top: 6px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; background: #fefce8; padding: 2px 6px; border-radius: 4px; border-left: 3px solid #facc15;">
                                 <span style="font-size: 10px; color: #854d0e; font-weight: 700;">1 MES</span>
@@ -611,7 +610,7 @@
                                 <span style="font-size: 12px; font-weight: bold; color: #dc2626;">{{ mora_rojo }}</span>
                             </div>
                         </div>
-                    </div>
+                    </a>
                     
 
                     <div class="stat-box">
