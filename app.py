@@ -1696,7 +1696,6 @@ def dashboard():
             'cancelados': cancelados,
             'al_dia': al_dia,
             'reestructurados': reestructurados
-            
         })
 
     # Totales generales para resumen en el dashboard
@@ -1706,6 +1705,27 @@ def dashboard():
     creditos_al_dia = sum(s['al_dia'] for s in resumen_sedes)
     creditos_reestructurados = sum(s['reestructurados'] for s in resumen_sedes)
 
+    #Estado de mora según la cantidad de meses de mora
+    mora_amarillo=0
+    mora_naranja=0
+    mora_rojo=0
+
+    creditos_totales = Credito.query.all() if rol == 'admin' else Credito.query.filter(func.lower(Credito.sede) == usuario).all()
+
+    for cred in creditos_totales:
+        cuotas_cred = Cuota.query.filter_by(credito_id=cred.id).all()
+        if not cuotas_cred:
+            continue
+        
+        cuotas_vencidas = sum(1 for cuota in cuotas_cred if cuota.estado == 'EN MORA')
+        
+        if cuotas_vencidas == 1:
+            mora_amarillo += 1
+        elif cuotas_vencidas == 2:
+            mora_naranja += 1
+        elif cuotas_vencidas >= 3:
+            mora_rojo += 1
+
     return render_template(
         'dashboard.html',
         resumen_sedes=resumen_sedes,
@@ -1713,7 +1733,10 @@ def dashboard():
         creditos_en_mora=creditos_en_mora,
         creditos_cancelados=creditos_cancelados,
         creditos_al_dia=creditos_al_dia,
-        creditos_reestructurados=creditos_reestructurados
+        creditos_reestructurados=creditos_reestructurados,
+        mora_amarillo=mora_amarillo,
+        mora_naranja=mora_naranja,
+        mora_rojo=mora_rojo
     )
 
 @app.route('/creditos/<sede>')
