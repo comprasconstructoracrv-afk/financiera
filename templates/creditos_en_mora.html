@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Créditos en Mora - Consolidado</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #eef2f7, #dfe9f3);
+            padding: 40px 20px;
+            color: #1f2937;
+        }
+
+        .contenedor {
+            max-width: 1550px;
+            margin: auto;
+        }
+
+        .encabezado {
+            background: white;
+            border-radius: 24px;
+            padding: 30px 35px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .encabezado h1 {
+            margin: 0;
+            font-size: 36px;
+            color: #102a43;
+        }
+
+        .encabezado p {
+            margin: 10px 0 0 0;
+            color: #52606d;
+            font-size: 16px;
+        }
+
+        .logo img {
+            max-height: 90px;
+            width: auto;
+        }
+
+        .acciones {
+            margin-top: 18px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn-volver {
+            display: inline-block;
+            padding: 11px 18px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            background: linear-gradient(135deg, #6c757d, #495057);
+            transition: 0.2s ease;
+        }
+
+        .btn-volver:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .titulo-seccion {
+            margin: 10px 0 22px 0;
+            font-size: 26px;
+            font-weight: bold;
+            color: #102a43;
+        }
+
+        /* Estilo para el panel de filtros */
+        .card-filtros {
+            background: white;
+            border-radius: 22px;
+            padding: 25px 30px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+            border-left: 8px solid #dc2626;
+        }
+
+        .form-filtros {
+            display: flex;
+            gap: 20px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .grupo-filtro {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .grupo-filtro label {
+            font-size: 12px;
+            font-weight: bold;
+            color: #52606d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .grupo-filtro select {
+            padding: 11px 16px;
+            border-radius: 10px;
+            border: 1px solid #cbd5e1;
+            font-size: 14px;
+            background: #f8fafc;
+            color: #1f2937;
+            min-width: 220px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .grupo-filtro select:focus {
+            border-color: #dc2626;
+        }
+
+        .btn-filtrar {
+            padding: 11px 24px;
+            background: linear-gradient(135deg, #6c757d, #495057);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+
+        .btn-excel {
+            background: linear-gradient(135deg, #198754, #157347);
+        }
+
+        .btn-pdf {
+            background: linear-gradient(135deg, #dc3545, #b02a37);
+        }
+
+        .btn-premium {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 18px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            text-decoration: none;
+            color: white;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .btn-premium:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            opacity: 0.95;
+        }
+
+        .btn-filtrar:hover {
+            transform: translateY(-1px);
+            opacity: 0.95;
+        }
+
+        /* Tabla de resultados */
+        .contenedor-tabla {
+            background: white;
+            border-radius: 22px;
+            padding: 30px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            padding: 14px 16px;
+            border-bottom: 2px solid #e2e8f0;
+            color: #52606d;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 16px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 14px;
+            color: #334155;
+        }
+
+        tr:hover td {
+            background-color: #f8fafc;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .badge-amarillo {
+            background: #fefce8;
+            color: #854d0e;
+            border: 1px solid #fde047;
+        }
+
+        .badge-naranja {
+            background: #fff7ed;
+            color: #9a3412;
+            border: 1px solid #fdba74;
+        }
+
+        .badge-rojo {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+
+        .btn-detalle {
+            display: inline-block;
+            padding: 7px 14px;
+            background: #eef2f7;
+            color: #1d4ed8;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 13px;
+            transition: 0.2s;
+        }
+
+        .btn-detalle:hover {
+            background: #dbeafe;
+        }
+
+        @media (max-width: 900px) {
+            .encabezado {
+                text-align: center;
+                justify-content: center;
+            }
+            .acciones {
+                justify-content: center;
+            }
+            .form-filtros {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .grupo-filtro select, .btn-filtrar {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+
+        <!-- Encabezado Principal -->
+        <div class="encabezado">
+            <div>
+                <h1>Cartera en Mora</h1>
+                <p>Filtre, analice y consulte detalladamente los créditos que presentan atrasos.</p>
+
+                <div class="acciones">
+                    <a href="/dashboard" class="btn-volver">Inicio</a>
+
+                    <a href="/reporte_financiero/excel?anio={{ anio_seleccionado }}"
+                           class="btn-premium btn-excel btn-exportar "
+                           data-tipo="excel"
+                           data-texto="Exportar Excel">
+                            <span>Exportar Excel</span>
+                    </a>
+
+                    <a href="/reporte_financiero/pdf?anio={{ anio_seleccionado }}"
+                           class="btn-premium btn-pdf btn-exportar"
+                           data-tipo="pdf"
+                           data-texto="Exportar PDF">
+                            <span>Exportar PDF</span>
+                    </a>
+
+        
+                </div>
+            </div>
+
+            <div class="logo">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CRV">
+            </div>
+        </div>
+
+        <!-- Tarjeta de Filtros -->
+        <div class="card-filtros">
+            <div class="titulo-seccion" style="margin-top: 0; font-size: 20px;">Filtrar registros</div>
+            <form method="GET" action="{{ url_for('ver_creditos_en_mora') }}" class="form-filtros">
+                
+                <!-- Selector de Sede -->
+                <div class="grupo-filtro">
+                    <label>Sede:</label>
+                    <select name="sede">
+                        <option value="TODAS" {% if sede_seleccionada == 'TODAS' %}selected{% endif %}>TODAS LAS SEDES</option>
+                        {% for s in sedes %}
+                        <option value="{{ s.nombre }}" {% if sede_seleccionada|lower == s.nombre|lower %}selected{% endif %}>{{ s.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Selector de Estado -->
+                <div class="grupo-filtro">
+                    <label>Meses de mora:</label>
+                    <select name="estado">
+                        <option value="TODAS" {% if estado_seleccionado == 'TODAS' %}selected{% endif %}>TODOS</option>
+                        <option value="1 MES" {% if estado_seleccionado == '1 MES' %}selected{% endif %}>1 Mes</option>
+                        <option value="2 MESES" {% if estado_seleccionado == '2 MESES' %}selected{% endif %}>2 Meses</option>
+                        <option value="+3 MESES" {% if estado_seleccionado == '+3 MESES' %}selected{% endif %}>+3 Meses</option>
+                    </select>
+                </div>
+
+                <!-- Botón -->
+                <div>
+                    <button type="submit" class="btn-filtrar">Aplicar filtros</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Listado de Resultados -->
+        <div class="titulo-seccion">Resultados de la consulta</div>
+        <div class="contenedor-tabla">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Pagaré</th>
+                        <th>Cliente</th>
+                        <th>Sede</th>
+                        <th>Cuotas en Mora</th>
+                        <th>Clasificación</th>
+                        <th>Saldo Actual</th>
+                        <th style="text-align: center;">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in resultados %}
+                    <tr>
+                        <td style="font-weight: bold; color: #102a43;">{{ item.credito.numero_pagare or item.credito.id }}</td>
+                        <td>{{ item.credito.cliente }}</td>
+                        <td style="font-weight: 600;">{{ item.credito.sede }}</td>
+                        <td>{{ item.cuotas_mora }} cuota(s)</td>
+                        <td>
+                            {% if item.subestado == '1 MES' %}
+                                <span class="badge badge-amarillo">1 MES</span>
+                            {% elif item.subestado == '2 MESES' %}
+                                <span class="badge badge-naranja">2 MESES</span>
+                            {% else %}
+                                <span class="badge badge-rojo">+3 MESES</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-weight: bold; color: #102a43;">${{ "{:,.0f}".format(item.total_cobro).replace(',','.' ) }}</td>
+                        <td style="text-align: center;">
+                            <a href="{{url_for('ver_cuotas', credito_id=item.credito.id)}}" class="btn-detalle">Ver detalle</a>
+                        </td>    
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px; color: #64748b;">
+                            No se encontraron créditos registrados con los filtros seleccionados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</body>
+</html>
