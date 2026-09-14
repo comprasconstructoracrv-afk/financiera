@@ -1,6 +1,6 @@
 import smtplib
 
-from flask import Flask, render_template, request, redirect, session, flash, url_for, send_file
+from flask import Flask, make_response, render_template, request, redirect, session, flash, url_for, send_file
 from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo, Sede, TasaInteresVariable, InyeccionCapital, CambioTasaInteresCredito, AbonoCapital
 from datetime import datetime, date, timedelta
 import calendar
@@ -1662,6 +1662,16 @@ def dashboard():
         # Si eL rol es SEDE solo tendra acceso a ver su propia sede
         sedes_db = Sede.query.filter(func.lower(Sede.nombre) == usuario, Sede.activa == True).all()
 
+    #Estado de mora según la cantidad de meses de mora
+    mora_amarillo=0
+    mora_naranja=0
+    mora_rojo=0
+
+    total_creditos = 0
+    creditos_en_mora = 0
+    creditos_cancelados = 0
+    creditos_al_dia = 0
+    creditos_reestructurados = 0
 
     for sede_obj in sedes_db:
         sede = sede_obj.nombre
@@ -1680,10 +1690,17 @@ def dashboard():
             if not cuotas:
                 continue
 
-            creditos_cuotas_en_mora=sum(1 for c in cuotas if c.estado ==  'EN MORA')
+            cuotas_en_mora=sum(1 for c in cuotas if c.estado == 'EN MORA')
 
-            if creditos_cuotas_en_mora > 0:
+            if cuotas_en_mora > 0:
                 en_mora += 1
+                if cuotas_en_mora == 1:
+                    mora_amarillo += 1
+                elif cuotas_en_mora ==2:
+                    mora_naranja +=1
+                else:
+                    mora_rojo +=1
+
             elif all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
                 cancelados += 1
             elif all (c.estado in ['PENDIENTE', 'PAGADA', 'ABONO', 'AL DIA'] for c in cuotas):
@@ -1700,35 +1717,14 @@ def dashboard():
             'reestructurados': reestructurados
         })
 
-    # Totales generales para resumen en el dashboard
-    total_creditos = sum(s['total'] for s in resumen_sedes)
-    creditos_en_mora = sum(s['en_mora'] for s in resumen_sedes)
-    creditos_cancelados = sum(s['cancelados'] for s in resumen_sedes)
-    creditos_al_dia = sum(s['al_dia'] for s in resumen_sedes)
-    creditos_reestructurados = sum(s['reestructurados'] for s in resumen_sedes)
+        total_creditos += total
+        creditos_en_mora += en_mora
+        creditos_cancelados += cancelados
+        creditos_al_dia += al_dia
+        creditos_reestructurados += reestructurados
 
-    #Estado de mora según la cantidad de meses de mora
-    mora_amarillo=0
-    mora_naranja=0
-    mora_rojo=0
 
-    creditos_totales = Credito.query.all() if rol == 'admin' else Credito.query.filter(func.lower(Credito.sede) == usuario).all()
-
-    for cred in creditos_totales:
-        cuotas_cred = Cuota.query.filter_by(credito_id=cred.id).all()
-        if not cuotas_cred:
-            continue
-        
-        cuotas_vencidas = sum(1 for cuota in cuotas_cred if cuota.estado == 'EN MORA')
-        
-        if cuotas_vencidas == 1:
-            mora_amarillo += 1
-        elif cuotas_vencidas == 2:
-            mora_naranja += 1
-        elif cuotas_vencidas >= 3:
-            mora_rojo += 1
-
-    return render_template(
+    response = make_response(render_template(
         'dashboard.html',
         resumen_sedes=resumen_sedes,
         total_creditos=total_creditos,
@@ -1739,7 +1735,12 @@ def dashboard():
         mora_amarillo=mora_amarillo,
         mora_naranja=mora_naranja,
         mora_rojo=mora_rojo
-    )
+    ))
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, public, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
 
 @app.route('/creditos_en_mora')
 def ver_creditos_en_mora():
