@@ -1809,6 +1809,164 @@ def ver_creditos_en_mora():
         estado_seleccionado=estado_filtro
     )
 
+
+@app.route('/creditos_en_mora/excel')
+def exportar_mora_excel():
+    if 'user' not in session:
+        return redirect('/login')
+
+    rol = session.get('rol')
+    usuario = session.get('user')
+    hoy = date.today()
+
+    # Capturamos los filtros usando exactamente los nombres de tus variables
+    sede_seleccionada = request.args.get('sede_seleccionada', default='TODAS', type=str).strip().upper()
+    meses_filtro = request.args.get('mes_seleccionado', default=None, type=int)
+
+    # Lógica de filtrado por sedes según el rol y la selección
+    if rol == 'admin':
+        if sede_seleccionada and sede_seleccionada != 'TODAS':
+            creditos = Credito.query.filter(func.upper(Credito.sede) == sede_seleccionada).order_by(Credito.cliente.asc()).all()
+        else:
+            creditos = Credito.query.order_by(Credito.sede.asc(), Credito.cliente.asc()).all()
+    else:
+        creditos = Credito.query.filter(func.lower(Credito.sede) == usuario).order_by(Credito.cliente.asc()).all()
+
+    filas = []
+
+    total_monto_prestado = 0
+    total_monto_pagado = 0
+    total_interes_mora_gen = 0
+    total_deuda_fecha_gen = 0
+
+    for credito in creditos:
+        actualizar_mora_credito(credito, hoy)
+
+        cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+        if not cuotas:
+            continue
+
+        cuotas_mora = [c for c in cuotas if c.estado == 'EN MORA']
+        
+        if not cuotas_mora:
+            continue
+
+        meses_en_mora = len(cuotas_mora)
+
+        if meses_filtro is not None and meses_filtro > 0:
+            if meses_en_mora != meses_filtro:
+                continue
+
+        monto_prestado = credito.monto_financiado or 0
+        monto_pagado = sum((c.valor_cuota or 0) - (c.saldo_pendiente or 0) for c in cuotas if c.estado in ['PAGADA', 'ABONO'])
+        interes_mora = sum(c.interes_mora or 0 for c in cuotas_mora)
+        
+        deuda_fecha = sum(
+            (c.saldo_pendiente or 0) + (c.interes_mora or 0) 
+            for c in cuotas 
+            if c.estado in ['PENDIENTE', 'EN MORA', 'ABONO']
+            and ((c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago) <= hoy)
+        )
+
+        total_monto_prestado += monto_prestado
+        total_monto_pagado += monto_pagado
+        total_interes_mora_gen += interes_mora
+        total_deuda_fecha_gen += deuda_fecha
+
+        filas.append({
+            'Sede': credito.sede,
+            'Cliente': credito.cliente,
+            'Cédula': credito.cedula_cliente,
+            'Teléfono': credito.telefono_1 or credito.telefono_2 or 'N/A',
+            'N° Pagaré': credito.numero_pagare,
+            'Monto Prestado': monto_prestado,
+            'Monto Pagado': monto_pagado,
+            'N° Cuotas': len(cuotas),
+            'Meses en Mora': meses_en_mora,
+            'Interés de Mora': round(interes_mora, 2),
+            'Deuda a la Fecha': round(deuda_fecha, 2)
+        })
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Créditos en Mora"
+
+    fill_header = PatternFill("solid", fgColor="1F4E78")
+    fill_total = PatternFill("solid", fgColor="D9EAF7")
+    font_white = Font(color="FFFFFF", bold=True)
+    font_bold = Font(bold=True)
+    center = Alignment(horizontal="center", vertical="center")
+
+    filtro_texto_extra = f" - Sede: {sede_seleccionada}"
+    if meses_filtro:
+        filtro_texto_extra += f" - Rango: {meses_filtro} mes(es) de mora"
+    else:
+        filtro_texto_extra += " - Todos los meses de mora"
+
+    ws["A1"] = f"Reporte Detallado de Créditos en Mora{filtro_texto_extra}"
+    ws["A1"].font = Font(bold=True, size=13)
+
+    headers = [
+        "Sede", "Cliente", "Cédula", "Teléfono", "N° Pagaré", 
+        "Monto Prestado", "Monto Pagado", "N° Cuotas", 
+        "Meses en Mora", "Interés de Mora", "Deuda a la Fecha"
+    ]
+    
+    ws.row_dimensions[3].height = 24
+    for col_idx, header in enumerate(headers, start=1):
+        cell = ws.cell(row=3, column=col_idx, value=header)
+        cell.fill = fill_header
+        cell.font = font_white
+        cell.alignment = center
+
+    for item in filas:
+        ws.append([
+            item['Sede'], item['Cliente'], item['Cédula'], item['Teléfono'], item['N° Pagaré'],
+            item['Monto Prestado'], item['Monto Pagado'], item['N° Cuotas'],
+            item['Meses en Mora'], item['Interés de Mora'], item['Deuda a la Fecha']
+        ])
+
+    ws.append([
+        "TOTALES", "", "", "", "",
+        total_monto_prestado, total_monto_pagado, "", "",
+        total_interes_mora_gen, total_deuda_fecha_gen
+    ])
+
+    for row in ws.iter_rows(min_row=4, min_col=1, max_row=ws.max_row, max_col=11):
+        for idx, cell in enumerate(row, start=1):
+            if idx in [6, 7, 10, 11] and isinstance(cell.value, (int, float)):
+                cell.number_format = '$ #,##0'
+
+    last_row = ws.max_row
+    for col in range(1, len(headers) + 1):
+        cell = ws.cell(row=last_row, column=col)
+        cell.font = font_bold
+        cell.fill = fill_total
+
+    for col in ws.columns:
+        max_length = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            try:
+                if cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            except:
+                pass
+        ws.column_dimensions[col_letter].width = min(max_length + 4, 30)
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    return send_file(
+        output,
+        download_name=f'creditos_en_mora_{sede_seleccionada}_{hoy.strftime("%Y-%m-%d")}.xlsx',
+        as_attachment=True,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
+
 @app.route('/creditos/<sede>')
 def creditos_sede(sede):
     if 'user' not in session:
@@ -2904,7 +3062,7 @@ def liquidar_credito(credito_id):
 
 
 
-def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_seleccionado):
+def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_seleccionado=None):
     def fecha_solo_fecha(valor):
         if valor is None:
             return None
