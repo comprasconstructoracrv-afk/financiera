@@ -1680,7 +1680,9 @@ def dashboard():
             if not cuotas:
                 continue
 
-            if any(c.estado == 'EN MORA' for c in cuotas):
+            creditos_cuotas_en_mora=sum(1 for c in cuotas if c.estado ==  'EN MORA')
+
+            if creditos_cuotas_en_mora > 0:
                 en_mora += 1
             elif all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
                 cancelados += 1
@@ -1737,6 +1739,72 @@ def dashboard():
         mora_amarillo=mora_amarillo,
         mora_naranja=mora_naranja,
         mora_rojo=mora_rojo
+    )
+
+@app.route('/creditos_en_mora')
+def ver_creditos_en_mora():
+    if 'user' not in session:
+        return redirect('/login')
+
+    if session.get('rol', '').lower() != 'admin':
+        return redirect('/dashboard')
+
+    # Capturamos los filtros desde los selectores de la interfaz
+    sede_filtro = request.args.get('sede', 'TODAS')
+    estado_filtro = request.args.get('estado', 'TODAS')
+
+    # Consulta base de todos los créditos
+    query = Credito.query
+
+    if sede_filtro and sede_filtro != 'TODAS':
+        query = query.filter(func.lower(Credito.sede) == sede_filtro.lower())
+
+    creditos_filtrados = query.all()
+    
+    # Lista para almacenar los resultados detallados con su respectivo subestado de mora calculado
+    resultado_lista = []
+
+    for cred in creditos_filtrados:
+        cuotas = Cuota.query.filter_by(credito_id=cred.id).all()
+        if not cuotas:
+            continue
+
+        cuotas_en_mora_count = sum(1 for c in cuotas if c.estado == 'EN MORA')
+
+        if cuotas_en_mora_count == 0:
+            continue  # Si no está en mora, lo ignoramos
+
+        # Clasificación exacta según las reglas de negocio
+        if cuotas_en_mora_count == 1:
+            subestado = '1 MES'
+        elif cuotas_en_mora_count == 2:
+            subestado = '2 MESES'
+        else:
+            subestado = '+3 MESES'
+
+        # Aplicar el filtro de estado si se seleccionó uno específico
+        if estado_filtro != 'TODAS' and subestado != estado_filtro:
+            continue
+
+        saldo_pendiente_total= sum(c.total_cobro for c in cuotas if c.estado !='PAGADA')
+
+
+        resultado_lista.append({
+            'credito': cred,
+            'cuotas_mora': cuotas_en_mora_count,
+            'subestado': subestado,
+            'total_cobro': saldo_pendiente_total
+        })
+
+    # Obtenemos la lista única de sedes activas para poblar el menú desplegable
+    sedes_disponibles = Sede.query.filter_by(activa=True).all()
+
+    return render_template(
+        'creditos_en_mora.html',
+        resultados=resultado_lista,
+        sedes=sedes_disponibles,
+        sede_seleccionada=sede_filtro,
+        estado_seleccionado=estado_filtro
     )
 
 @app.route('/creditos/<sede>')
