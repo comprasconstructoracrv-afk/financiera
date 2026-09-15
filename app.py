@@ -2492,8 +2492,16 @@ def get_html2image_instance():
         shutil.which('chromium') 
         or shutil.which('chromium-browser') 
         or shutil.which('google-chrome')
+        # --- Rutas de Linux / Railway (Producción) ---
         or (os.path.exists('/root/.nix-profile/bin/chromium') and '/root/.nix-profile/bin/chromium')
         or (os.path.exists('/usr/bin/chromium') and '/usr/bin/chromium')
+        
+        # --- Rutas típicas para Windows (Local) ---
+        or (os.path.exists('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe') and 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe')
+        or (os.path.exists('C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe') and 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe')
+        or (os.path.exists(os.path.expanduser('~\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe')) and os.path.expanduser('~\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe'))
+        # --- Rutas típicas para Mac (Local) ---
+        or (os.path.exists('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome') and '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')
     )
 
     if not chrome_bin:
