@@ -2517,7 +2517,9 @@ def get_html2image_instance():
                 '--headless',
                 '--disable-dev-shm-usage',
                 '--disable-software-rasterizer',
-                '--no-zygote'
+                '--no-zygote',
+                '--disable-remote-fonts',
+                '--font-render-hinting=none'
             ],
             output_path='static/'
         )

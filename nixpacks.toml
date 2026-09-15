@@ -1,4 +1,4 @@
 providers = ["python"]
 
 [phases.setup]
-nixPkgs = ["cairo", "pkg-config", "pango", "chromium"]
+nixPkgs = ["cairo", "pkg-config", "pango", "chromium", "fontconfig", "freefont_ttf", "liberation_ttf"]
