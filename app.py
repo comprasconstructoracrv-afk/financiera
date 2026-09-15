@@ -1,6 +1,6 @@
 import smtplib
 
-from flask import Flask, make_response, render_template, request, redirect, session, flash, url_for, send_file
+from flask import Flask, current_app, make_response, render_template, request, redirect, session, flash, url_for, send_file
 from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo, Sede, TasaInteresVariable, InyeccionCapital, CambioTasaInteresCredito, AbonoCapital
 from datetime import datetime, date, timedelta
 import calendar
@@ -31,14 +31,10 @@ if database_url.startswith("postgres://"):
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    # Detectar el binario de Chromium instalado por Nixpacks
 
-app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
-app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
-app.config['MAIL_USE_TLS'] = str(os.environ.get('MAIL_USE_TLS', 'True')).lower() in ['true', '1', 'yes']
-app.config['MAIL_USE_SSL'] = str(os.environ.get('MAIL_USE_SSL', 'False')).lower() in ['true', '1', 'yes']
-app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
-app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
+app.config['BREVO_API_KEY'] = os.environ.get('BREVO_API_KEY')
 
 
 mail = Mail(app)
@@ -2383,7 +2379,7 @@ def pagar_cuota(cuota_id):
 
             if cuota.saldo_pendiente <= 0:
                 cuota.saldo_pendiente = 0
-                credito.saldo_actual = round(cuota.saldo_restante, 2)
+                credito.saldo_actual = round(cuota.saldo_restante or 0, 2)
 
         if restante > 0 and cuota.interes_mora > 0:
             aplicado_mora = min(restante, round(cuota.interes_mora, 2))
@@ -2466,8 +2462,12 @@ def pagar_cuota(cuota_id):
                 )
         actualizar_mora_credito(credito, fecha_pago.date())
         db.session.commit()
+
+        # --- AGREGA ESTOS PRINTS AQUÍ ---
+        print("🔍 VALOR EXACTO EN APP.PY ANTES DEL CORREO:", cuota.saldo_restante)
+        # ————————————————‘
            
-        resultado_correo= enviar_recibo_cuota_por_correo(pago_id=pago.id, mora_aplicada=pago.mora_generada_al_pago, saldo_pendiente=credito.saldo_actual)
+        resultado_correo= enviar_recibo_cuota_por_correo(pago_id=pago.id, mora_aplicada=pago.mora_generada_al_pago, saldo_pendiente=cuota.saldo_restante)
         flash(resultado_correo, 'estado_correo')
 
         return redirect(url_for('ver_recibo_pago', pago_id=pago.id))
@@ -2529,6 +2529,10 @@ def get_html2image_instance():
         traceback.print_exc()
         return None
 
+import base64
+from sib_api_v3_sdk import ApiClient, Configuration, TransactionalEmailsApi, SendSmtpEmail, SendSmtpEmailAttachment
+from sib_api_v3_sdk.rest import ApiException
+
 def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
     ruta_imagen = None
     try:
@@ -2556,7 +2560,7 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
 
         nombre_cliente = getattr(credito, 'cliente', 'Cliente')
         mora_aplicada = getattr(pago, 'mora_generada_al_pago', None) or getattr(cuota, 'mora_generada_al_pago', 0) or 0
-        saldo_pendiente = getattr(credito, 'saldo_actual', None) or getattr(credito, 'saldo_actual', 0) or 0
+        saldo_pendiente = saldo_pendiente if saldo_pendiente else (getattr(credito, 'saldo_actual', 0) or 0)
 
         # 1. Renderizar HTML del recibo
         html_recibo = render_template(
@@ -2596,56 +2600,50 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
                 "mensaje": "No se pudo generar la imagen del recibo."
             }
 
-        # 3. Leer imagen
-        with open(ruta_imagen, 'rb') as f:
-            img_bytes = f.read()
+        # 3. Configurar la API de Brevo
+        configuration = Configuration()
+        configuration.api_key['api-key'] = current_app.config.get('BREVO_API_KEY')
+        api_instance = TransactionalEmailsApi(ApiClient(configuration))
 
-        # 4. Construir correo
-        msg = Message(
+        # 4. Construir el correo con la imagen convertida en una sola línea limpia
+        msg = SendSmtpEmail(
+            to=[{"email": correo_cliente, "name": nombre_cliente}],
+            cc=[{"email": "carteraconstructoracrv@hotmail.com", "name": "Cartera_CRV"}],
+            reply_to={"email": "carteraconstructoracrv@hotmail.com"},
             subject=f"Comprobante de Caja - Recibo N° {pago.id}",
-            recipients=[correo_cliente],                  
-            reply_to="carteraconstructoracrv@hotmail.com"
+            html_content=render_template(
+                'correo_cliente.html',
+                nombre_cliente=nombre_cliente,
+                pago=pago,
+                mora_aplicada=mora_aplicada,
+                saldo_pendiente=saldo_pendiente
+            ),
+            sender={
+                "name": "Financiera CRV", 
+                "email": current_app.config.get('MAIL_DEFAULT_SENDER') or os.environ.get('MAIL_DEFAULT_SENDER')
+            },
+            attachment=[
+                SendSmtpEmailAttachment(
+                    content=base64.b64encode(open(ruta_imagen, 'rb').read()).decode('utf-8'),
+                    name=f"Recibo_Caja_{pago.id}.png"
+                )
+            ]
         )
         
-        msg.html = render_template(
-            'correo_cliente.html',
-            nombre_cliente=nombre_cliente,
-            pago=pago,
-            mora_aplicada=mora_aplicada,
-            saldo_pendiente=saldo_pendiente
-        )
-        
-        # 5. Adjuntar imagen
-        msg.attach(
-            filename=f"Recibo_Caja_{pago.id}.png",
-            content_type="image/png",
-            data=img_bytes
-        )
-        
-        # 6. Enviar correo vía SMTP
-        try: 
-            mail.send(msg)
-            print("Correo enviando existosamente mediante plataforma Brevo")
-        except Exception as e:
-            print(f"Error al enviar el correo mediante plataforma Brevo: {e}")
-
-        return {
-            "exito": True, 
-            "mensaje": f"Comprobante enviado exitosamente al correo {correo_cliente}."
-        }
-        
-
-    except smtplib.SMTPRecipientsRefused:
-        return {
-            "exito": False,
-            "mensaje": f"Correo rebotado: La dirección '{correo_cliente}' no existe o fue rechazada por el proveedor."
-        }
-
-    except (SMTPException, smtplib.SMTPResponseException) as e:
-        return {
-            "exito": False,
-            "mensaje": f"Error de entrega con '{correo_cliente}': El servidor rebotó el mensaje."
-        }
+        # 5. Enviar mediante la API HTTP de Brevo
+        try:
+            api_instance.send_transac_email(msg)
+            print("Correo enviado exitosamente vía API de Brevo.")
+            return {
+                "exito": True, 
+                "mensaje": f"Comprobante enviado exitosamente al correo {correo_cliente}."
+            }
+        except ApiException as e:
+            print(f"Error en la API de Brevo al enviar correo: {e}")
+            return {
+                "exito": False, 
+                "mensaje": f"El pago se procesó, pero no se pudo enviar el correo vía API: {e}"
+            }
 
     except Exception as e:
         print(f"ERROR AL ENVIAR EL CORREO: {str(e)}")
