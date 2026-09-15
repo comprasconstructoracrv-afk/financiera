@@ -268,7 +268,7 @@
         /* CONFIGURACIÓN PARA IMPRESIÓN */
         @media print {
             @page {
-                size: letter prortrait;
+                size: letter portrait;
                 margin: 8mm 12mm 16mm 12mm !important;
 
                 @bottom-left {
@@ -299,8 +299,8 @@
                 padding: 0 !important;
                 margin: 0 !important;
                 color: #000000 !important;
-                font-size: 9.5pt !important;
-                line-height: 1.3 !important;
+                font-size: 9.0pt !important;
+                line-height: 1.1 !important;
                 width: 100% !important;
             }
 
@@ -329,6 +329,19 @@
             .bloque, .seccion-firmas-imagen {
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
+            }
+
+
+            .bloque p, 
+            .bloque h1, 
+            .bloque h2, 
+            .bloque h3, 
+            .bloque h4,
+            .dato {
+                margin-top: 1px !important;
+                margin-bottom: 1px !important;
+                padding-top: 1px !important;
+                padding-bottom: 1px !important;
             }
         }
 
@@ -542,7 +555,7 @@
             </div>
 
             <div class="texto-legal">
-                Yo (nosotros), <strong>{{ credito.cliente }}</strong>, autorizo(amos) de manera <strong>expresa, irrevocable y permanente</strong> a CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S. para diligenciar los espacios en blanco del pagaré suscrito, conforme a:
+                Yo (nosotros), <strong>{{ credito.cliente }}</strong>, <strong>{{ credito.codeudor_nombre or " "}}</strong>,  autorizo(amos) de manera <strong>expresa, irrevocable y permanente</strong> a CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S. para diligenciar los espacios en blanco del pagaré suscrito, conforme a:
             </div>
 
             <div class="texto-legal">1. Podrá ser llenado por el <strong>saldo total de la obligación</strong>, incluyendo capital, intereses corrientes y de mora, seguros, gastos y honorarios.</div>
@@ -650,64 +663,119 @@
             <div class="bloque">
                 <h3></h3>
                 <div class="texto-legal">
-                    <h3>AUTORIZACIÓN CENTRALES DE RIESGO</h3>
+                    <h3 style="margin-bottom: 3px;">AUTORIZACIÓN CENTRALES DE RIESGO</h3>
+                    <p style="margin: 0 0 5px 0;">
                     Autorizo a CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S. a reportar, consultar y actualizar mi información en centrales de riesgo (Data crédito).
+                    </p>
                 </div>
 
 
-                <div class="bloque-persona">
-                    <div class="datos-persona">
-                                <div class="linea-campo">
-                                    <strong></strong>
-                                    <div></div>
-                                </div>
-                                <div class="linea-campo">
-                                    <strong>FIRMA DEUDOR:</strong>
-                                    <div class="campo-con-linea">
-                                        <span class="texto-sobre-linea"></span>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                    <tr>
+                        <!-- COLUMNA DEUDOR -->
+                        <td width="48%" valign="top">
+                            <div class="bloque-persona">
+                                <div class="datos-persona">
+                                    <div class="linea-campo">
+                                        <strong>FIRMA DEUDOR:</strong>
+                                        <div class="campo-con-linea">
+                                            <span class="texto-sobre-linea"></span>
+                                        </div>
+                                    </div>
+                                    <div class="linea-campo">
+                                        <strong>C.C./C.E.:</strong>
+                                        <div class="campo-con-linea">
+                                            <span class="texto-sobre-linea">{{ credito.cedula_cliente or '' }}</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="linea-campo">
-                                    <strong>C.C./C.E.:</strong>
-                                    <div class="campo-con-linea">
-                                        <span class="texto-sobre-linea">{{ credito.cedula_cliente or '' }}</span>
-                                    </div>
-                                </div>
+                                <div class="caja-huella"></div>
                             </div>
-                            <div class="caja-huella"></div>
-                
-                </div>  
+                        </td>
+
+                        <td width="4%"></td> <!-- Espaciador -->
+
+                        <!-- COLUMNA CODEUDOR (En caso de que aplique) -->
+                        <td width="48%" valign="top">
+                            <div class="bloque-persona">
+                                <div class="datos-persona">
+                                    <div class="linea-campo">
+                                        <strong>FIRMA CODEUDOR:</strong>
+                                        <div class="campo-con-linea">
+                                            <span class="texto-sobre-linea"></span>
+                                        </div>
+                                    </div>
+                                    <div class="linea-campo">
+                                        <strong>C.C./C.E.:</strong>
+                                        <div class="campo-con-linea">
+                                            <span class="texto-sobre-linea">{{ credito.codeudor_identificacion or '' }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="caja-huella"></div>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
             </div>
 
             <div class="bloque">
                 <h3></h3>
                 <div class="texto-legal">
-                    <h3>AUTORIZACIÓN TRATAMIENDO DE DATOS (LEY 1581 DE 2012)</h3>
+                    <h3 style="margin-bottom: 3px;">AUTORIZACIÓN TRATAMIENDO DE DATOS (LEY 1581 DE 2012)</h3>
+                    <p style="margin: 0 0 5px 0;">
                     De conformidad con la Ley 1581 de 2012, autorizo a CRV CONSTRUCCIONES Y URBANIZACIONES S.A.S. para recolectar, almacenar, usar y tratar mis datos personales con fines comerciales, contractuales y de cobranza.
+                    </p>
                 </div>
 
-                <div class="bloque-persona">
-                    <div class="datos-persona">
-                                <div class="linea-campo">
-                                    <strong></strong>
-                                    <div></div>
-                                </div>
-                                <div class="linea-campo">
-                                    <strong>FIRMA DEUDOR:</strong>
-                                    <div class="campo-con-linea">
-                                        <span class="texto-sobre-linea"></span>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                    <tr>
+                        <!-- COLUMNA DEUDOR -->
+                        <td width="48%" valign="top">
+                            <div class="bloque-persona">
+                                <div class="datos-persona">
+                                    <div class="linea-campo">
+                                        <strong>FIRMA DEUDOR:</strong>
+                                        <div class="campo-con-linea">
+                                            <span class="texto-sobre-linea"></span>
+                                        </div>
+                                    </div>
+                                    <div class="linea-campo">
+                                        <strong>C.C./C.E.:</strong>
+                                        <div class="campo-con-linea">
+                                            <span class="texto-sobre-linea">{{ credito.cedula_cliente or '' }}</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="linea-campo">
-                                    <strong>C.C./C.E.:</strong>
-                                    <div class="campo-con-linea">
-                                        <span class="texto-sobre-linea">{{ credito.cedula_cliente or '' }}</span>
-                                    </div>
-                                </div>
+                                <div class="caja-huella"></div>
                             </div>
-                            <div class="caja-huella"></div>
-                
-                </div> 
+                        </td>
+
+                        <td width="4%"></td> 
+
+                        <!-- COLUMNA CODEUDOR (En caso de que aplique) -->
+                        <td width="48%" valign="top">
+                            <div class="bloque-persona">
+                                <div class="datos-persona">
+                                    <div class="linea-campo">
+                                        <strong>FIRMA CODEUDOR:</strong>
+                                        <div class="campo-con-linea">
+                                            <span class="texto-sobre-linea"></span>
+                                        </div>
+                                    </div>
+                                    <div class="linea-campo">
+                                        <strong>C.C./C.E.:</strong>
+                                        <div class="campo-con-linea">
+                                            <span class="texto-sobre-linea">{{ credito.codeudor_identificacion or '' }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="caja-huella"></div>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+
             </div>
 
         </div>
