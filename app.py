@@ -34,10 +34,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
 app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
-app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True') == 'True'
+app.config['MAIL_USE_TLS'] = str(os.environ.get('MAIL_USE_TLS', 'True')).lower() in ['true', '1', 'yes']
+app.config['MAIL_USE_SSL'] = str(os.environ.get('MAIL_USE_SSL', 'False')).lower() in ['true', '1', 'yes']
 app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-app.config['MAIL_DEFAULT_SENDER'] = ("Financiera CRV", os.environ.get('MAIL_DEFAULT_SENDER'))
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
 
 
 mail = Mail(app)
@@ -2622,12 +2623,17 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
         )
         
         # 6. Enviar correo vía SMTP
-        mail.send(msg)
+        try: 
+            mail.send(msg)
+            print("Correo enviando existosamente mediante plataforma Brevo")
+        except Exception as e:
+            print(f"Error al enviar el correo mediante plataforma Brevo: {e}")
 
         return {
             "exito": True, 
             "mensaje": f"Comprobante enviado exitosamente al correo {correo_cliente}."
         }
+        
 
     except smtplib.SMTPRecipientsRefused:
         return {
