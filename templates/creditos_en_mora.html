@@ -282,12 +282,12 @@
                 <div class="acciones">
                     <a href="/dashboard" class="btn-volver">Inicio</a>
 
-                    <a href="/creditos_en_mora/excel?sede_seleccionada={{sede_seleccionada}}&mes_seleccionado={{sede_seleccionado}}"
+                    <a href="/creditos_en_mora/excel?sede={{sede_seleccionada}}&estado={{estado_seleccionado}}"
                            class="btn-premium btn-excel btn-exportar">
                             <span>Exportar Excel</span>
                     </a>
 
-                    <a href="/creditos_en_mora/excel?sede_seleccionada={{sede_seleccionada}}&mes_seleccionado={{sede_seleccionado}}"
+                    <a href="/creditos_en_mora/pdf?sede={{sede_seleccionada}}&estado={{estado_seleccionado}}"
                            class="btn-premium btn-pdf btn-exportar"
                            data-tipo="pdf"
                            data-texto="Exportar PDF">
@@ -311,12 +311,18 @@
                 <!-- Selector de Sede -->
                 <div class="grupo-filtro">
                     <label>Sede:</label>
+                    {% if es_admin %}
                     <select name="sede">
                         <option value="TODAS" {% if sede_seleccionada == 'TODAS' %}selected{% endif %}>TODAS LAS SEDES</option>
                         {% for s in sedes %}
                         <option value="{{ s.nombre }}" {% if sede_seleccionada|lower == s.nombre|lower %}selected{% endif %}>{{ s.nombre }}</option>
                         {% endfor %}
                     </select>
+                    {% else %}
+                         <!-- Muestra el nombre de su sede fijo o un input oculto -->
+                        <input type="text" class="form-control" value="{{ sede_seleccionada |upper }}" disabled style="padding: 11px 16px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 14px; background: #e2e8f0; color: #475569; min-width: 220px;">
+                        <input type="hidden" name="sede" value="{{ sede_seleccionada }}">
+                    {% endif %}
                 </div>
 
                 <!-- Selector de Estado -->

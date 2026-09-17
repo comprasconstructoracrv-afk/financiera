@@ -1746,17 +1746,26 @@ def ver_creditos_en_mora():
     if 'user' not in session:
         return redirect('/login')
 
-    if session.get('rol', '').lower() != 'admin':
-        return redirect('/dashboard')
+    rol= session.get('rol', '').lower()
+    sede_usuario= session.get('user', '')
+    es_admin= (rol=='admin')
 
     # Capturamos los filtros desde los selectores de la interfaz
-    sede_filtro = request.args.get('sede', 'TODAS')
+    if not es_admin:
+        sede_usuario = session.get('sede') or session.get('user', '') # Ajusta al key de tu session (ej: session['sede_nombre'])
+        sede_filtro = sede_usuario
+    else:
+        sede_filtro = request.args.get('sede', 'TODAS')
+
     estado_filtro = request.args.get('estado', 'TODAS')
 
     # Consulta base de todos los créditos
     query = Credito.query
 
-    if sede_filtro and sede_filtro != 'TODAS':
+    # Aplicamos filtro de sede estricto si no es admin, o el del selector si es admin
+    if not es_admin:
+        query = query.filter(func.lower(Credito.sede) == sede_filtro.lower())
+    elif sede_filtro and sede_filtro != 'TODAS':
         query = query.filter(func.lower(Credito.sede) == sede_filtro.lower())
 
     creditos_filtrados = query.all()
@@ -1797,41 +1806,112 @@ def ver_creditos_en_mora():
         })
 
     # Obtenemos la lista única de sedes activas para poblar el menú desplegable
-    sedes_disponibles = Sede.query.filter_by(activa=True).all()
+    sedes_disponibles = Sede.query.filter_by(activa=True).all() if es_admin else []
 
     return render_template(
         'creditos_en_mora.html',
         resultados=resultado_lista,
         sedes=sedes_disponibles,
         sede_seleccionada=sede_filtro,
-        estado_seleccionado=estado_filtro
+        estado_seleccionado=estado_filtro,
+        es_admin=es_admin
     )
-
-
-@app.route('/creditos_en_mora/excel')
-def exportar_mora_excel():
+ 
+@app.route('/creditos_en_mora/pdf')
+def exportar_mora_pdf():
     if 'user' not in session:
         return redirect('/login')
 
-    rol = session.get('rol')
-    usuario = session.get('user')
+    from reportlab.platypus import (
+        SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+    )
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import landscape
+    from reportlab.lib.units import inch
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    import os
+
+    rol = session.get('rol', '').lower()
+    es_admin = (rol == 'admin')
     hoy = date.today()
 
-    # Capturamos los filtros usando exactamente los nombres de tus variables
-    sede_seleccionada = request.args.get('sede_seleccionada', default='TODAS', type=str).strip().upper()
-    meses_filtro = request.args.get('mes_seleccionado', default=None, type=int)
-
-    # Lógica de filtrado por sedes según el rol y la selección
-    if rol == 'admin':
-        if sede_seleccionada and sede_seleccionada != 'TODAS':
-            creditos = Credito.query.filter(func.upper(Credito.sede) == sede_seleccionada).order_by(Credito.cliente.asc()).all()
-        else:
-            creditos = Credito.query.order_by(Credito.sede.asc(), Credito.cliente.asc()).all()
+    if not es_admin:
+        sede_seleccionada = session.get('sede') or session.get('user', '')
     else:
-        creditos = Credito.query.filter(func.lower(Credito.sede) == usuario).order_by(Credito.cliente.asc()).all()
+        sede_seleccionada = request.args.get('sede', 'TODAS')
 
-    filas = []
+    estado_filtro = request.args.get('estado', 'TODAS')
 
+    query = Credito.query
+    if not es_admin:
+        query = query.filter(func.lower(Credito.sede) == str(sede_seleccionada).lower())
+    elif sede_seleccionada and sede_seleccionada != 'TODAS':
+        query = query.filter(func.lower(Credito.sede) == str(sede_seleccionada).lower())
+
+    creditos = query.order_by(Credito.cliente.asc()).all()
+
+    meses_espanol = {
+        1: 'enero', 2: 'febrero', 3: 'marzo', 4: 'abril',
+        5: 'mayo', 6: 'junio', 7: 'julio', 8: 'agosto',
+        9: 'septiembre', 10: 'octubre', 11: 'noviembre', 12: 'diciembre'
+    }
+
+    def formatear_fecha_texto(val):
+        if not val:
+            return 'N/A'
+        dt = None
+        if isinstance(val, datetime):
+            dt = val.date()
+        elif isinstance(val, date):
+            dt = val
+        elif isinstance(val, str):
+            try:
+                dt = datetime.strptime(val[:10], '%Y-%m-%d').date()
+            except:
+                return val
+        if dt:
+            return f"{dt.day} de {meses_espanol.get(dt.month, '')} de {dt.year}"
+        return str(val)
+
+    # Helper estricto de máximo 2 líneas físicas por celda con <br/>
+    def forzar_2_lineas(text, max_len=28):
+        if not text:
+            return 'N/A'
+        s = str(text).strip()
+        if len(s) <= max_len:
+            return s
+        part1 = s[:max_len]
+        part2 = s[max_len:]
+        if len(part2) > max_len:
+            part2 = part2[:max_len-3] + '...'
+        return f"{part1}<br/>{part2}"
+
+    styles = getSampleStyleSheet()
+    azul = colors.HexColor("#0b2f4f")
+    gris_claro = colors.HexColor("#f4f7fb")
+    borde = colors.HexColor("#d9e2ec")
+
+    titulo_style = ParagraphStyle(
+        "TituloCRV", parent=styles["Title"], fontSize=22, textColor=azul, alignment=TA_CENTER, spaceAfter=4
+    )
+    subtitulo_style = ParagraphStyle(
+        "SubtituloCRV", parent=styles["Normal"], fontSize=10, textColor=colors.HexColor("#334155"), alignment=TA_CENTER, spaceAfter=10
+    )
+    normal_style = ParagraphStyle(
+        "NormalCRV", parent=styles["Normal"], fontSize=8.5, textColor=colors.HexColor("#1f2937"), alignment=TA_LEFT
+    )
+
+    cell_p_left = ParagraphStyle("CPLeft", parent=styles["Normal"], fontSize=7, leading=9, textColor=colors.HexColor("#1f2937"), alignment=TA_LEFT)
+    cell_p_center = ParagraphStyle("CPCenter", parent=styles["Normal"], fontSize=7, leading=9, textColor=colors.HexColor("#1f2937"), alignment=TA_CENTER)
+    cell_p_right = ParagraphStyle("CPRight", parent=styles["Normal"], fontSize=7, leading=9, textColor=colors.HexColor("#1f2937"), alignment=TA_RIGHT)
+
+    def p_left_2l(text, limit=28): return Paragraph(forzar_2_lineas(text, limit), cell_p_left)
+    def p_left(text): return Paragraph(str(text or 'N/A'), cell_p_left)
+    def p_center(text): return Paragraph(str(text or 'N/A'), cell_p_center)
+    def p_right(text): return Paragraph(str(text or '0'), cell_p_right)
+
+    filas_data = []
     total_monto_prestado = 0
     total_monto_pagado = 0
     total_interes_mora_gen = 0
@@ -1845,23 +1925,25 @@ def exportar_mora_excel():
             continue
 
         cuotas_mora = [c for c in cuotas if c.estado == 'EN MORA']
-        
         if not cuotas_mora:
             continue
 
         meses_en_mora = len(cuotas_mora)
+        subestado = '1 MES' if meses_en_mora == 1 else ('2 MESES' if meses_en_mora == 2 else '+3 MESES')
 
-        if meses_filtro is not None and meses_filtro > 0:
-            if meses_en_mora != meses_filtro:
-                continue
+        if estado_filtro != 'TODAS' and subestado != estado_filtro:
+            continue
+
+        cuota_ref = cuotas_mora[0] if cuotas_mora else cuotas[0]
+        val_cuota_ref = cuota_ref.valor_cuota or 0 if cuota_ref else 0
 
         monto_prestado = credito.monto_financiado or 0
-        monto_pagado = sum((c.valor_cuota or 0) - (c.saldo_pendiente or 0) for c in cuotas if c.estado in ['PAGADA', 'ABONO'])
+        monto_pagado = sum((c.valor_cuota or 0) - (c.saldo_pendiente or 0) -(c.interes or 0) for c in cuotas if c.estado in ['PAGADA', 'ABONO'])
         interes_mora = sum(c.interes_mora or 0 for c in cuotas_mora)
         
         deuda_fecha = sum(
-            (c.saldo_pendiente or 0) + (c.interes_mora or 0) 
-            for c in cuotas 
+            (c.saldo_pendiente or 0) + (c.interes_mora or 0.0)  
+            for c in cuotas  
             if c.estado in ['PENDIENTE', 'EN MORA', 'ABONO']
             and ((c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago) <= hoy)
         )
@@ -1871,17 +1953,236 @@ def exportar_mora_excel():
         total_interes_mora_gen += interes_mora
         total_deuda_fecha_gen += deuda_fecha
 
+        fecha_creacion_str = formatear_fecha_texto(getattr(credito, 'fecha_creacion', None))
+
+        filas_data.append([
+            p_center(credito.sede),
+            p_left_2l(credito.cliente, limit=25),        # Forzado a máx 2 líneas
+            p_center(credito.cedula_cliente),
+            p_center(credito.telefono_1),
+            p_center(credito.telefono_2),
+            p_left_2l(credito.direccion_cliente, limit=26),  # Forzado a máx 2 líneas
+            p_left_2l(credito.correo_cliente, limit=28),     # Forzado a máx 2 líneas
+            p_center(credito.numero_pagare),
+            p_center(fecha_creacion_str),
+            p_right(f"${monto_prestado:,.0f}"),
+            p_right(f"${monto_pagado:,.0f}"),
+            p_center(len(cuotas)),
+            p_center(meses_en_mora),
+            p_right(f"${val_cuota_ref:,.0f}"),
+            p_right(f"${interes_mora:,.0f}"),
+            p_right(f"${deuda_fecha:,.0f}")
+        ])
+
+    output = BytesIO()
+    doc = SimpleDocTemplate(
+        output,
+        pagesize=landscape((17 * inch, 11 * inch)),
+        rightMargin=20,
+        leftMargin=20,
+        topMargin=20,
+        bottomMargin=20
+    )
+
+    elementos = []
+
+    def agregar_encabezado():
+        logo_path = os.path.join(app.static_folder, "logo.png") if app.static_folder else "logo.png"
+        logo = Image(logo_path, width=95, height=58) if os.path.exists(logo_path) else ""
+
+        empresa = Paragraph("""
+            <b>CONSTRUCCIONES Y URBANIZACIONES S.A.S</b><br/>
+            NIT: 901.527.083-2 | TEL: 311 414 5843<br/>
+            AV. AMBALÁ N° 27-136 P3 - IBAGUÉ-TOLIMA
+        """, normal_style)
+
+        titulo = Paragraph("REPORTE DE CRÉDITOS EN MORA", titulo_style)
+        subtitulo = Paragraph(
+            f"Sede: {sede_seleccionada} | Estado de mora: {estado_filtro} | Fecha: {hoy.strftime('%Y-%m-%d')}",
+            subtitulo_style
+        )
+
+        tabla_header = Table([[logo, [titulo, subtitulo], empresa]], colWidths=[140, 884, 160])
+        tabla_header.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (0, 0), "LEFT"),
+            ("ALIGN", (1, 0), (1, 0), "CENTER"),
+            ("ALIGN", (2, 0), (2, 0), "RIGHT"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+            ("LINEBELOW", (0, 0), (-1, -1), 1, borde),
+        ]))
+        elementos.append(tabla_header)
+        elementos.append(Spacer(1, 12))
+
+    agregar_encabezado()
+
+    headers = [
+        "Sede", "Cliente", "Cédula", "Tel. 1", "Tel. 2", "Dirección", "Correo", 
+        "Pagaré", "Fecha Inicio Crédito", "Monto Prestado", "Monto Pagado", "Cuotas", 
+        "Cuotas en Mora", "Valor Cuota", "Mora a la fecha", "Deuda a la Fecha"
+    ]
+    
+    header_style = ParagraphStyle("HStyle", parent=styles["Normal"], fontSize=8, leading=11, textColor=colors.white, fontName="Helvetica-Bold", alignment=TA_CENTER)
+    header_paragraphs = [Paragraph(f"<b>{h}</b>", header_style) for h in headers]
+    data = [header_paragraphs] + filas_data
+    
+    if filas_data:
+        total_p_style = ParagraphStyle("TPStyle", parent=styles["Normal"], fontSize=8, leading=11, textColor=colors.HexColor("#0b2f4f"), fontName="Helvetica-Bold", alignment=TA_RIGHT)
+        total_p_left = ParagraphStyle("TPStyleL", parent=total_p_style, alignment=TA_LEFT)
+        data.append([
+            Paragraph("<b>TOTALES</b>", total_p_left), "", "", "", "", "", "", "", "",
+            Paragraph(f"<b>${total_monto_prestado:,.0f}</b>", total_p_style),
+            Paragraph(f"<b>${total_monto_pagado:,.0f}</b>", total_p_style),
+            "", "", "",
+            Paragraph(f"<b>${total_interes_mora_gen:,.0f}</b>", total_p_style),
+            Paragraph(f"<b>${total_deuda_fecha_gen:,.0f}</b>", total_p_style)
+        ])
+
+    col_widths = [40,  # Sede
+        130,  # Cliente
+        60,  # Cédula
+        45,  # Tel. 1
+        45,  # Tel. 2
+        120,  # Dirección
+        130,  # Correo
+        40,  # Pagaré
+        95,  # Fecha Inicio Crédito
+        80,  # Monto Prestado
+        80,  # Monto Pagado
+        32,  # Cuotas
+        32,  # Mora
+        80,  # Valor Cuota
+        68,  # Int. Mora
+        90,  # Deuda a la Fecha
+    ]
+    t = Table(data, repeatRows=1, colWidths=col_widths)
+
+    estilo_tabla = [
+        ("BACKGROUND", (0, 0), (-1, 0), azul),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 0.4, borde),
+        ("BACKGROUND", (0, 1), (-1, -2), colors.white),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, gris_claro]),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+    ]
+
+    if filas_data:
+        estilo_tabla.extend([
+            ("SPAN", (0, -1), (8, -1)),
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#D9EAF7")),
+            ("ALIGN", (0, -1), (8, -1), "LEFT"),
+        ])
+
+    t.setStyle(TableStyle(estilo_tabla))
+    elementos.append(t)
+
+    doc.build(elementos)
+    output.seek(0)
+
+    clean_sede = str(sede_seleccionada).replace(' ', '_')
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=f'creditos_en_mora_{clean_sede}_{hoy.strftime("%Y-%m-%d")}.pdf',
+        mimetype="application/pdf"
+    )
+
+@app.route('/creditos_en_mora/excel')
+def exportar_mora_excel():
+    if 'user' not in session:
+        return redirect('/login')
+
+    rol = session.get('rol', '').lower()
+    es_admin = (rol == 'admin')
+    usuario = session.get('user', '')
+    hoy = date.today()
+
+    if not es_admin:
+        sede_seleccionada = session.get('sede') or session.get('user', '')
+    else:
+        sede_seleccionada = request.args.get('sede', 'TODAS')
+
+    estado_filtro = request.args.get('estado', 'TODAS')
+
+    query = Credito.query
+    if not es_admin:
+        query = query.filter(func.lower(Credito.sede) == str(sede_seleccionada).lower())
+    elif sede_seleccionada and sede_seleccionada != 'TODAS':
+        query = query.filter(func.lower(Credito.sede) == str(sede_seleccionada).lower())
+
+    creditos = query.order_by(Credito.cliente.asc()).all()
+
+    filas = []
+    total_monto_prestado = 0
+    total_monto_pagado = 0
+    total_interes_mora_gen = 0
+    total_deuda_fecha_gen = 0
+
+    for credito in creditos:
+        actualizar_mora_credito(credito, hoy)
+
+        cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+        if not cuotas:
+            continue
+
+        cuotas_mora = [c for c in cuotas if c.estado == 'EN MORA']
+        if not cuotas_mora:
+            continue
+
+        meses_en_mora = len(cuotas_mora)
+
+        if meses_en_mora == 1:
+            subestado = '1 MES'
+        elif meses_en_mora == 2:
+            subestado = '2 MESES'
+        else:
+            subestado = '+3 MESES'
+
+        if estado_filtro != 'TODAS' and subestado != estado_filtro:
+            continue
+
+        cuota_ref = cuotas_mora[0] if cuotas_mora else cuotas[0]
+        val_cuota_ref = cuota_ref.valor_cuota or 0 if cuota_ref else 0
+
+        monto_prestado = credito.monto_financiado or 0
+        monto_pagado = sum((c.valor_cuota or 0) - (c.saldo_pendiente or 0) - (c.interes or 0) for c in cuotas if c.estado in ['PAGADA', 'ABONO'])
+        interes_mora = sum(c.interes_mora or 0 for c in cuotas_mora)
+        
+        deuda_fecha = sum(
+            (c.saldo_pendiente or 0) + (c.interes_mora or 0)  
+            for c in cuotas  
+            if c.estado in ['PENDIENTE', 'EN MORA', 'ABONO']
+            and ((c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago) <= hoy)
+        )
+
+        total_monto_prestado += monto_prestado
+        total_monto_pagado += monto_pagado
+        total_interes_mora_gen += interes_mora
+        total_deuda_fecha_gen += deuda_fecha
+
+        fecha_creacion_str = credito.fecha_creacion.strftime('%Y-%m-%d') if getattr(credito, 'fecha_creacion', None) and hasattr(credito.fecha_creacion, 'strftime') else str(getattr(credito, 'fecha_creacion', '') or '')
+
         filas.append({
             'Sede': credito.sede,
             'Cliente': credito.cliente,
             'Cédula': credito.cedula_cliente,
-            'Teléfono': credito.telefono_1 or credito.telefono_2 or 'N/A',
+            'Teléfono 1': credito.telefono_1 or 'N/A',
+            'Teléfono 2': credito.telefono_2 or 'N/A',
+            'Dirección': credito.direccion_cliente or 'N/A',
+            'Correo': credito.correo_cliente or 'N/A',
             'N° Pagaré': credito.numero_pagare,
+            'Fecha Inicio Crédito': fecha_creacion_str,
             'Monto Prestado': monto_prestado,
             'Monto Pagado': monto_pagado,
             'N° Cuotas': len(cuotas),
             'Meses en Mora': meses_en_mora,
-            'Interés de Mora': round(interes_mora, 2),
+            'Valor Cuota': val_cuota_ref,
+            'Mora a la fecha': round(interes_mora, 2),
             'Deuda a la Fecha': round(deuda_fecha, 2)
         })
 
@@ -1896,8 +2197,8 @@ def exportar_mora_excel():
     center = Alignment(horizontal="center", vertical="center")
 
     filtro_texto_extra = f" - Sede: {sede_seleccionada}"
-    if meses_filtro:
-        filtro_texto_extra += f" - Rango: {meses_filtro} mes(es) de mora"
+    if estado_filtro and estado_filtro != 'TODAS':
+        filtro_texto_extra += f" - Rango: {estado_filtro} mes(es) de mora"
     else:
         filtro_texto_extra += " - Todos los meses de mora"
 
@@ -1905,9 +2206,9 @@ def exportar_mora_excel():
     ws["A1"].font = Font(bold=True, size=13)
 
     headers = [
-        "Sede", "Cliente", "Cédula", "Teléfono", "N° Pagaré", 
-        "Monto Prestado", "Monto Pagado", "N° Cuotas", 
-        "Meses en Mora", "Interés de Mora", "Deuda a la Fecha"
+        "Sede", "Cliente", "Cédula", "Teléfono 1", "Teléfono 2", "Dirección", "Correo", 
+        "N° Pagaré", "Fecha Inicio Crédito", "Monto Prestado", "Monto Pagado", "N° Cuotas",  
+        "Meses en Mora", "Valor Cuota",  "Mora a la fecha", "Deuda a la Fecha"
     ]
     
     ws.row_dimensions[3].height = 24
@@ -1919,20 +2220,23 @@ def exportar_mora_excel():
 
     for item in filas:
         ws.append([
-            item['Sede'], item['Cliente'], item['Cédula'], item['Teléfono'], item['N° Pagaré'],
+            item['Sede'], item['Cliente'], item['Cédula'], item['Teléfono 1'], item['Teléfono 2'],
+            item['Dirección'], item['Correo'], item['N° Pagaré'], item['Fecha Inicio Crédito'],
             item['Monto Prestado'], item['Monto Pagado'], item['N° Cuotas'],
-            item['Meses en Mora'], item['Interés de Mora'], item['Deuda a la Fecha']
+            item['Meses en Mora'], item['Valor Cuota'],
+            item['Mora a la fecha'], item['Deuda a la Fecha']
         ])
 
     ws.append([
-        "TOTALES", "", "", "", "",
-        total_monto_prestado, total_monto_pagado, "", "",
+        "TOTALES", "", "", "", "", "", "", "", "",
+        total_monto_prestado, total_monto_pagado, "", "", "",
         total_interes_mora_gen, total_deuda_fecha_gen
     ])
 
-    for row in ws.iter_rows(min_row=4, min_col=1, max_row=ws.max_row, max_col=11):
+    # Columnas de dinero o numéricas monetarias: 10, 11, 14, 15, 16, 17
+    for row in ws.iter_rows(min_row=4, min_col=1, max_row=ws.max_row, max_col=17):
         for idx, cell in enumerate(row, start=1):
-            if idx in [6, 7, 10, 11] and isinstance(cell.value, (int, float)):
+            if idx in [10, 11, 14, 15, 16, 17] and isinstance(cell.value, (int, float)):
                 cell.number_format = '$ #,##0'
 
     last_row = ws.max_row
@@ -1962,7 +2266,6 @@ def exportar_mora_excel():
         as_attachment=True,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
 
 
 @app.route('/creditos/<sede>')
