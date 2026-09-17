@@ -101,6 +101,7 @@ class Pago(db.Model):
     mora_generada_al_pago = db.Column(db.Float, nullable=False, default=0)
     saldo_pendiente_antes_pago = db.Column(db.Float, nullable=False, default=0)
     total_exigible_al_pago = db.Column(db.Float, nullable=False, default=0)
+    numero_referencia = db.Column(db.String(100), unique=True, nullable=True)
 
     activo = db.Column(db.Boolean, default=True)
     reversado = db.Column(db.Boolean, default=False)

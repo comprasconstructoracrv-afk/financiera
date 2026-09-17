@@ -2327,10 +2327,15 @@ def pagar_cuota(cuota_id):
     credito = Credito.query.get_or_404(cuota.credito_id)
 
     if request.method == 'POST':
-        fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d')
+        fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d').date()
         valor_pago = limpiar_valor_moneda(request.form['valor'])
         medio_pago = request.form['medio_pago']
         observacion = request.form.get('observacion', '').strip()
+        numero_referencia= request.form.get('numero_referencia', '').strip()
+
+        pago_duplicado = Pago.query.filter_by(numero_referencia=numero_referencia).first()
+        if pago_duplicado:
+            return f"Error: El número de referencia '{numero_referencia}' ya se encuentra registrado en otro pago. Por favor verifique el comprobante."
 
         if medio_pago == 'OTRO':
             medio_pago_otro = request.form.get('medio_pago_otro', '').strip()
@@ -2341,7 +2346,7 @@ def pagar_cuota(cuota_id):
         if valor_pago <= 0:
             return "El pago debe ser mayor que cero"
 
-        actualizar_mora_credito(credito, fecha_pago.date())
+        actualizar_mora_credito(credito, fecha_pago)
         db.session.commit()
 
         cuota = Cuota.query.get_or_404(cuota_id)
@@ -2441,7 +2446,8 @@ def pagar_cuota(cuota_id):
             mora_generada_al_pago=mora_generada_al_pago,
             saldo_pendiente_antes_pago=saldo_pendiente_antes_pago,
             total_exigible_al_pago=total_exigible,
-            observacion=observacion if observacion else "Pago registrado en el sistema financiero"
+            observacion=observacion if observacion else "Pago registrado en el sistema financiero",
+            numero_referencia= numero_referencia
         )
 
         db.session.add(pago)
@@ -2462,22 +2468,40 @@ def pagar_cuota(cuota_id):
                 )
         actualizar_mora_credito(credito, fecha_pago.date())
         db.session.commit()
-
-        # --- AGREGA ESTOS PRINTS AQUÍ ---
-        print("🔍 VALOR EXACTO EN APP.PY ANTES DEL CORREO:", cuota.saldo_restante)
-        # ————————————————‘
            
         resultado_correo= enviar_recibo_cuota_por_correo(pago_id=pago.id, mora_aplicada=pago.mora_generada_al_pago, saldo_pendiente=cuota.saldo_restante)
         flash(resultado_correo, 'estado_correo')
 
         return redirect(url_for('ver_recibo_pago', pago_id=pago.id))
 
-    actualizar_mora_credito(credito, datetime.utcnow().date())
+    # MODO GET Soporta fecha seleccionada por parámetro o toma la fecha de hoy por defecto
+    fecha_param = request.args.get('fecha_pago')
+    if fecha_param:
+        fecha_evaluar = datetime.strptime(fecha_param, '%Y-%m-%d').date()
+    else:
+        fecha_evaluar = datetime.utcnow().date()
+
+    actualizar_mora_credito(credito, fecha_evaluar)
     db.session.commit()
 
     cuota = Cuota.query.get_or_404(cuota_id)
 
-    return render_template('pagar_cuota.html', cuota=cuota)
+    return render_template('pagar_cuota.html', cuota=cuota, fecha_seleccionada=fecha_evaluar.strftime('%Y-%m-%d'))
+
+
+from flask import jsonify
+
+@app.route('/api/verificar_referencia')
+def verificar_referencia():
+    ref = request.args.get('ref', '').strip()
+    if not ref:
+        return jsonify({'exists': False})
+    
+    # Busca si ya existe la referencia exacta
+    pago_existente = Pago.query.filter_by(numero_referencia=ref).first()
+    return jsonify({'exists': pago_existente is not None})
+
+
 
 import os
 import shutil
@@ -2671,6 +2695,12 @@ def pagar_deuda_fecha(credito_id):
         valor_pago = limpiar_valor_moneda(request.form['valor'])
         medio_pago = request.form['medio_pago']
         observacion = request.form.get('observacion','').strip()
+        numero_referencia= request.form.get('numero_referencia', '').strip()
+        
+        pago_duplicado = Pago.query.filter_by(numero_referencia=numero_referencia).first()
+        if pago_duplicado:
+            return f"Error: El número de referencia '{numero_referencia}' ya se encuentra registrado en otro pago. Por favor verifique el comprobante."
+        
 
         if medio_pago == 'OTRO':
             medio_pago_otro = request.form.get('medio_pago_otro', '').strip()
@@ -2704,7 +2734,8 @@ def pagar_deuda_fecha(credito_id):
             fecha_pago=fecha_pago,
             valor_pago=valor_pago,
             medio_pago=medio_pago,
-            observacion=observacion
+            observacion=observacion,
+            numero_referencia=numero_referencia
         )
 
         if not pagos_ids:
@@ -2972,6 +3003,12 @@ def liquidar_credito(credito_id):
         valor_pago = limpiar_valor_moneda(request.form['valor'])
         medio_pago = request.form['medio_pago']
         observacion = request.form.get('observacion','').strip()
+        numero_referencia= request.form.get('numero_referencia', '').strip()
+        
+        pago_duplicado = Pago.query.filter_by(numero_referencia=numero_referencia).first()
+        if pago_duplicado:
+            return f"Error: El número de referencia '{numero_referencia}' ya se encuentra registrado en otro pago. Por favor verifique el comprobante."
+        
 
         if medio_pago == 'OTRO':
             medio_pago_otro = request.form.get('medio_pago_otro', '').strip()
@@ -3022,7 +3059,8 @@ def liquidar_credito(credito_id):
             dias_mora_pagados=cuota_actual.dias_mora or 0,
             mora_generada_al_pago=total_mora,
             saldo_pendiente_antes_pago=capital_insoluto,
-            total_exigible_al_pago=total_liquidacion
+            total_exigible_al_pago=total_liquidacion,
+            numero_referencia=numero_referencia
         )
         db.session.add(pago)
 

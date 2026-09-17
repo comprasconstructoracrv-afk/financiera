@@ -322,8 +322,15 @@
             <form method="POST">
                 <div class="form-grid">
                     <div>
-                        <label>Fecha de pago</label>
-                        <input type="date" name="fecha_pago" required>
+                        <label for="fecha_pago">Fecha de pago</label>
+                        <input 
+                            type="date" 
+                            id="fecha_pago" 
+                            name="fecha_pago" 
+                            value="{{ fecha_seleccionada }}" 
+                            onchange="recalcularMoraPorFecha(this.value)"
+                            required
+                        >
                     </div>
 
                     <div>
@@ -346,6 +353,13 @@
                         <input type="text" name="valor" class="input-moneda" inputmode="numeric" required>
                     </div>
 
+                    <div class="campo-completo">
+                        <label>Número de Referencia / Comprobante</label>
+                        <input type="text" name="numero_referencia" id="input_referencia" required autocomplete="off">
+                        <div id="alerta_referencia" style="color: #e74c3c; font-weight: bold; margin-top: 5px; display: none;"></div>
+                    </div>
+
+
                     <label for="observacion">Observación</label>
                     <textarea
                         name="observacion"
@@ -366,5 +380,41 @@
         </div>
 
     </div>
+
+    <script>
+        function fechaSeleccionada(nuevaFecha) {
+            // Redirige a la misma ruta de pagar_cuota pero enviando la fecha elegida por GET
+            window.location.href = "{{ url_for('pagar_cuota', cuota_id=cuota.id) }}?fecha_pago=" + nuevaFecha;
+        }
+
+        document.getElementById('fecha_pago').addEventListener('change', function() {
+            window.location.href = "{{ url_for('pagar_cuota', cuota_id=cuota.id) }}?fecha_pago=" + this.value;
+        });
+    </script>
+
+    <script>
+        const inputRef = document.getElementById('input_referencia');
+        const alertaBox = document.getElementById('alerta_referencia');
+
+        inputRef.addEventListener('input', function() {
+            let texto = inputRef.value.trim();
+            
+            if (texto === "") {
+                alertaBox.style.display = 'none';
+                return;
+            }
+
+            fetch('/api/verificar_referencia?ref=' + encodeURIComponent(texto))
+                .then(response => response.json())
+                .then(data => {
+                    if (data.exists) {
+                        alertaBox.textContent = "Este número de referencia ya está registrado en el sistema";
+                        alertaBox.style.display = 'block';
+                    } else {
+                        alertaBox.style.display = 'none';
+                    }
+                });
+        });
+    </script>
 </body>
 </html>

@@ -266,6 +266,12 @@
         <label>Valor a pagar</label>
         <input type="text" name="valor" id="valor_pago" oninput="formatearMoneda(this)">
 
+    
+        <label>Número de Referencia / Comprobante</label>
+        <input type="text" name="numero_referencia" id="input_referencia" required autocomplete="off">
+        <div id="alerta_referencia" style="color: #e74c3c; font-weight: bold; margin-top: 5px; display: none;"></div>
+                    
+
         <label>Observación</label>
         <input type="text" name="observacion" id="observacion" placeholder="Ej: Pago recibido por transferencia, comprobante enviado...">
     
@@ -302,6 +308,31 @@
         currentUrl.searchParams.set('fecha_pago', nuevaFecha);
         window.location.href = currentUrl.toString();
     }
+    </script>
+
+    <script>
+        const inputRef = document.getElementById('input_referencia');
+        const alertaBox = document.getElementById('alerta_referencia');
+
+        inputRef.addEventListener('input', function() {
+            let texto = inputRef.value.trim();
+            
+            if (texto === "") {
+                alertaBox.style.display = 'none';
+                return;
+            }
+
+            fetch('/api/verificar_referencia?ref=' + encodeURIComponent(texto))
+                .then(response => response.json())
+                .then(data => {
+                    if (data.exists) {
+                        alertaBox.textContent = "Este número de referencia ya está registrado en el sistema";
+                        alertaBox.style.display = 'block';
+                    } else {
+                        alertaBox.style.display = 'none';
+                    }
+                });
+        });
     </script>
 </body>
 </html>
