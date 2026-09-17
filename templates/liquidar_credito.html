@@ -254,8 +254,12 @@
         <div class="form-grid">
 
             <div>
-                <label>Fecha de pago</label>
-                <input type="date" name="fecha_pago" required>
+                <label> Fecha de pago </label>
+                <input 
+                    type="date" 
+                    name="fecha_pago" 
+                    value="{{ fecha_seleccionada }}" 
+                    onchange="window.location.href = window.location.pathname + '?fecha_pago=' + this.value;">
             </div>
 
             <div>

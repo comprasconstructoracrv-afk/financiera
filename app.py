@@ -3000,7 +3000,7 @@ def liquidar_credito(credito_id):
         return "Este crédito ya se encuentra liquidado"
 
     if request.method == 'POST':
-        fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d')
+        fecha_pago = datetime.strptime(request.form['fecha_pago'], '%Y-%m-%d').date()
         valor_pago = limpiar_valor_moneda(request.form['valor'])
         medio_pago = request.form['medio_pago']
         observacion = request.form.get('observacion','').strip()
@@ -3020,7 +3020,7 @@ def liquidar_credito(credito_id):
         if valor_pago <= 0:
             return "El valor de la liquidación debe ser mayor que cero"
 
-        actualizar_mora_credito(credito, fecha_pago.date())
+        actualizar_mora_credito(credito, fecha_pago)
         db.session.commit()
 
         cuotas_activas = Cuota.query.filter(
@@ -3032,7 +3032,7 @@ def liquidar_credito(credito_id):
             return "Este crédito ya se encuentra liquidado"
 
         # Calcular componentes de liquidación
-        componentes = calcular_componentes_liquidacion(credito, fecha_pago.date())
+        componentes = calcular_componentes_liquidacion(credito, fecha_pago)
 
         cuota_actual = componentes['cuota_actual']
         capital_insoluto = componentes['capital_insoluto']
@@ -3083,7 +3083,14 @@ def liquidar_credito(credito_id):
         db.session.commit()
         return redirect(url_for('ver_recibo_pago', pago_id=pago.id))
 
-    actualizar_mora_credito(credito, datetime.utcnow().date())
+    # --- MODO GET --- Lee la fecha seleccionada en la URL (si existe) o usa hoy por defecto
+    fecha_param = request.args.get('fecha_pago')
+    if fecha_param:
+        fecha_evaluar = datetime.strptime(fecha_param, '%Y-%m-%d').date()
+    else:
+        fecha_evaluar = datetime.utcnow().date()
+
+    actualizar_mora_credito(credito, fecha_evaluar)
     db.session.commit()
 
     cuotas_activas = Cuota.query.filter(
@@ -3094,7 +3101,7 @@ def liquidar_credito(credito_id):
     if not cuotas_activas:
         return "Este crédito ya se encuentra liquidado"
 
-    componentes = calcular_componentes_liquidacion(credito, datetime.utcnow().date())
+    componentes = calcular_componentes_liquidacion(credito, fecha_evaluar)
 
     cuota_actual = componentes['cuota_actual']
     capital_insoluto = componentes['capital_insoluto']
@@ -3109,10 +3116,9 @@ def liquidar_credito(credito_id):
         capital_insoluto=capital_insoluto,
         interes_corriente=interes_corriente,
         total_mora=total_mora,
-        total_liquidacion=total_liquidacion
+        total_liquidacion=total_liquidacion,
+        fecha_seleccionada=fecha_evaluar.strftime('%Y-%m-%d')
     )
-
-
 
 
 def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_seleccionado=None):
