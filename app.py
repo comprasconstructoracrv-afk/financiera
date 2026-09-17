@@ -2466,7 +2466,7 @@ def pagar_cuota(cuota_id):
                     cuota_actual_numero=cuota.numero,
                     fecha_base=cuota.fecha_pago
                 )
-        actualizar_mora_credito(credito, fecha_pago.date())
+        actualizar_mora_credito(credito, fecha_pago)
         db.session.commit()
            
         resultado_correo= enviar_recibo_cuota_por_correo(pago_id=pago.id, mora_aplicada=pago.mora_generada_al_pago, saldo_pendiente=cuota.saldo_restante)
@@ -2683,7 +2683,7 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
 
 
 @app.route('/pagar_deuda_fecha/<int:credito_id>', methods=['GET', 'POST'])
-def pagar_deuda_fecha(credito_id):
+def pagar_deuda_fecha(credito_id, numero_referencia=''):
     if 'user' not in session:
         return redirect('/login')
 
