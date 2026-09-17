@@ -916,7 +916,7 @@ def procesar_abono_capital_interno(credito, fecha_pago_input, valor_pago, medio_
 
 from datetime import datetime, date
 
-def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago, observacion=""):
+def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago, observacion="", numero_referencia="" ):
     # 0. Normalizar 'fecha_pago'
     if isinstance(fecha_pago, str):
         fecha_pago = datetime.strptime(fecha_pago, '%Y-%m-%d').date()
@@ -1022,7 +1022,8 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago, observ
                 valor_aplicado_interes=round(valor_aplicado_interes, 2),
                 valor_aplicado_capital=round(valor_aplicado_capital, 2),
                 valor_aplicado_mora=round(valor_aplicado_mora, 2),
-                observacion=observacion if observacion else "Pago a fecha registrado"
+                observacion=observacion if observacion else "Pago a fecha registrado",
+                numero_referencia= numero_referencia
             )
             db.session.add(pago)
             db.session.flush()
@@ -2683,7 +2684,7 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
 
 
 @app.route('/pagar_deuda_fecha/<int:credito_id>', methods=['GET', 'POST'])
-def pagar_deuda_fecha(credito_id, numero_referencia=''):
+def pagar_deuda_fecha(credito_id):
     if 'user' not in session:
         return redirect('/login')
 
