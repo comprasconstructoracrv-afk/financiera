@@ -1074,7 +1074,6 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago, observ
 from datetime import datetime, date
 
 def calcular_componentes_liquidacion(credito, fecha_corte):
-    
     todas_las_cuotas = Cuota.query.filter(
         Cuota.credito_id == credito.id
     ).order_by(Cuota.numero.asc()).all()
@@ -1090,66 +1089,59 @@ def calcular_componentes_liquidacion(credito, fecha_corte):
 
     f_corte = fecha_corte.date() if isinstance(fecha_corte, datetime) else fecha_corte
 
-    # ----------------------------------------------------------------------
-    # 1. IDENTIFICAR LA CUOTA VIVA DE REFERENCIA (CORREGIDO)
-    # Buscamos la primera cuota impagada posterior a la última cuota 'PAGADA'
-    # ----------------------------------------------------------------------
-    # Encontrar el número de la última cuota completamente PAGADA (ej. Cuota 2)
-    ult_pagada_num = max([c.numero for c in todas_las_cuotas if c.estado == 'PAGADA'], default=0)
+    # Primero actualizamos la mora de las cuotas a la fecha de corte
+    actualizar_mora_credito(credito, f_corte)
+    
+    # Recargamos la lista de cuotas tras el cálculo de mora
+    todas_las_cuotas = Cuota.query.filter(
+        Cuota.credito_id == credito.id
+    ).order_by(Cuota.numero.asc()).all()
 
-    # La cuota de referencia debe ser la primera impagada DESPUÉS de la última pagada
-    cuotas_validas = [
+    # ----------------------------------------------------------------------
+    # 1. IDENTIFICAR LA CUOTA DE REFERENCIA
+    # Buscamos la primera cuota que aún tenga saldo de cuota PENDIENTE (> 0).
+    # Esto salta automáticamente las cuotas que ya pagaron capital/interés y
+    # solo deben residuos de mora (como las cuotas 4 y 5).
+    # ----------------------------------------------------------------------
+    cuotas_con_saldo_pendiente = [
         c for c in todas_las_cuotas 
-        if c.numero > ult_pagada_num and c.estado in ['PENDIENTE', 'EN MORA', 'ABONO']
+        if round(c.saldo_pendiente or 0, 2) > 0 and c.estado in ['PENDIENTE', 'EN MORA', 'ABONO']
     ]
 
-    if cuotas_validas:
-        cuota_referencia = cuotas_validas[0] # Tomará la Cuota 3
+    if cuotas_con_saldo_pendiente:
+        cuota_referencia = cuotas_con_saldo_pendiente[0]  # Tomará la Cuota 6
     else:
+        # Si todas las cuotas ya pagaron su cuota base (solo quedan moras sueltas), toma la última del crédito
         cuota_referencia = todas_las_cuotas[-1]
 
     # ----------------------------------------------------------------------
     # 2. CAPITAL INSOLUTO REAL
-    # Se toma el saldo inicial de la Cuota 3 ($2.954.275) + el remanente de capital de la Cuota 1 ($9.481)
+    # Suma estrictamente el saldo de capital restante de las cuotas no liquidadas
     # ----------------------------------------------------------------------
-    saldo_init_ref = round(cuota_referencia.saldo_inicial or 0, 2)
-    valor_c_ref = round(cuota_referencia.valor_cuota or 0, 2)
-    saldo_p_ref = round(cuota_referencia.saldo_pendiente or 0, 2)
-    interes_c_ref = round(cuota_referencia.interes or 0, 2)
-
-    abono_total_ref = max(valor_c_ref - saldo_p_ref, 0)
-    abono_a_capital_ref = max(abono_total_ref - interes_c_ref, 0)
-
-    capital_base = round(saldo_init_ref - abono_a_capital_ref, 2)
-
-    # Sumar remanentes de capital no pagados de cuotas antiguas (ej. los $9.481 de la Cuota 1)
-    capital_remanente_antiguo = 0.0
+    capital_insoluto = 0.0
     for c in todas_las_cuotas:
-        if c.numero < cuota_referencia.numero and c.estado in ['EN MORA', 'ABONO']:
-            # Cuánto faltaba por pagar de esa cuota menos el interés que ya pagó
-            v_c = round(c.valor_cuota or 0, 2)
-            s_p = round(c.saldo_pendiente or 0, 2)
-            i_c = round(c.interes or 0, 2)
-            pago_r = max(v_c - s_p, 0)
+        if c.estado in ['PENDIENTE', 'EN MORA', 'ABONO']:
+            v_cuota = round(c.valor_cuota or 0, 2)
+            s_pend = round(c.saldo_pendiente or 0, 2)
+            i_curr = round(c.interes or 0, 2)
             
-            # Si el pago ya superó el interés, el resto del saldo pendiente es CAPITAL puro
-            if pago_r >= i_c:
-                capital_remanente_antiguo += s_p
-            else:
-                capital_remanente_antiguo += max(s_p - (i_c - pago_r), 0)
+            # Capital base de esta cuota
+            cap_orig_cuota = max(v_cuota - i_curr, 0)
+            
+            # Si no ha pagado la cuota, suma el capital de esta cuota
+            if s_pend > 0:
+                # Si el saldo pendiente es menor que el valor cuota (hubo abono parcial)
+                abono_efectuado = max(v_cuota - s_pend, 0)
+                cap_pendiente_cuota = max(cap_orig_cuota - max(abono_efectuado - i_curr, 0), 0)
+                capital_insoluto += cap_pendiente_cuota
 
-    capital_insoluto = round(capital_base + capital_remanente_antiguo, 2)
+    capital_insoluto = round(capital_insoluto, 2)
 
     # ----------------------------------------------------------------------
     # 3. INTERÉS CORRIENTE (EVALUACIÓN DE CAUSACIÓN REAL DE MESES)
     # ----------------------------------------------------------------------
     interes_corriente_total = 0.0
 
-    # Identificamos cuáles cuotas se deben cobrar:
-    # - Todas las que ya vencieron antes de la fecha de corte.
-    # - Y la PRIMERA cuota del ciclo futuro inmediato (la cuota en curso que contiene la fecha de corte).
-    
-    # 1. Encontramos la cuota del ciclo activo (la primera con fecha_pago >= f_corte)
     cuota_en_curso = next(
         (c for c in todas_las_cuotas if c.fecha_pago and 
          (c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago) >= f_corte 
@@ -1159,11 +1151,7 @@ def calcular_componentes_liquidacion(credito, fecha_corte):
 
     for c in todas_las_cuotas:
         f_pago = c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago
-        
         if f_pago and c.estado in ['EN MORA', 'ABONO', 'PENDIENTE']:
-            # Se cobra si:
-            # A) La cuota ya venció (f_pago <= f_corte)
-            # O B) Es exactamente la cuota del ciclo en curso (ej. la del 11 de septiembre cuando liquidamos el 31 de agosto)
             es_vencida = f_pago <= f_corte
             es_ciclo_actual = cuota_en_curso and c.numero == cuota_en_curso.numero
 
@@ -1171,22 +1159,20 @@ def calcular_componentes_liquidacion(credito, fecha_corte):
                 s_pend = round(c.saldo_pendiente or 0, 2)
                 v_cuota = round(c.valor_cuota or 0, 2)
                 i_corriente = round(c.interes or 0, 2)
-                
                 pago_recibido = max(v_cuota - s_pend, 0)
-                
                 if pago_recibido < i_corriente:
                     interes_corriente_total += (i_corriente - pago_recibido)
 
     interes_corriente_total = round(interes_corriente_total, 2)
 
     # ----------------------------------------------------------------------
-    # 4. MORA ACUMULADA PENDIENTE
+    # 4. TOTAL MORA ACUMULADA
+    # Suma la mora de TODAS las cuotas activas (incluye residuo de 4, 5 y la 6)
     # ----------------------------------------------------------------------
     total_mora = round(sum(
         round(c.interes_mora or 0, 2)
         for c in todas_las_cuotas
-        if (c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago) <= f_corte
-        and c.interes_mora and c.interes_mora > 0
+        if c.estado in ['PENDIENTE', 'EN MORA', 'ABONO'] and (c.interes_mora or 0) > 0
     ), 2)
 
     # ----------------------------------------------------------------------
