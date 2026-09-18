@@ -954,7 +954,7 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago, observ
     # ----------------------------------------------------------------------
     pagos_creados_ids = []
 
-    for cuota in cuotas_exigibles:
+    for idx, cuota in enumerate(cuotas_exigibles):
         if restante <= 0:
             break
 
@@ -1008,7 +1008,9 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago, observ
             cuota.estado = 'ABONO'
 
         monto_pago = round(valor_aplicado_cuota + valor_aplicado_mora +excedente_cuota, 2)
+        
         if monto_pago > 0:
+            ref_para_pago=numero_referencia if (idx==0 and numero_referencia) else None
             pago = Pago(
                 cuota_id=cuota.id,
                 fecha=datetime.combine(fecha_pago, datetime.min.time()),
@@ -1023,7 +1025,7 @@ def aplicar_pago_deuda_fecha(credito, fecha_pago, valor_pago, medio_pago, observ
                 valor_aplicado_capital=round(valor_aplicado_capital, 2),
                 valor_aplicado_mora=round(valor_aplicado_mora, 2),
                 observacion=observacion if observacion else "Pago a fecha registrado",
-                numero_referencia= numero_referencia
+                numero_referencia= ref_para_pago
             )
             db.session.add(pago)
             db.session.flush()
@@ -2925,7 +2927,7 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
             to=[{"email": correo_cliente, "name": nombre_cliente}],
             cc=[{"email": "carteraconstructoracrv@hotmail.com", "name": "Cartera_CRV"}],
             reply_to={"email": "carteraconstructoracrv@hotmail.com"},
-            subject=f"Comprobante de Caja - Recibo N° {pago.id}",
+            subject=f"Comprobante de Caja- Pago Cuota Crédito",
             html_content=render_template(
                 'correo_cliente.html',
                 nombre_cliente=nombre_cliente,
@@ -3029,6 +3031,13 @@ def pagar_deuda_fecha(credito_id):
             numero_referencia=numero_referencia
         )
 
+        resultado_correo= enviar_recibo_deuda_por_correo(
+            credito_id=credito.id, 
+            pagos_ids=pagos_ids, 
+            observacion_param=observacion)
+        
+        flash(resultado_correo, 'estado_correo')
+
         if not pagos_ids:
             return redirect(f'/ver_cuotas/{credito.id}')
 
@@ -3069,6 +3078,138 @@ def pagar_deuda_fecha(credito_id):
         deuda_total_fecha=deuda_total_fecha,
         fecha_seleccionada=fecha_evaluar.strftime('%Y-%m-%d')
     )
+
+def enviar_recibo_deuda_por_correo(credito_id, pagos_ids, observacion_param=""):
+    ruta_imagen = None
+    try:
+        credito = Credito.query.get_or_404(credito_id)
+        db.session.refresh(credito)
+        
+        # Limpiar y convertir IDs de pagos
+        ids_limpios = []
+        if pagos_ids:
+            if isinstance(pagos_ids, str):
+                ids_limpios = [int(x.strip()) for x in pagos_ids.split(',') if x.strip().isdigit()]
+            elif isinstance(pagos_ids, (list, tuple)):
+                ids_limpios = [int(x) for x in pagos_ids if str(x).isdigit()]
+
+        pagos = Pago.query.filter(Pago.id.in_(ids_limpios)).all() if ids_limpios else []
+        
+        # Construir exactamente las filas que espera recibo_deuda_fecha.html
+        filas_recibo = []
+        for p in pagos:
+            filas_recibo.append({
+                'cuota_numero': p.cuota.numero if getattr(p, 'cuota', None) else 'N/A',
+                'valor_cuota': getattr(p, 'saldo_pendiente_antes_pago', 0) or 0,
+                'mora_aplicada': getattr(p, 'valor_aplicado_mora', 0) or 0,
+                'valor_pagado': getattr(p, 'valor', 0) or 0
+            })
+        
+        total_pagado_calc = sum(float(p.valor or 0) for p in pagos)
+        mora_total_calc = sum(float(p.valor_aplicado_mora or 0) for p in pagos)
+
+        correo_cliente = getattr(credito, 'correo_cliente', None)
+        if not correo_cliente or correo_cliente == 'No registrado':
+            return {
+                "exito": False, 
+                "mensaje": "El cliente no cuenta con un correo electrónico registrado."
+            }
+
+        nombre_cliente = getattr(credito, 'cliente', 'Cliente')
+
+        # 1. Renderizar HTML del recibo PNG con las variables correctas
+        html_recibo = render_template(
+            'recibo_deuda_fecha.html', 
+            credito=credito,
+            pagos=pagos,
+            filas=filas_recibo,
+            total_pagado=total_pagado_calc,
+            observacion=observacion_param
+        )
+
+        ruta_static_abs = os.path.abspath('static')
+        html_final = html_recibo.replace('src="/static/', f'src="file:///{ruta_static_abs}/')
+        html_final = html_final.replace('src="static/', f'src="file:///{ruta_static_abs}/')
+
+        # 2. Generar imagen PNG
+        os.makedirs('static', exist_ok=True)
+        nombre_imagen = f"Recibo_DeudaFecha_{credito_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
+        ruta_imagen = os.path.join('static', nombre_imagen)
+
+        hti = get_html2image_instance()
+        if not hti:
+            return {
+                "exito": False,
+                "mensaje": "Error del servidor: No se pudo iniciar el generador de imágenes."
+            }
+
+        hti.screenshot(
+            html_str=html_final,
+            save_as=nombre_imagen,
+            size=(1050, 850)
+        )
+
+        if not os.path.exists(ruta_imagen):
+            return {
+                "exito": False,
+                "mensaje": "No se pudo generar la imagen del recibo de deuda a la fecha."
+            }
+
+        # Objeto resumen puente para correo_cliente.html
+        class ResumenPagoBatch:
+            def __init__(self, valor_total):
+                self.valor = valor_total
+
+        pago_resumen_correo = ResumenPagoBatch(total_pagado_calc)
+
+        # 3. Configurar API de Brevo
+        configuration = Configuration()
+        configuration.api_key['api-key'] = current_app.config.get('BREVO_API_KEY')
+        api_instance = TransactionalEmailsApi(ApiClient(configuration))
+
+        # 4. Construir y enviar correo
+        msg = SendSmtpEmail(
+            to=[{"email": correo_cliente, "name": nombre_cliente}],
+            cc=[{"email": "carteraconstructoracrv@hotmail.com", "name": "Cartera_CRV"}],
+            reply_to={"email": "carteraconstructoracrv@hotmail.com"},
+            subject=f"Comprobante de Caja - Pago Deuda a la Fecha Crédito",
+            html_content=render_template(
+                'correo_cliente.html',
+                nombre_cliente=nombre_cliente,
+                credito=credito,
+                pagos=pagos,
+                pago=pago_resumen_correo,
+                mora_aplicada=mora_total_calc,
+                saldo_pendiente=getattr(credito, 'saldo_actual', 0)
+            ),
+            sender={
+                "name": "Financiera CRV", 
+                "email": current_app.config.get('MAIL_DEFAULT_SENDER') or os.environ.get('MAIL_DEFAULT_SENDER')
+            },
+            attachment=[
+                SendSmtpEmailAttachment(
+                    content=base64.b64encode(open(ruta_imagen, 'rb').read()).decode('utf-8'),
+                    name=nombre_imagen
+                )
+            ]
+        )
+        
+        api_instance.send_transac_email(msg)
+        return {
+            "exito": True, 
+            "mensaje": f"Comprobante de deuda a la fecha enviado exitosamente al correo {correo_cliente}."
+        }
+
+    except Exception as e:
+        print(f"ERROR AL ENVIAR EL CORREO DE DEUDA FECHA: {str(e)}")
+        traceback.print_exc()
+        return {
+            "exito": False, 
+            "mensaje": f"No se pudo enviar el correo: {str(e)}"
+        }
+    finally:
+        if ruta_imagen and os.path.exists(ruta_imagen):
+            os.remove(ruta_imagen)
 
 
 @app.route('/abono_capital/<int:credito_id>', methods=['GET', 'POST'])
