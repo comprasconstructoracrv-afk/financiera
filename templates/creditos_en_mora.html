@@ -21,6 +21,60 @@
             margin: auto;
         }
 
+        /* Estilos para la ventana emergente de carga */
+        .overlay-cargando {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(4px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .overlay-cargando.activo {
+            display: flex;
+        }
+
+        .overlay-contenido {
+            background: white;
+            padding: 35px 45px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+            max-width: 380px;
+            width: 90%;
+        }
+
+        .overlay-contenido h3 {
+            margin: 15px 0 8px 0;
+            color: #102a43;
+            font-size: 20px;
+        }
+
+        .overlay-contenido p {
+            margin: 0;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        /* Spinner animado */
+        .spinner-overlay {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid #2563eb;
+            border-radius: 50%;
+            margin: 0 auto;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         .encabezado {
             background: white;
             border-radius: 24px;
@@ -174,6 +228,25 @@
             opacity: 0.95;
         }
 
+        .modal-mora-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-mora-contenido {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+
+        .td-num { padding: 10px; font-weight: bold; }
+        .td-mora-val { padding: 10px; font-weight: bold; color: #dc2626; }
+
         /* Tabla de resultados */
         .contenedor-tabla {
             background: white;
@@ -283,7 +356,9 @@
                     <a href="/dashboard" class="btn-volver">Inicio</a>
 
                     <a href="/creditos_en_mora/excel?sede={{sede_seleccionada}}&estado={{estado_seleccionado}}"
-                           class="btn-premium btn-excel btn-exportar">
+                           class="btn-premium btn-excel btn-exportar"
+                           data-tipo="excel"   
+                           data-texto="Exportar Excel">
                             <span>Exportar Excel</span>
                     </a>
 
@@ -291,7 +366,7 @@
                            class="btn-premium btn-pdf btn-exportar"
                            data-tipo="pdf"
                            data-texto="Exportar PDF">
-                            <span>Exportar PDF</span>
+                            <span>Exportar PDF</span>   
                     </a>
 
         
@@ -319,7 +394,6 @@
                         {% endfor %}
                     </select>
                     {% else %}
-                         <!-- Muestra el nombre de su sede fijo o un input oculto -->
                         <input type="text" class="form-control" value="{{ sede_seleccionada |upper }}" disabled style="padding: 11px 16px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 14px; background: #e2e8f0; color: #475569; min-width: 220px;">
                         <input type="hidden" name="sede" value="{{ sede_seleccionada }}">
                     {% endif %}
@@ -332,7 +406,7 @@
                         <option value="TODAS" {% if estado_seleccionado == 'TODAS' %}selected{% endif %}>TODOS</option>
                         <option value="1 MES" {% if estado_seleccionado == '1 MES' %}selected{% endif %}>1 Mes</option>
                         <option value="2 MESES" {% if estado_seleccionado == '2 MESES' %}selected{% endif %}>2 Meses</option>
-                        <option value="+3 MESES" {% if estado_seleccionado == '+3 MESES' %}selected{% endif %}>+3 Meses</option>
+                        <option value="3 MESES" {% if estado_seleccionado == '3 MESES' %}selected{% endif %}>+3 Meses</option>
                     </select>
                 </div>
 
@@ -371,13 +445,13 @@
                             {% elif item.subestado == '2 MESES' %}
                                 <span class="badge badge-naranja">2 MESES</span>
                             {% else %}
-                                <span class="badge badge-rojo">+3 MESES</span>
+                                <span class="badge badge-rojo">3 MESES</span>
                             {% endif %}
                         </td>
                         <td style="font-weight: bold; color: #102a43;">${{ "{:,.0f}".format(item.total_cobro).replace(',','.' ) }}</td>
                         <td style="text-align: center;">
-                            <a href="{{url_for('ver_cuotas', credito_id=item.credito.id)}}" class="btn-detalle">Ver detalle</a>
-                        </td>    
+                            <button type="button" onclick="abrirModalMora({{ item.credito.id }})" style="background: #2563eb; color: white; padding: 10px 18px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px;">Ver detalle</button>
+                        </td>  
                     </tr>
                     {% else %}
                     <tr>
@@ -390,6 +464,141 @@
             </table>
         </div>
 
+        <!-- Modales independientes con todas las columnas de la tabla de cuotas -->
+        {% for item in resultados %}
+        <div id="modalMora_{{ item.credito.id }}" class="modal-mora-overlay">
+            <div class="modal-mora-contenido" style="max-width: 98vw; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0; color: #102a43;">Cuotas en Mora - Pagaré {{ item.credito.numero_pagare or item.credito.id }}</h3>
+                    <button type="button" onclick="cerrarModalMora({{ item.credito.id }})" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #64748b;">&times;</button>
+                </div>
+                
+                <p style="margin-bottom: 15px; color: #52606d;">Cliente: <strong>{{ item.credito.cliente }}</strong> | Sede: <strong>{{ item.credito.sede }}</strong></p>
+
+                <!-- Contenedor con scroll horizontal para las 16 columnas -->
+                <div style="overflow-x: auto; width: 100%; flex-grow: 1; margin-bottom: 20px;">
+                    <table style="width: 100%; border-collapse: collapse; min-width: 1400px; font-size: 12px; text-align: left;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #e2e8f0; color: #52606d; text-transform: uppercase;">
+                                <th style="padding: 8px;">N° Cuota</th>
+                                <th style="padding: 8px;">Fecha cuota</th>
+                                <th style="padding: 8px;">Saldo inicial</th>
+                                <th style="padding: 8px;">Valor cuota</th>
+                                <th style="padding: 8px;">Capital</th>
+                                <th style="padding: 8px;">Interés</th>
+                                <th style="padding: 8px;">Saldo restante</th>
+                                <th style="padding: 8px;">% mora mensual</th>
+                                <th style="padding: 8px;">Días mora</th>
+                                <th style="padding: 8px;">Mora</th>
+                                <th style="padding: 8px;">Total a pagar</th>
+                                <th style="padding: 8px;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in item.cuotas %}
+                                {% if c.estado == 'EN MORA' %}
+                                <tr style="border-bottom: 1px solid #f1f5f9; color: #334155;">
+                                    <td style="padding: 10px; font-weight: bold;">{{ c.numero_cuota or c.numero }}</td>
+                                    <td style="padding: 10px;">{{ c.fecha_pago.strftime('%d/%m/%Y') if c.fecha_pago else '' }}</td>
+                                    <td style="padding: 10px;">${{ "{:,.0f}".format(c.saldo_inicial or 0).replace(',','.') }}</td>
+                                    <td style="padding: 10px;">${{ "{:,.0f}".format(c.valor_cuota or 0).replace(',','.') }}</td>
+                                    <td style="padding: 10px;">${{ "{:,.0f}".format(c.capital or 0).replace(',','.') }}</td>
+                                    <td style="padding: 10px;">${{ "{:,.0f}".format(c.interes or 0).replace(',','.') }}</td>
+                                    <td style="padding: 10px;">${{ "{:,.0f}".format(c.saldo_restante or 0).replace(',','.') }}</td>
+                                    <td style="padding: 10px;">
+                                        {% if c.tasa_mora_mensual_cuota is not none and c.tasa_mora_mensual_cuota != '' and c.tasa_mora_mensual_cuota != '-' %}
+                                            {{ "%.2f"|format(c.tasa_mora_mensual_cuota|float) }}%
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td style="padding: 10px;">{{ c.dias_mora or 0 }}</td>
+                                    <td style="padding: 10px;">${{ "{:,.0f}".format(c.interes_mora or 0).replace(',','.') }}</td>
+                                    <td style="padding: 10px; font-weight: bold; color: #dc2626;">${{ "{:,.0f}".format(c.total_cobro or 0).replace(',','.') }}</td>
+                                    <td style="padding: 10px;"><span class="badge badge-rojo">{{ c.estado }}</span></td>
+                                </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                        
+                        <tfoot>
+                            {% set ns = namespace(total_mora=0) %}
+                            {% for c in item.cuotas %}
+                                {% if c.estado == 'EN MORA' %}
+                                    {% set ns.total_mora = ns.total_mora + (c.total_cobro or 0) %}
+                                {% endif %}
+                            {% endfor %}
+                            <tr style="border-top: 2px solid #cbd5e1; background-color: #f8fafc; font-weight: bold; color: #102a43;">
+                                <td colspan="10" style="padding: 10px; text-align: right;">Total Deuda Fecha:</td>
+                                <td style="padding: 10px; color: #dc2626; font-weight: bold;">
+                                    ${{ "{:,.0f}".format(ns.total_mora).replace(',','.') }}
+                                </td>
+                                <td style="padding: 10px;"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #e2e8f0; pt-3;">
+                    <button type="button" onclick="cerrarModalMora({{ item.credito.id }})" style="padding: 10px 18px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-weight: bold;">Cerrar</button>
+                    <a href="{{ url_for('ver_cuotas', credito_id=item.credito.id) }}" class="btn-detalle" style="background: #2563eb; color: white; padding: 10px 18px; text-decoration: none; border-radius: 8px; font-weight: bold;">Ir a Crédito</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+    <script>
+        function abrirModalMora(id) {
+            const modal = document.getElementById('modalMora_' + id);
+            if (modal) modal.style.display = 'flex';
+        }
+        
+        function cerrarModalMora(id) {
+            const modal = document.getElementById('modalMora_' + id);
+            if (modal) modal.style.display = 'none';
+        }
+
+        // Unificación de exportación con spinner en botón y overlay emergente
+        document.querySelectorAll('.btn-exportar').forEach(btn => {
+            btn.addEventListener('click', function () {
+                if (this.classList.contains('btn-loading')) return;
+
+                this.classList.add('btn-loading');
+                const textoOriginal = this.getAttribute('data-texto');
+                this.innerHTML = `<div style="width:16px; height:16px; border:2px solid white; border-top:2px solid transparent; border-radius:50%; animation:spin 1s linear infinite; display:inline-block; vertical-align:middle; margin-right:6px;"></div>Generando...`;
+
+                // Activar overlay global
+                const overlay = document.getElementById('overlay-cargando');
+                const titulo = document.getElementById('overlay-titulo');
+                const texto = document.getElementById('overlay-texto');
+                const tipo = this.dataset.tipo;
+
+                if (tipo === 'excel') {
+                    titulo.textContent = 'Generando archivo Excel...';
+                    texto.textContent = 'Estamos preparando el consolidado para descarga.';
+                } else {
+                    titulo.textContent = 'Generando archivo PDF...';
+                    texto.textContent = 'Estamos armando el reporte en formato PDF.';
+                }
+
+                if (overlay) overlay.classList.add('activo');
+
+                // Simular tiempo de respuesta y limpiar estado
+                setTimeout(() => {
+                    this.innerHTML = `<span>${textoOriginal}</span>`;
+                    this.classList.remove('btn-loading');
+                    if (overlay) overlay.classList.remove('activo');
+                }, 5000);
+            });
+        });
+    </script>
+
+    <div id="overlay-cargando" class="overlay-cargando">
+        <div class="overlay-contenido">
+            <div class="spinner-overlay"></div>
+            <h3 id="overlay-titulo">Generando reporte...</h3>
+            <p id="overlay-texto">Por favor espera un momento.</p>
+        </div>
     </div>
 </body>
 </html>
