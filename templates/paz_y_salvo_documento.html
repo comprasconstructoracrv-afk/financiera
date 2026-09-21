@@ -260,10 +260,12 @@
     <div class="contenedor">
         <div class="barra-acciones">
             <div></div>
+            {% if not es_correo %}
             <div class="acciones">
                 <button onclick="window.print()" class="btn btn-imprimir">Imprimir</button>
                 <a href="/paz_y_salvo" class="btn btn-volver">Volver</a>
             </div>
+            {% endif %}
         </div>
 
         <div class="documento documento-wrap no-break">

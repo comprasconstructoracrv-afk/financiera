@@ -2765,6 +2765,24 @@ def pagar_cuota(cuota_id):
         resultado_correo= enviar_recibo_cuota_por_correo(pago_id=pago.id, mora_aplicada=pago.mora_generada_al_pago, saldo_pendiente=cuota.saldo_restante)
         flash(resultado_correo, 'estado_correo')
 
+        db.session.refresh(credito)
+        cuotas_pendientes = Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
+        ).count()
+
+        total_cuotas = Cuota.query.filter_by(credito_id=credito.id).count()
+        cuotas_cerradas = Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.estado.in_(['LIQUIDADA', 'CANCELADO', 'PAGADA'])
+        ).count()
+
+        saldo_en_cero = float(getattr(credito, 'saldo_actual', 0) or 0) <= 0
+
+        if saldo_en_cero and cuotas_pendientes == 0 and total_cuotas > 0 and cuotas_cerradas == total_cuotas:
+            resultado_paz = enviar_paz_y_salvo_por_correo(credito.id)
+            flash(resultado_paz, 'estado_paz_y_salvo')
+
         return redirect(url_for('ver_recibo_pago', pago_id=pago.id))
 
     # MODO GET Soporta fecha seleccionada por parámetro o toma la fecha de hoy por defecto
@@ -3030,13 +3048,14 @@ def pagar_deuda_fecha(credito_id):
             observacion=observacion,
             numero_referencia=numero_referencia
         )
+        db.session.commit()
 
         resultado_correo= enviar_recibo_deuda_por_correo(
             credito_id=credito.id, 
             pagos_ids=pagos_ids, 
             observacion_param=observacion)
         
-        flash(resultado_correo, 'estado_correo')
+        flash(resultado_correo, 'estado_correo')        
 
         if not pagos_ids:
             return redirect(f'/ver_cuotas/{credito.id}')
@@ -3210,6 +3229,8 @@ def enviar_recibo_deuda_por_correo(credito_id, pagos_ids, observacion_param=""):
     finally:
         if ruta_imagen and os.path.exists(ruta_imagen):
             os.remove(ruta_imagen)
+
+
 
 
 @app.route('/abono_capital/<int:credito_id>', methods=['GET', 'POST'])
@@ -3512,6 +3533,28 @@ def liquidar_credito(credito_id):
             credito.valor_liquidado = valor_pago
 
         db.session.commit()
+
+        resultado_correo = enviar_recibo_liquidar_por_correo(pago.id)
+        flash(resultado_correo, 'estado_correo')
+
+        db.session.refresh(credito)
+        cuotas_pendientes = Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.estado.in_(['PENDIENTE', 'EN MORA', 'ABONO'])
+        ).count()
+
+        total_cuotas = Cuota.query.filter_by(credito_id=credito.id).count()
+        cuotas_cerradas = Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.estado.in_(['LIQUIDADA', 'CANCELADO', 'PAGADA'])
+        ).count()
+
+        saldo_en_cero = float(getattr(credito, 'saldo_actual', 0) or 0) <= 0
+
+        if saldo_en_cero and cuotas_pendientes == 0 and total_cuotas > 0 and cuotas_cerradas == total_cuotas:
+            resultado_paz = enviar_paz_y_salvo_por_correo(credito.id)
+            flash(resultado_paz, 'estado_paz_y_salvo')
+
         return redirect(url_for('ver_recibo_pago', pago_id=pago.id))
 
     # --- MODO GET --- Lee la fecha seleccionada en la URL (si existe) o usa hoy por defecto
@@ -3551,6 +3594,116 @@ def liquidar_credito(credito_id):
         fecha_seleccionada=fecha_evaluar.strftime('%Y-%m-%d')
     )
 
+
+def enviar_recibo_liquidar_por_correo(pago_id):
+    ruta_imagen = None
+    try:
+        pago = Pago.query.get_or_404(pago_id)
+        db.session.refresh(pago)
+        
+        # Obtener cuota y crédito asociado
+        cuota_asociada = Cuota.query.get(pago.cuota_id) if pago.cuota_id else None
+        credito = Credito.query.get(cuota_asociada.credito_id) if cuota_asociada else None
+        
+        if not credito:
+            return {
+                "exito": False, 
+                "mensaje": "No se encontró el crédito asociado al pago de liquidación."
+            }
+        db.session.refresh(credito)
+
+        correo_cliente = getattr(credito, 'correo_cliente', None)
+        if not correo_cliente or correo_cliente == 'No registrado':
+            return {
+                "exito": False, 
+                "mensaje": "El cliente no cuenta con un correo electrónico registrado."
+            }
+
+        nombre_cliente = getattr(credito, 'cliente', 'Cliente')
+
+        # 1. Renderizar HTML del recibo PNG de liquidación (pasando 'cuota')
+        html_recibo = render_template(
+            'recibo_pago.html', 
+            pago=pago,
+            credito=credito,
+            cuota=cuota_asociada
+        )
+
+        ruta_static_abs = os.path.abspath('static')
+        html_final = html_recibo.replace('src="/static/', f'src="file:///{ruta_static_abs}/')
+        html_final = html_final.replace('src="static/', f'src="file:///{ruta_static_abs}/')
+
+        # 2. Generar imagen PNG
+        os.makedirs('static', exist_ok=True)
+        nombre_imagen = f"Recibo_Liquidar_{pago_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
+        ruta_imagen = os.path.join('static', nombre_imagen)
+
+        hti = get_html2image_instance()
+        if not hti:
+            return {
+                "exito": False,
+                "mensaje": "Error del servidor: No se pudo iniciar el generador de imágenes."
+            }
+
+        hti.screenshot(
+            html_str=html_final,
+            save_as=nombre_imagen,
+            size=(1050, 900)
+        )
+
+        if not os.path.exists(ruta_imagen):
+            return {
+                "exito": False,
+                "mensaje": "No se pudo generar la imagen del recibo de liquidación."
+            }
+
+        # 3. Configurar API de Brevo
+        configuration = Configuration()
+        configuration.api_key['api-key'] = current_app.config.get('BREVO_API_KEY')
+        api_instance = TransactionalEmailsApi(ApiClient(configuration))
+
+        # 4. Construir y enviar correo
+        msg = SendSmtpEmail(
+            to=[{"email": correo_cliente, "name": nombre_cliente}],
+            cc=[{"email": "carteraconstructoracrv@hotmail.com", "name": "Cartera_CRV"}],
+            reply_to={"email": "carteraconstructoracrv@hotmail.com"},
+            subject=f"Comprobante de Liquidación Total - Crédito N° {credito.numero_pagare or credito.id}",
+            html_content=render_template(
+                'correo_cliente.html',
+                nombre_cliente=nombre_cliente,
+                credito=credito,
+                pago=pago,
+                mora_aplicada=pago.valor_aplicado_mora or 0,
+                saldo_pendiente=0
+            ),
+            sender={
+                "name": "Financiera CRV", 
+                "email": current_app.config.get('MAIL_DEFAULT_SENDER') or os.environ.get('MAIL_DEFAULT_SENDER')
+            },
+            attachment=[
+                SendSmtpEmailAttachment(
+                    content=base64.b64encode(open(ruta_imagen, 'rb').read()).decode('utf-8'),
+                    name=nombre_imagen
+                )
+            ]
+        )
+        
+        api_instance.send_transac_email(msg)
+        return {
+            "exito": True, 
+            "mensaje": f"Comprobante de liquidación total enviado exitosamente al correo {correo_cliente}."
+        }
+
+    except Exception as e:
+        print(f"ERROR AL ENVIAR EL CORREO DE LIQUIDACION: {str(e)}")
+        traceback.print_exc()
+        return {
+            "exito": False, 
+            "mensaje": f"No se pudo enviar el correo de liquidación: {str(e)}"
+        }
+    finally:
+        if ruta_imagen and os.path.exists(ruta_imagen):
+            os.remove(ruta_imagen)
 
 def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_seleccionado=None):
     def fecha_solo_fecha(valor):
@@ -5808,6 +5961,104 @@ def paz_y_salvo():
         creditos=resultados,
         q=q
     )
+
+
+def enviar_paz_y_salvo_por_correo(credito_id):
+    ruta_archivo = None
+    try:
+        credito = Credito.query.get_or_404(credito_id)
+        db.session.refresh(credito)
+
+        correo_cliente = getattr(credito, 'correo_cliente', None)
+        if not correo_cliente or correo_cliente == 'No registrado':
+            return {
+                "exito": False, 
+                "mensaje": "Crédito en 0, pero el cliente no cuenta con correo para enviar Paz y Salvo."
+            }
+
+        nombre_cliente = getattr(credito, 'cliente', 'Cliente')
+
+        fecha_hoy = date.today()
+        fecha_credito = credito.fecha_creacion.date() if credito.fecha_creacion else fecha_hoy
+
+        monto_letras = numero_a_letras(credito.monto_financiado or 0)
+        monto_numero = formato_cop(credito.monto_financiado or 0)
+
+        fecha_actual = fecha_documento_es(fecha_hoy)
+        fecha_credito_larga = fecha_documento_es(fecha_credito)
+
+        # Reraha es_correo=True opyta hag̃ua sin botones
+        html_paz = render_template(
+            'paz_y_salvo_documento.html', 
+            credito=credito,
+            fecha_actual=fecha_actual,
+            fecha_credito_larga=fecha_credito_larga,
+            monto_letras=monto_letras,
+            monto_numero=monto_numero,
+            es_correo=True
+        )
+
+        ruta_static_abs = os.path.abspath('static')
+        html_final = html_paz.replace('src="/static/', f'src="file:///{ruta_static_abs}/')
+        html_final = html_final.replace('src="static/', f'src="file:///{ruta_static_abs}/')
+
+        os.makedirs('static', exist_ok=True)
+        nombre_archivo = f"Paz_Y_Salvo_{credito_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
+        ruta_archivo = os.path.join('static', nombre_archivo)
+
+        hti = get_html2image_instance()
+        if not hti:
+            return {"exito": False, "mensaje": "No se pudo iniciar el generador de imágenes."}
+
+        hti.screenshot(
+            html_str=html_final,
+            save_as=nombre_archivo,
+            size=(1050, 1360)  # Proporción de hoja carta para imagen
+        )
+
+        if not os.path.exists(ruta_archivo):
+            return {"exito": False, "mensaje": "No se pudo generar la imagen del Paz y Salvo."}
+
+        configuration = Configuration()
+        configuration.api_key['api-key'] = current_app.config.get('BREVO_API_KEY')
+        api_instance = TransactionalEmailsApi(ApiClient(configuration))
+
+        msg = SendSmtpEmail(
+            to=[{"email": correo_cliente, "name": nombre_cliente}],
+            cc=[{"email": "carteraconstructoracrv@hotmail.com", "name": "Cartera_CRV"}],
+            reply_to={"email": "carteraconstructoracrv@hotmail.com"},
+            subject=f"CERTIFICADO DE PAZ Y SALVO - Crédito N° {credito.numero_pagare or credito.id}",
+            html_content=render_template(
+                'correo_paz_y_salvo.html',
+                nombre_cliente=nombre_cliente,
+                credito=credito
+            ),
+            sender={
+                "name": "Financiera CRV", 
+                "email": current_app.config.get('MAIL_DEFAULT_SENDER') or os.environ.get('MAIL_DEFAULT_SENDER')
+            },
+            attachment=[
+                SendSmtpEmailAttachment(
+                    content=base64.b64encode(open(ruta_archivo, 'rb').read()).decode('utf-8'),
+                    name=nombre_archivo
+                )
+            ]
+        )
+        
+        api_instance.send_transac_email(msg)
+        return {
+            "exito": True, 
+            "mensaje": f"¡Crédito cancelado en total! Paz y Salvo (imagen) enviado al correo {correo_cliente}."
+        }
+
+    except Exception as e:
+        print(f"ERROR AL ENVIAR PAZ Y SALVO: {str(e)}")
+        traceback.print_exc()
+        return {"exito": False, "mensaje": f"Error al enviar paz y salvo: {str(e)}"}
+    finally:
+        if ruta_archivo and os.path.exists(ruta_archivo):
+            os.remove(ruta_archivo)
+
 
 @app.route('/pagare_credito/<int:credito_id>')
 def pagare_credito(credito_id):
