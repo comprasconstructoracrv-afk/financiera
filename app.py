@@ -1,7 +1,7 @@
 import smtplib
 
 from flask import Flask, current_app, make_response, render_template, request, redirect, session, flash, url_for, send_file
-from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo, Sede, TasaInteresVariable, InyeccionCapital, CambioTasaInteresCredito, AbonoCapital
+from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo, Sede, TasaInteresVariable, InyeccionCapital, CambioTasaInteresCredito, AbonoCapital, LlamadaCliente
 from datetime import datetime, date, timedelta
 import calendar
 import os
@@ -6991,6 +6991,56 @@ def actualizar_moras_sede(sede):
 
     flash(f"Moras actualizadas correctamente para la sede {sede}.", "success")
     return redirect(url_for('ver_creditos', sede=sede))
+
+from models import db, Credito, Cuota, LlamadaCliente  # Asegúrate de importar LlamadaCliente
+
+@app.route('/credito/<int:credito_id>/gestion-llamadas', methods=['GET'])
+def ver_gestion_llamadas(credito_id):
+    credito = Credito.query.get_or_404(credito_id)
+    llamadas = LlamadaCliente.query.filter_by(credito_id=credito.id).order_by(LlamadaCliente.fecha_hora.desc()).all()
+    return render_template('gestion_llamadas_cliente.html', credito=credito, llamadas=llamadas)
+
+@app.route('/registrar_llamada/<int:credito_id>', methods=['POST'])
+def registrar_llamada(credito_id):
+    tipo_canal = request.form.get('tipo_canal')
+    resultado = request.form.get('resultado')
+    observacion_motivo = request.form.get('observacion_motivo')
+    asesor = request.form.get('asesor_usuario')
+    fecha_str = request.form.get('fecha_hora')
+    
+    # Convierte el string datetime-local a objeto datetime de Python
+    fecha_dt = datetime.fromisoformat(fecha_str) if fecha_str else datetime.utcnow()
+
+    nueva_llamada = LlamadaCliente(
+        credito_id=credito_id,
+        asesor_usuario=asesor,
+        tipo_canal=tipo_canal,
+        resultado=resultado,
+        observacion_motivo=observacion_motivo,
+        fecha_hora=fecha_dt
+    )
+    
+    db.session.add(nueva_llamada)
+    db.session.commit()
+    flash('Gestión / llamada registrada con éxito.', 'success')
+    return redirect(url_for('ver_gestion_llamadas', credito_id=credito_id))
+
+@app.route('/actualizar_llamada/<int:llamada_id>', methods=['POST'])
+def actualizar_llamada(llamada_id):
+    llamada = LlamadaCliente.query.get_or_404(llamada_id)
+    
+    llamada.tipo_canal = request.form.get('tipo_canal')
+    llamada.resultado = request.form.get('resultado')
+    llamada.observacion_motivo = request.form.get('observacion_motivo')
+    llamada.asesor_usuario = request.form.get('asesor_usuario')
+    
+    fecha_str = request.form.get('fecha_hora')
+    if fecha_str:
+        llamada.fecha_hora = datetime.fromisoformat(fecha_str)
+    
+    db.session.commit()
+    flash('Gestión actualizada con éxito.', 'success')
+    return redirect(url_for('ver_gestion_llamadas', credito_id=llamada.credito_id))
 
 if __name__ == "__main__":
     app.run(debug=True)

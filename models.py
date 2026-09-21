@@ -167,6 +167,15 @@ class Sede(db.Model):
     activa = db.Column(db.Boolean, default=True)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
 
+class LlamadaCliente(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    credito_id = db.Column(db.Integer, db.ForeignKey('credito.id'), nullable=False)
+    fecha_hora = db.Column(db.DateTime, default=datetime.utcnow)
+    asesor_usuario = db.Column(db.String(100), nullable=False)  # session.get('user')
+    tipo_canal = db.Column(db.String(50), nullable=False)
+    resultado = db.Column(db.String(100), nullable=False)
+    observacion_motivo = db.Column(db.Text, nullable=True)
+
 class CambioTasaInteresCredito(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     credito_id = db.Column(db.Integer, db.ForeignKey('credito.id'), nullable=False)
@@ -178,6 +187,8 @@ class CambioTasaInteresCredito(db.Model):
     fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
 
     credito = db.relationship('Credito', backref='cambios_tasa_interes')
+    # Relación inversa opcional con Crédito si ya la tienes
+    credito = db.relationship('Credito', backref=db.backref('llamadas', lazy='dynamic', cascade='all, delete-orphan'))
 
     def __repr__(self):
         return f"<Sede {self.nombre}>"

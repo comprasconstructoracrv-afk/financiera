@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Historial de seguimiento de llamadas</title>
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #eef2f7, #dfe9f3);
+            padding: 40px 20px;
+            color: #102a43;
+        }
+
+        .contenedor {
+            max-width: 1100px;
+            margin: auto;
+            background: white;
+            border-radius: 24px;
+            padding: 34px;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 36px;
+            color: #102a43;
+        }
+
+        .subtitulo {
+            margin: 10px 0 28px 0;
+            color: #52606d;
+        }
+
+        .grid-resumen {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .card-info {
+            background: #f8fafc;
+            border: 1px solid #dbe2ea;
+            border-radius: 16px;
+            padding: 18px;
+        }
+
+        .card-info span {
+            display: block;
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .card-info strong {
+            font-size: 18px;
+            color: #0f172a;
+        }
+
+        .acciones {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .btn-volver, .btn-primary-custom {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            padding: 0 20px;
+            border-radius: 14px;
+            text-decoration: none;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-volver {
+            color: white;
+            background: linear-gradient(135deg, #6b7280, #374151);
+            box-shadow: 0 10px 22px rgba(15, 23, 42, 0.16);
+        }
+
+        .btn-primary-custom {
+            color: white;
+            background: linear-gradient(135deg, #ec4899, #831843);
+            box-shadow: 0 10px 22px rgba(236, 72, 153, 0.25);
+        }
+
+        .tabla-wrapper {
+            overflow-x: auto;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 950px;
+        }
+
+        th {
+            background: linear-gradient(135deg, #ec4899, #831843);
+            color: white;
+            padding: 14px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        td {
+            padding: 13px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 14px;
+            vertical-align: middle;
+        }
+
+        tr:nth-child(even) {
+            background: #fdf2f8;
+        }
+
+        .motivo {
+            text-align: left;
+            white-space: normal;
+            max-width: 320px;
+            line-height: 1.4;
+        }
+
+        .vacio {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 14px;
+            padding: 24px;
+            text-align: center;
+            color: #64748b;
+            font-weight: bold;
+        }
+
+        .btn-accion {
+            padding: 7px 15px;
+            border-radius: 10px;
+            border: 1px solid #dbe2ea;
+            background: white;
+            color: #831843;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .btn-accion:hover {
+            background: #fdf2f8;
+            border-color: #ec4899;
+        }
+
+        /* Estilos del Modal integrados en la misma paleta */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-box {
+            background: white;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 580px;
+            box-shadow: 0 25px 60px rgba(15, 23, 42, 0.22);
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            background: linear-gradient(135deg, #fdf2f8, #f8fafc);
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 20px;
+            color: #102a43;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+
+        .form-group select, .form-group textarea, .form-group input[type="text"], .form-group input[type="datetime-local"] {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1px solid #dbe2ea;
+            border-radius: 12px;
+            font-size: 14px;
+            font-family: inherit;
+            color: #102a43;
+            background: #f8fafc;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+            line-height: 1.4;
+        }
+
+        .modal-footer {
+            padding: 18px 24px;
+            background: #f8fafc;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .btn-close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #64748b;
+            line-height: 1;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="contenedor">
+
+    <h1>Historial de seguimiento de llamadas</h1>
+    <p class="subtitulo">Consulta el registro de llamadas, gestión y contactos realizados a este crédito.</p>
+
+    <div class="grid-resumen">
+        <div class="card-info">
+            <span>Cliente</span>
+            <strong>{{ credito.cliente }}</strong>
+        </div>
+
+        <div class="card-info">
+            <span>Pagaré</span>
+            <strong>{{ credito.numero_pagare }}</strong>
+        </div>
+
+        <div class="card-info">
+            <span>Sede</span>
+            <strong>{{ credito.sede }}</strong>
+        </div>
+    </div>
+
+    <div class="acciones">
+        <a href="/ver_cuotas/{{ credito.id }}" class="btn-volver">Volver a cuotas</a>
+        <button type="button" class="btn-primary-custom" onclick="abrirModalRegistro()">+ Registrar llamada</button>
+    </div>
+
+    {% if llamadas %}
+    <div class="tabla-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha / Hora</th>
+                    <th>Asesor - Usuario</th>
+                    <th>Tipo - Canal</th>
+                    <th>Resultado</th>
+                    <th>Observación - Motivo</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for llamada in llamadas %}
+                <tr>
+                    <td>{{ llamada.fecha_hora.strftime('%d/%m/%Y %H:%M') if llamada.fecha_hora else '' }}</td>
+                    <td>{{ llamada.asesor_usuario }}</td>
+                    <td>{{ llamada.tipo_canal }}</td>
+                    <td style="font-weight: 600; color: #831843;">{{ llamada.resultado }}</td>
+                    <td class="motivo">{{ llamada.observacion_motivo or 'Sin observación registrada' }}</td>
+                    <td>
+                        <button type="button" class="btn-accion" 
+                            onclick="abrirModalEditar('{{ llamada.id }}', '{{ llamada.tipo_canal }}', '{{ llamada.resultado }}', `{{ (llamada.observacion_motivo or '') | e }}` , '{{ llamada.fecha_hora.strftime('%Y-%m-%dT%H:%M') }}', '{{ llamada.asesor_usuario }}' ) ">
+                            Ver / Editar
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <div class="vacio">
+            Este crédito todavía no tiene registros de llamadas o gestión.
+        </div>
+    {% endif %}
+
+</div>
+
+<!-- MODAL PARA REGISTRAR / EDITAR -->
+<div id="modalGestion" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 id="modalTitulo">Detalle de gestión</h3>
+            <button type="button" class="btn-close-modal" onclick="cerrarModal()">&times;</button>
+        </div>
+        <form id="formGestion" method="POST" action="">
+            <div class="modal-body">
+                <input type="hidden" name="llamada_id" id="inputLlamadaId">
+
+                <div class="form-group">
+                    <label>Fecha y Hora</label>
+                    <input type="datetime-local" name="fecha_hora" id="inputFechaHora" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Asesor - Usuario</label>
+                    <input type="text" name="asesor_usuario" id="inputAsesorUsuario" required placeholder="Escribe el nombre del asesor">
+                </div>
+                
+                <div class="form-group">
+                    <label>Tipo - Canal</label>
+                    <select name="tipo_canal" id="inputTipoCanal" required>
+                        <option value="Llamada Saliente">Llamada Saliente</option>
+                        <option value="Llamada Entrante">Llamada Entrante</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                        <option value="SMS / Correo">SMS / Correo</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Resultado</label>
+                    <select name="resultado" id="inputResultado" required>
+                        <optgroup label="Compromisos de pago">
+                            <option value="Contesta - Promesa de pago">Contesta - Promesa de pago</option>
+                            <option value="Contesta - Abonará parcial">Contesta - Abonará parcial</option>
+                        </optgroup>
+                        <optgroup label="Sin contacto / Buzón">
+                            <option value="No contesta - Buzón de voz">No contesta - Buzón de voz</option>
+                            <option value="No contesta - Timbra sin respuesta">No contesta - Timbra sin respuesta</option>
+                        </optgroup>
+                        <optgroup label="Incidencias de línea">
+                            <option value="Número equivocado">Número equivocado</option>
+                            <option value="Número fuera de servicio / Apagado">Número fuera de servicio / Apagado</option>
+                        </optgroup>
+                        <optgroup label="Rechazo / Disputa">
+                            <option value="Rechaza llamada / Molesto">Rechaza llamada / Molesto</option>
+                            <option value="Indica que ya pagó (enviar a revisión)">Indica que ya pagó (enviar a revisión)</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Observación - Motivo</label>
+                    <textarea name="observacion_motivo" id="inputObservacion" required placeholder="Escribe aquí los detalles de la gestión..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-volver" style="min-height:38px; padding:0 16px; font-size:13px;" onclick="cerrarModal()">Cancelar</button>
+                <button type="submit" class="btn-primary-custom" style="min-height:38px; padding:0 20px; font-size:13px;">Guardar cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function getLocalDateTimeLocal() {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        return now.toISOString().slice(0, 16);
+    }
+
+    function abrirModalRegistro() {
+        document.getElementById('modalTitulo').innerText = 'Registrar nueva gestión';
+        document.getElementById('formGestion').action = '/registrar_llamada/{{ credito.id }}';
+        document.getElementById('inputLlamadaId').value = '';
+        document.getElementById('inputFechaHora').value = getLocalDateTimeLocal();
+        document.getElementById('inputAsesorUsuario').value = '';
+        document.getElementById('inputTipoCanal').value = 'Llamada Saliente';
+        document.getElementById('inputResultado').value = 'Contesta - Promesa de pago';
+        document.getElementById('inputObservacion').value = '';
+        document.getElementById('modalGestion').style.display = 'flex';
+    }
+
+    function abrirModalEditar(id, tipo, res, obs, fecha, asesor) {
+        document.getElementById('modalTitulo').innerText = 'Ver / Editar gestión #' + id;
+        document.getElementById('formGestion').action = '/actualizar_llamada/' + id;
+        document.getElementById('inputLlamadaId').value = id;
+        document.getElementById('inputFechaHora').value = fecha || getLocalDateTimeLocal();
+        document.getElementById('inputAsesorUsuario').value = asesor || '';
+        document.getElementById('inputTipoCanal').value = tipo;
+        document.getElementById('inputResultado').value = res;
+        document.getElementById('inputObservacion').value = obs || '';
+        document.getElementById('modalGestion').style.display = 'flex';
+    }
+
+    function cerrarModal() {
+        document.getElementById('modalGestion').style.display = 'none';
+    }
+</script>
+
+</body>
+</html>
