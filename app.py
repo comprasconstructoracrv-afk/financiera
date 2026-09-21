@@ -1805,7 +1805,10 @@ def ver_creditos_en_mora():
         estado_seleccionado=estado_filtro,
         es_admin=es_admin
     )
- 
+
+from collections import defaultdict
+from sqlalchemy import text
+
 @app.route('/creditos_en_mora/pdf')
 def exportar_mora_pdf():
     if 'user' not in session:
@@ -1825,6 +1828,18 @@ def exportar_mora_pdf():
     es_admin = (rol == 'admin')
     hoy = date.today()
 
+    # 1. OPTIMIZACIÓN BULK: Actualiza mora vencida en milisegundos (1 solo query)
+    try:
+        db.session.execute(text("""
+            UPDATE cuota 
+            SET estado = 'EN MORA' 
+            WHERE fecha_pago < :hoy 
+              AND estado IN ('PENDIENTE', 'ABONO')
+        """), {'hoy': hoy})
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
     if not es_admin:
         sede_seleccionada = session.get('sede') or session.get('user', '')
     else:
@@ -1839,6 +1854,13 @@ def exportar_mora_pdf():
         query = query.filter(func.lower(Credito.sede) == str(sede_seleccionada).lower())
 
     creditos = query.order_by(Credito.cliente.asc()).all()
+    credito_ids = [c.id for c in creditos]
+
+    # 2. OPTIMIZACIÓN BATCH: Carga todas las cuotas de una sola vez y agrúpalas (Adiós N+1)
+    cuotas_db = Cuota.query.filter(Cuota.credito_id.in_(credito_ids)).all() if credito_ids else []
+    cuotas_por_credito = defaultdict(list)
+    for c in cuotas_db:
+        cuotas_por_credito[c.credito_id].append(c)
 
     meses_espanol = {
         1: 'enero', 2: 'febrero', 3: 'marzo', 4: 'abril',
@@ -1863,7 +1885,6 @@ def exportar_mora_pdf():
             return f"{dt.day} de {meses_espanol.get(dt.month, '')} de {dt.year}"
         return str(val)
 
-    # Helper estricto de máximo 2 líneas físicas por celda con <br/>
     def forzar_2_lineas(text, max_len=28):
         if not text:
             return 'N/A'
@@ -1881,15 +1902,9 @@ def exportar_mora_pdf():
     gris_claro = colors.HexColor("#f4f7fb")
     borde = colors.HexColor("#d9e2ec")
 
-    titulo_style = ParagraphStyle(
-        "TituloCRV", parent=styles["Title"], fontSize=22, textColor=azul, alignment=TA_CENTER, spaceAfter=4
-    )
-    subtitulo_style = ParagraphStyle(
-        "SubtituloCRV", parent=styles["Normal"], fontSize=10, textColor=colors.HexColor("#334155"), alignment=TA_CENTER, spaceAfter=10
-    )
-    normal_style = ParagraphStyle(
-        "NormalCRV", parent=styles["Normal"], fontSize=8.5, textColor=colors.HexColor("#1f2937"), alignment=TA_LEFT
-    )
+    titulo_style = ParagraphStyle("TituloCRV", parent=styles["Title"], fontSize=22, textColor=azul, alignment=TA_CENTER, spaceAfter=4)
+    subtitulo_style = ParagraphStyle("SubtituloCRV", parent=styles["Normal"], fontSize=10, textColor=colors.HexColor("#334155"), alignment=TA_CENTER, spaceAfter=10)
+    normal_style = ParagraphStyle("NormalCRV", parent=styles["Normal"], fontSize=8.5, textColor=colors.HexColor("#1f2937"), alignment=TA_LEFT)
 
     cell_p_left = ParagraphStyle("CPLeft", parent=styles["Normal"], fontSize=7, leading=9, textColor=colors.HexColor("#1f2937"), alignment=TA_LEFT)
     cell_p_center = ParagraphStyle("CPCenter", parent=styles["Normal"], fontSize=7, leading=9, textColor=colors.HexColor("#1f2937"), alignment=TA_CENTER)
@@ -1907,9 +1922,7 @@ def exportar_mora_pdf():
     total_deuda_fecha_gen = 0
 
     for credito in creditos:
-        actualizar_mora_credito(credito, hoy)
-
-        cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+        cuotas = cuotas_por_credito.get(credito.id, [])
         if not cuotas:
             continue
 
@@ -1946,12 +1959,12 @@ def exportar_mora_pdf():
 
         filas_data.append([
             p_center(credito.sede),
-            p_left_2l(credito.cliente, limit=25),        # Forzado a máx 2 líneas
+            p_left_2l(credito.cliente, limit=25),
             p_center(credito.cedula_cliente),
             p_center(credito.telefono_1),
             p_center(credito.telefono_2),
-            p_left_2l(credito.direccion_cliente, limit=26),  # Forzado a máx 2 líneas
-            p_left_2l(credito.correo_cliente, limit=28),     # Forzado a máx 2 líneas
+            p_left_2l(credito.direccion_cliente, limit=26),
+            p_left_2l(credito.correo_cliente, limit=28),
             p_center(credito.numero_pagare),
             p_center(fecha_creacion_str),
             p_right(f"${monto_prestado:,.0f}"),
@@ -1967,30 +1980,20 @@ def exportar_mora_pdf():
     doc = SimpleDocTemplate(
         output,
         pagesize=landscape((17 * inch, 11 * inch)),
-        rightMargin=20,
-        leftMargin=20,
-        topMargin=20,
-        bottomMargin=20
+        rightMargin=20, leftMargin=20, topMargin=20, bottomMargin=20
     )
 
     elementos = []
-
     def agregar_encabezado():
         logo_path = os.path.join(app.static_folder, "logo.png") if app.static_folder else "logo.png"
         logo = Image(logo_path, width=95, height=58) if os.path.exists(logo_path) else ""
-
         empresa = Paragraph("""
             <b>CONSTRUCCIONES Y URBANIZACIONES S.A.S</b><br/>
             NIT: 901.527.083-2 | TEL: 311 414 5843<br/>
             AV. AMBALÁ N° 27-136 P3 - IBAGUÉ-TOLIMA
         """, normal_style)
-
         titulo = Paragraph("REPORTE DE CRÉDITOS EN MORA", titulo_style)
-        subtitulo = Paragraph(
-            f"Sede: {sede_seleccionada} | Estado de mora: {estado_filtro} | Fecha: {hoy.strftime('%Y-%m-%d')}",
-            subtitulo_style
-        )
-
+        subtitulo = Paragraph(f"Sede: {sede_seleccionada} | Estado de mora: {estado_filtro} | Fecha: {hoy.strftime('%Y-%m-%d')}", subtitulo_style)
         tabla_header = Table([[logo, [titulo, subtitulo], empresa]], colWidths=[140, 884, 160])
         tabla_header.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -2004,16 +2007,13 @@ def exportar_mora_pdf():
         elementos.append(Spacer(1, 12))
 
     agregar_encabezado()
-
     headers = [
         "Sede", "Cliente", "Cédula", "Tel. 1", "Tel. 2", "Dirección", "Correo", 
         "Pagaré", "Fecha Inicio Crédito", "Monto Prestado", "Monto Pagado", "Cuotas", 
         "Cuotas en Mora", "Valor Cuota", "Mora a la fecha", "Deuda a la Fecha"
     ]
-    
     header_style = ParagraphStyle("HStyle", parent=styles["Normal"], fontSize=8, leading=11, textColor=colors.white, fontName="Helvetica-Bold", alignment=TA_CENTER)
-    header_paragraphs = [Paragraph(f"<b>{h}</b>", header_style) for h in headers]
-    data = [header_paragraphs] + filas_data
+    data = [[Paragraph(f"<b>{h}</b>", header_style) for h in headers]] + filas_data
     
     if filas_data:
         total_p_style = ParagraphStyle("TPStyle", parent=styles["Normal"], fontSize=8, leading=11, textColor=colors.HexColor("#0b2f4f"), fontName="Helvetica-Bold", alignment=TA_RIGHT)
@@ -2027,25 +2027,8 @@ def exportar_mora_pdf():
             Paragraph(f"<b>${total_deuda_fecha_gen:,.0f}</b>", total_p_style)
         ])
 
-    col_widths = [40,  # Sede
-        130,  # Cliente
-        60,  # Cédula
-        45,  # Tel. 1
-        45,  # Tel. 2
-        120,  # Dirección
-        130,  # Correo
-        40,  # Pagaré
-        95,  # Fecha Inicio Crédito
-        80,  # Monto Prestado
-        80,  # Monto Pagado
-        32,  # Cuotas
-        32,  # Mora
-        80,  # Valor Cuota
-        68,  # Int. Mora
-        90,  # Deuda a la Fecha
-    ]
+    col_widths = [40, 130, 60, 45, 45, 120, 130, 40, 95, 80, 80, 32, 32, 80, 68, 90]
     t = Table(data, repeatRows=1, colWidths=col_widths)
-
     estilo_tabla = [
         ("BACKGROUND", (0, 0), (-1, 0), azul),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -2059,27 +2042,20 @@ def exportar_mora_pdf():
         ("LEFTPADDING", (0, 0), (-1, -1), 4),
         ("RIGHTPADDING", (0, 0), (-1, -1), 4),
     ]
-
     if filas_data:
         estilo_tabla.extend([
             ("SPAN", (0, -1), (8, -1)),
             ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#D9EAF7")),
             ("ALIGN", (0, -1), (8, -1), "LEFT"),
         ])
-
     t.setStyle(TableStyle(estilo_tabla))
     elementos.append(t)
-
     doc.build(elementos)
     output.seek(0)
 
     clean_sede = str(sede_seleccionada).replace(' ', '_')
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name=f'creditos_en_mora_{clean_sede}_{hoy.strftime("%Y-%m-%d")}.pdf',
-        mimetype="application/pdf"
-    )
+    return send_file(output, as_attachment=True, download_name=f'creditos_en_mora_{clean_sede}_{hoy.strftime("%Y-%m-%d")}.pdf', mimetype="application/pdf")
+
 
 @app.route('/creditos_en_mora/excel')
 def exportar_mora_excel():
@@ -2088,8 +2064,19 @@ def exportar_mora_excel():
 
     rol = session.get('rol', '').lower()
     es_admin = (rol == 'admin')
-    usuario = session.get('user', '')
     hoy = date.today()
+
+    # Bulk update mora
+    try:
+        db.session.execute(text("""
+            UPDATE cuota 
+            SET estado = 'EN MORA' 
+            WHERE fecha_pago < :hoy 
+              AND estado IN ('PENDIENTE', 'ABONO')
+        """), {'hoy': hoy})
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
     if not es_admin:
         sede_seleccionada = session.get('sede') or session.get('user', '')
@@ -2105,6 +2092,12 @@ def exportar_mora_excel():
         query = query.filter(func.lower(Credito.sede) == str(sede_seleccionada).lower())
 
     creditos = query.order_by(Credito.cliente.asc()).all()
+    credito_ids = [c.id for c in creditos]
+
+    cuotas_db = Cuota.query.filter(Cuota.credito_id.in_(credito_ids)).all() if credito_ids else []
+    cuotas_por_credito = defaultdict(list)
+    for c in cuotas_db:
+        cuotas_por_credito[c.credito_id].append(c)
 
     filas = []
     total_monto_prestado = 0
@@ -2113,9 +2106,7 @@ def exportar_mora_excel():
     total_deuda_fecha_gen = 0
 
     for credito in creditos:
-        actualizar_mora_credito(credito, hoy)
-
-        cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+        cuotas = cuotas_por_credito.get(credito.id, [])
         if not cuotas:
             continue
 
@@ -2124,13 +2115,7 @@ def exportar_mora_excel():
             continue
 
         meses_en_mora = len(cuotas_mora)
-
-        if meses_en_mora == 1:
-            subestado = '1 MES'
-        elif meses_en_mora == 2:
-            subestado = '2 MESES'
-        else:
-            subestado = '3 MESES'
+        subestado = '1 MES' if meses_en_mora == 1 else ('2 MESES' if meses_en_mora == 2 else '3 MESES')
 
         if estado_filtro != 'TODAS' and subestado != estado_filtro:
             continue
@@ -2186,10 +2171,7 @@ def exportar_mora_excel():
     center = Alignment(horizontal="center", vertical="center")
 
     filtro_texto_extra = f" - Sede: {sede_seleccionada}"
-    if estado_filtro and estado_filtro != 'TODAS':
-        filtro_texto_extra += f" - Rango: {estado_filtro} mes(es) de mora"
-    else:
-        filtro_texto_extra += " - Todos los meses de mora"
+    filtro_texto_extra += f" - Rango: {estado_filtro} mes(es) de mora" if estado_filtro and estado_filtro != 'TODAS' else " - Todos los meses de mora"
 
     ws["A1"] = f"Reporte Detallado de Créditos en Mora{filtro_texto_extra}"
     ws["A1"].font = Font(bold=True, size=13)
@@ -2222,10 +2204,9 @@ def exportar_mora_excel():
         total_interes_mora_gen, total_deuda_fecha_gen
     ])
 
-    # Columnas de dinero o numéricas monetarias: 10, 11, 14, 15, 16, 17
-    for row in ws.iter_rows(min_row=4, min_col=1, max_row=ws.max_row, max_col=17):
+    for row in ws.iter_rows(min_row=4, min_col=1, max_row=ws.max_row, max_col=16):
         for idx, cell in enumerate(row, start=1):
-            if idx in [10, 11, 14, 15, 16, 17] and isinstance(cell.value, (int, float)):
+            if idx in [10, 11, 14, 15, 16] and isinstance(cell.value, (int, float)):
                 cell.number_format = '$ #,##0'
 
     last_row = ws.max_row
@@ -6929,6 +6910,16 @@ def exportar_clientes_mora_sede(sede):
         if not cuotas_mora:
             continue
 
+        dias_mora= max((c.dias_mora for c in cuotas if hasattr(c, 'dias_mora')))
+
+        # Capital pago puro: valor pagado na cuota menos o juros de mora correspondente
+        total_pagado_capital = round(sum(
+            max(0, (c.valor_cuota or 0) - (c.saldo_pendiente or 0) - (c.interes or 0))
+            for c in cuotas if (c.estado or '').upper() in ['PAGADA', 'ABONO']
+        ), 2)
+
+        saldo_pendiente_total= round(sum((c.saldo_pendiente or 0) + (c.interes_mora or 0) for c in cuotas), 2)
+
         deuda_fecha = round(sum(
             (c.saldo_pendiente or 0) + (c.interes_mora or 0)
             for c in cuotas
@@ -6952,9 +6943,13 @@ def exportar_clientes_mora_sede(sede):
             'Teléfono 2': credito.telefono_2,
             'Correo': credito.correo_cliente,
             'Dirección': credito.direccion_cliente,
-            'Pagaré': credito.numero_pagare,
             'Sede': credito.sede,
+            'Pagaré': credito.numero_pagare,
+            'Valor Crédito': credito.monto_financiado,
+            'Valor pagado Capital': total_pagado_capital,
+            'Saldo pendiente': saldo_pendiente_total,
             'Cuotas en mora': cuotas_vencidas,
+            'Días mora': dias_mora,
             'Mora total': mora_total,
             'Deuda a la fecha': deuda_fecha
         })
