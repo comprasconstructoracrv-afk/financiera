@@ -380,6 +380,17 @@
 
         <!-- Tarjeta de Filtros -->
         <div class="card-filtros">
+
+            <!-- Encabezado del panel de filtros + Recuadro en la esquina opuesta -->
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div class="titulo-seccion" style="margin-top: 0; font-size: 20px;">Filtrar registros</div>
+                
+                <!-- Recuadro del total de la consulta ubicado en la esquina derecha -->
+                <div style="display: flex; align-items: center; gap: 12px; background: #f8fafc; padding: 10px 18px; border-radius: 8px; border: 1px dashed #cbd5e1;">
+                    <span style="font-size: 14px; color: #475569; font-weight: 700;">TOTAL CRÉDITOS EN MORA:</span>
+                    <span style="font-size: 22px; font-weight: bold; color: #1e293b;">{{ resultados | length }}</span>
+                </div>
+            </div>
             <div class="titulo-seccion" style="margin-top: 0; font-size: 20px;">Filtrar registros</div>
             <form method="GET" action="{{ url_for('ver_creditos_en_mora') }}" class="form-filtros">
                 
@@ -414,6 +425,7 @@
                 <div>
                     <button type="submit" class="btn-filtrar">Aplicar filtros</button>
                 </div>
+
             </form>
         </div>
 
