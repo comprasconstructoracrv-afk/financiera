@@ -2237,6 +2237,8 @@ def exportar_mora_excel():
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
+from sqlalchemy import exists
+
 @app.route('/creditos_cancelados_resumen')
 def ver_creditos_cancelados_resumen():
     if 'user' not in session:
@@ -2251,31 +2253,30 @@ def ver_creditos_cancelados_resumen():
     else:
         sede_filtro = request.args.get('sede', 'TODAS')
 
-    # Filtrar candidatos iniciales por sede para optimizar
-    query = Credito.query
+    # Subconsulta 1: El crédito debe tener al menos una cuota
+    subq_tiene_cuotas = exists().where(Cuota.credito_id == Credito.id)
+
+    # Subconsulta 2: NO debe existir ninguna cuota que NO esté PAGADA o LIQUIDADA
+    subq_cuotas_pendientes = exists().where(
+        (Cuota.credito_id == Credito.id) &
+        (~Cuota.estado.in_(['PAGADA', 'LIQUIDADA']))
+    )
+
+    # Construir consulta principal directamente en DB
+    query = Credito.query.filter(
+        subq_tiene_cuotas,
+        ~subq_cuotas_pendientes
+    )
+
+    # Aplicar filtro de sede
     if not es_admin:
         query = query.filter(func.lower(Credito.sede) == sede_filtro.lower())
     elif sede_filtro and sede_filtro != 'TODAS':
         query = query.filter(func.lower(Credito.sede) == sede_filtro.lower())
 
-    candidatos = query.all()
-    hoy = date.today()
-    creditos_filtrados = []
+    creditos_filtrados = query.all()
 
-    for cred in candidatos:
-        # Opcional: actualiza mora si tu lógica lo requiere antes de evaluar
-        if 'actualizar_mora_credito' in globals():
-            actualizar_mora_credito(cred, hoy)
-
-        cuotas = Cuota.query.filter_by(credito_id=cred.id).all()
-        if not cuotas:
-            continue
-
-        # Validar que todas las cuotas estén pagadas o liquidadas
-        if all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
-            creditos_filtrados.append(cred)
-
-    # Ordenar por nombre de cliente de forma segura
+    # Ordenar por nombre de cliente de forma segura en memoria (si ya son pocos filtrados)
     creditos_filtrados.sort(key=lambda x: (getattr(x, 'cliente', '') or '').lower())
 
     sedes_disponibles = Sede.query.filter_by(activa=True).all() if es_admin else []
@@ -2288,6 +2289,10 @@ def ver_creditos_cancelados_resumen():
         es_admin=es_admin
     )
 
+from collections import defaultdict
+from datetime import datetime
+from sqlalchemy import func
+
 @app.route('/ver_creditos_dia_resumen')
 def ver_creditos_dia_resumen():
     if 'user' not in session:
@@ -2297,7 +2302,6 @@ def ver_creditos_dia_resumen():
     es_admin = (rol == 'admin')
     sede_usuario = session.get('sede') or session.get('user', '')
 
-    # Determinar sede filtro según rol
     if not es_admin:
         sede_filtro = sede_usuario
     else:
@@ -2305,7 +2309,7 @@ def ver_creditos_dia_resumen():
 
     hoy = date.today()
 
-    # Consulta base de créditos aplicando filtro de sede
+    # Filtrar base de créditos por sede
     query = Credito.query
     if not es_admin:
         query = query.filter(func.lower(Credito.sede) == str(sede_filtro).lower())
@@ -2315,8 +2319,30 @@ def ver_creditos_dia_resumen():
     creditos = query.order_by(Credito.fecha_creacion.desc()).all()
     resumen_creditos = []
 
+    if not creditos:
+        sedes_disponibles = Sede.query.filter_by(activa=True).all() if es_admin else []
+        return render_template(
+            'creditos_al_dia_resumen.html',
+            resumen_creditos=[],
+            sedes=sedes_disponibles,
+            sede_seleccionada=sede_filtro,
+            es_admin=es_admin
+        )
+
+    credito_ids = [c.id for c in creditos]
+
+    # Cargar cuotas en lote para evitar N+1 queries
+    todas_cuotas = Cuota.query.filter(Cuota.credito_id.in_(credito_ids)).all()
+    cuotas_por_credito = defaultdict(list)
+    for c in todas_cuotas:
+        cuotas_por_credito[c.credito_id].append(c)
+
+    def obtener_fecha_pago(cuota):
+        fp = cuota.fecha_pago
+        return fp.date() if isinstance(fp, datetime) else fp
+
     for credito in creditos:
-        cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+        cuotas = cuotas_por_credito.get(credito.id, [])
         if not cuotas:
             continue
 
@@ -2328,7 +2354,7 @@ def ver_creditos_dia_resumen():
 
         tiene_mora = any(
             c.estado == 'EN MORA' or (
-                (c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago) < hoy
+                obtener_fecha_pago(c) < hoy
                 and ((c.saldo_pendiente or 0) > 0 or (c.interes_mora or 0) > 0)
             )
             for c in cuotas
@@ -2339,31 +2365,23 @@ def ver_creditos_dia_resumen():
         deuda_a_la_fecha = sum(
             (c.saldo_pendiente or 0) + (c.interes_mora or 0)
             for c in cuotas
-            if (c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago) <= hoy
+            if obtener_fecha_pago(c) <= hoy
             and c.estado not in ['PAGADA', 'LIQUIDADA']
         )
-
         if deuda_a_la_fecha > 0:
             continue
 
         tiene_cuotas_futuras = any(
-            (c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago) > hoy
+            obtener_fecha_pago(c) > hoy
             for c in cuotas
         )
         estado_credito = 'AL DIA' if tiene_cuotas_futuras else 'AL DÍA'
 
-        total_inyecciones = db.session.query(
-            db.func.coalesce(db.func.sum(InyeccionCapital.valor), 0)
-        ).filter(
-            InyeccionCapital.credito_id == credito.id
-        ).scalar()
-
-        credito.monto_total_con_inyecciones = (credito.monto or 0) + (total_inyecciones or 0)
-
         resumen_creditos.append({
             'credito': credito,
             'estado_credito': estado_credito,
-            'saldo_actual_credito': deuda_a_la_fecha
+            'saldo_actual_credito': deuda_a_la_fecha,
+            'monto_total_calculado': credito.monto_financiado or 0
         })
 
     sedes_disponibles = Sede.query.filter_by(activa=True).all() if es_admin else []
