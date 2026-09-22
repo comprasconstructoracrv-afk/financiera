@@ -1,7 +1,7 @@
 import smtplib
 
 from flask import Flask, current_app, make_response, render_template, request, redirect, session, flash, url_for, send_file
-from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo, Sede, TasaInteresVariable, InyeccionCapital, CambioTasaInteresCredito, AbonoCapital, LlamadaCliente
+from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo, Sede, TasaInteresVariable, InyeccionCapital, CambioTasaInteresCredito, AbonoCapital, LlamadaCliente, HistorialEnvioWhatsApp
 from datetime import datetime, date, timedelta
 import calendar
 import os
@@ -2237,6 +2237,144 @@ def exportar_mora_excel():
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
+@app.route('/creditos_cancelados_resumen')
+def ver_creditos_cancelados_resumen():
+    if 'user' not in session:
+        return redirect('/login')
+
+    rol = session.get('rol', '').lower()
+    es_admin = (rol == 'admin')
+    sede_usuario = session.get('sede') or session.get('user', '')
+
+    if not es_admin:
+        sede_filtro = sede_usuario
+    else:
+        sede_filtro = request.args.get('sede', 'TODAS')
+
+    # Filtrar candidatos iniciales por sede para optimizar
+    query = Credito.query
+    if not es_admin:
+        query = query.filter(func.lower(Credito.sede) == sede_filtro.lower())
+    elif sede_filtro and sede_filtro != 'TODAS':
+        query = query.filter(func.lower(Credito.sede) == sede_filtro.lower())
+
+    candidatos = query.all()
+    hoy = date.today()
+    creditos_filtrados = []
+
+    for cred in candidatos:
+        # Opcional: actualiza mora si tu lógica lo requiere antes de evaluar
+        if 'actualizar_mora_credito' in globals():
+            actualizar_mora_credito(cred, hoy)
+
+        cuotas = Cuota.query.filter_by(credito_id=cred.id).all()
+        if not cuotas:
+            continue
+
+        # Validar que todas las cuotas estén pagadas o liquidadas
+        if all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
+            creditos_filtrados.append(cred)
+
+    # Ordenar por nombre de cliente de forma segura
+    creditos_filtrados.sort(key=lambda x: (getattr(x, 'cliente', '') or '').lower())
+
+    sedes_disponibles = Sede.query.filter_by(activa=True).all() if es_admin else []
+
+    return render_template(
+        'creditos_cancelados_resumen.html',
+        creditos=creditos_filtrados,
+        sedes=sedes_disponibles,
+        sede_seleccionada=sede_filtro,
+        es_admin=es_admin
+    )
+
+@app.route('/ver_creditos_dia_resumen')
+def ver_creditos_dia_resumen():
+    if 'user' not in session:
+        return redirect('/login')
+
+    rol = session.get('rol', '').lower()
+    es_admin = (rol == 'admin')
+    sede_usuario = session.get('sede') or session.get('user', '')
+
+    # Determinar sede filtro según rol
+    if not es_admin:
+        sede_filtro = sede_usuario
+    else:
+        sede_filtro = request.args.get('sede', 'TODAS')
+
+    hoy = date.today()
+
+    # Consulta base de créditos aplicando filtro de sede
+    query = Credito.query
+    if not es_admin:
+        query = query.filter(func.lower(Credito.sede) == str(sede_filtro).lower())
+    elif sede_filtro and sede_filtro != 'TODAS':
+        query = query.filter(func.lower(Credito.sede) == str(sede_filtro).lower())
+
+    creditos = query.order_by(Credito.fecha_creacion.desc()).all()
+    resumen_creditos = []
+
+    for credito in creditos:
+        cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+        if not cuotas:
+            continue
+
+        if any(c.estado == 'REESTRUCTURADO' for c in cuotas):
+            continue
+
+        if all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas):
+            continue
+
+        tiene_mora = any(
+            c.estado == 'EN MORA' or (
+                (c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago) < hoy
+                and ((c.saldo_pendiente or 0) > 0 or (c.interes_mora or 0) > 0)
+            )
+            for c in cuotas
+        )
+        if tiene_mora:
+            continue
+
+        deuda_a_la_fecha = sum(
+            (c.saldo_pendiente or 0) + (c.interes_mora or 0)
+            for c in cuotas
+            if (c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago) <= hoy
+            and c.estado not in ['PAGADA', 'LIQUIDADA']
+        )
+
+        if deuda_a_la_fecha > 0:
+            continue
+
+        tiene_cuotas_futuras = any(
+            (c.fecha_pago.date() if isinstance(c.fecha_pago, datetime) else c.fecha_pago) > hoy
+            for c in cuotas
+        )
+        estado_credito = 'AL DIA' if tiene_cuotas_futuras else 'AL DÍA'
+
+        total_inyecciones = db.session.query(
+            db.func.coalesce(db.func.sum(InyeccionCapital.valor), 0)
+        ).filter(
+            InyeccionCapital.credito_id == credito.id
+        ).scalar()
+
+        credito.monto_total_con_inyecciones = (credito.monto or 0) + (total_inyecciones or 0)
+
+        resumen_creditos.append({
+            'credito': credito,
+            'estado_credito': estado_credito,
+            'saldo_actual_credito': deuda_a_la_fecha
+        })
+
+    sedes_disponibles = Sede.query.filter_by(activa=True).all() if es_admin else []
+
+    return render_template(
+        'creditos_al_dia_resumen.html',
+        resumen_creditos=resumen_creditos,
+        sedes=sedes_disponibles,
+        sede_seleccionada=sede_filtro,
+        es_admin=es_admin
+    )
 
 @app.route('/creditos/<sede>')
 def creditos_sede(sede):

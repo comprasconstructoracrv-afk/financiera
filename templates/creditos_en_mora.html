@@ -391,7 +391,6 @@
                     <span style="font-size: 22px; font-weight: bold; color: #1e293b;">{{ resultados | length }}</span>
                 </div>
             </div>
-            <div class="titulo-seccion" style="margin-top: 0; font-size: 20px;">Filtrar registros</div>
             <form method="GET" action="{{ url_for('ver_creditos_en_mora') }}" class="form-filtros">
                 
                 <!-- Selector de Sede -->
@@ -427,6 +426,17 @@
                 </div>
 
             </form>
+        </div>
+
+        <!-- BUSCADOR -->
+        <div style="margin: 20px 0;">
+            <input
+                type="text"
+                id="buscadorCreditos"
+                placeholder="Buscar por cliente, pagaré o fecha..."
+                onkeyup="filtrarTablaCreditos()"
+                style="width: 100%; max-width: 520px; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px;"
+            >
         </div>
 
         <!-- Listado de Resultados -->
@@ -603,6 +613,22 @@
                 }, 5000);
             });
         });
+
+        function filtrarTablaCreditos() {
+            const input = document.getElementById("buscadorCreditos");
+            const filtro = input.value.toLowerCase();
+            const filas = document.querySelectorAll("tbody tr");
+
+            filas.forEach(fila => {
+                const textoFila = fila.innerText.toLowerCase();
+
+                if (textoFila.includes(filtro)) {
+                    fila.style.display = "";
+                } else {
+                    fila.style.display = "none";
+                }
+            });
+        }
     </script>
 
     <div id="overlay-cargando" class="overlay-cargando">
