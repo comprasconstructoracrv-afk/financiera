@@ -1,7 +1,7 @@
 import smtplib
 
 from flask import Flask, current_app, make_response, render_template, request, redirect, session, flash, url_for, send_file
-from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo, Sede, TasaInteresVariable, InyeccionCapital, CambioTasaInteresCredito, AbonoCapital, LlamadaCliente, HistorialEnvioWhatsApp
+from models import db, Usuario, Credito, Cuota, Pago, ConfiguracionTasa, TasaPeriodo, Sede, TasaInteresVariable, InyeccionCapital, CambioTasaInteresCredito, AbonoCapital, LlamadaCliente
 from datetime import datetime, date, timedelta
 import calendar
 import os
