@@ -264,7 +264,7 @@
                 
                 <div style="display: flex; align-items: center; gap: 12px; background: #f8fafc; padding: 10px 18px; border-radius: 8px; border: 1px dashed #cbd5e1;">
                     <span style="font-size: 14px; color: #475569; font-weight: 700;">TOTAL AL DÍA:</span>
-                    <span style="font-size: 22px; font-weight: bold; color: #198754;">{{ creditos | length }}</span>
+                    <span style="font-size: 22px; font-weight: bold; color: #198754;">{{ resumen_creditos | length }}</span>
                 </div>
             </div>
 
@@ -326,7 +326,7 @@
                         <td>{{ cred.cliente }}</td>
                         <td>{{ cred.cedula_cliente or cred.cedula or 'N/A' }}</td>
                         <td style="font-weight: 600;">{{ cred.sede }}</td>
-                        <td style="font-weight: bold; color: #102a43;">${{ "{:,.2f}".format(cred.monto_total_con_inyecciones or cred.monto or 0) }}</td>
+                        <td style="font-weight: bold; color: #102a43;">${{ "{:,.2f}".format(cred.monto_financiado or 0) }}</td>
                         <td><span class="badge-dia">{{ item.estado_credito }}</span></td>
                         <td style="text-align: center;">
                             <a href="{{ url_for('ver_cuotas', credito_id=cred.id) }}" class="btn-detalle">Ver detalle</a>
@@ -335,7 +335,7 @@
                     {% else %}
                     <tr>
                         <td colspan="7" style="text-align: center; padding: 40px; color: #64748b;">
-                            No hay créditos al día registrados en el sistema. ✅
+                            No hay créditos al día registrados en el sistema.
                         </td>
                     </tr>
                     {% endfor %}
