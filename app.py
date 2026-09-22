@@ -7041,6 +7041,8 @@ def exportar_clientes_sede(sede):
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
+from openpyxl.utils import get_column_letter  # Asegúrate de tener esta importación al inicio de tu archivo
+
 @app.route('/exportar_clientes_mora_sede/<sede>')
 def exportar_clientes_mora_sede(sede):
     if 'user' not in session:
@@ -7066,15 +7068,15 @@ def exportar_clientes_mora_sede(sede):
         if not cuotas_mora:
             continue
 
-        dias_mora= max((c.dias_mora for c in cuotas if hasattr(c, 'dias_mora')))
+        dias_mora = max((c.dias_mora for c in cuotas if hasattr(c, 'dias_mora')))
 
         # Capital pago puro: valor pagado na cuota menos o juros de mora correspondente
         total_pagado_capital = round(sum(
-            max(0, (c.valor_cuota or 0) - (c.saldo_pendiente or 0) - (c.interes or 0))
-            for c in cuotas if (c.estado or '').upper() in ['PAGADA', 'ABONO']
+            max(0, (c.capital or 0) - (c.saldo_pendiente or 0))
+            for c in cuotas 
         ), 2)
 
-        saldo_pendiente_total= round(sum((c.saldo_pendiente or 0) + (c.interes_mora or 0) for c in cuotas), 2)
+        saldo_pendiente_total = round(sum((c.saldo_pendiente or 0) + (c.interes_mora or 0) for c in cuotas), 2)
 
         deuda_fecha = round(sum(
             (c.saldo_pendiente or 0) + (c.interes_mora or 0)
@@ -7103,7 +7105,7 @@ def exportar_clientes_mora_sede(sede):
             'Pagaré': credito.numero_pagare,
             'Valor Crédito': credito.monto_financiado,
             'Valor pagado Capital': total_pagado_capital,
-            'Saldo pendiente': saldo_pendiente_total,
+            'Saldo pendiente (Capital+Intereses)': saldo_pendiente_total,
             'Cuotas en mora': cuotas_vencidas,
             'Días mora': dias_mora,
             'Mora total': mora_total,
@@ -7115,7 +7117,34 @@ def exportar_clientes_mora_sede(sede):
     df = pd.DataFrame(filas)
 
     output = BytesIO()
-    df.to_excel(output, index=False, sheet_name='Clientes en mora')
+    
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Clientes en mora')
+        
+        worksheet = writer.sheets['Clientes en mora']
+        
+        columnas_dinero = [
+            'Valor Crédito', 
+            'Valor pagado Capital', 
+            'Saldo pendiente (Capital+Intereses)', 
+            'Mora total', 
+            'Deuda a la fecha'
+        ]
+        
+        # 1. Aplicar formato de moneda ($)
+        for col_num, column_title in enumerate(df.columns, start=1):
+            if column_title in columnas_dinero:
+                for row in range(2, len(df) + 2):
+                    celda = worksheet.cell(row=row, column=col_num)
+                    if celda.value is not None:
+                        celda.number_format = '"$"#,##0'
+
+        # 2. CORRECCIÓN AQUÍ: Auto-ajustar usando get_column_letter
+        for col_num, col in enumerate(worksheet.columns, start=1):
+            max_len = max(len(str(cell.value or '')) for cell in col)
+            col_letter = get_column_letter(col_num)  # Transforma el número de columna (1, 2, 3...) a letra (A, B, C...)
+            worksheet.column_dimensions[col_letter].width = max(max_len + 4, 12)
+
     output.seek(0)
 
     return send_file(
