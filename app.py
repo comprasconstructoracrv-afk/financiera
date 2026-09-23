@@ -6277,12 +6277,34 @@ def plan_pagos_credito(credito_id):
     credito = Credito.query.get_or_404(credito_id)
     cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero.asc()).all()
 
+    primera_cuota = cuotas[0] if cuotas else None
+    ultima_cuota = cuotas[-1] if cuotas else None
+
+    total_inyecciones = sum(i.valor for i in credito.inyecciones_capital) if credito.inyecciones_capital else 0
+
+    valor_total = (credito.monto_financiado or 0) + total_inyecciones
+
+    valor_solicitado= valor_total + credito.abono_inicial
+
+    cuota_mensual = ultima_cuota.valor_cuota if ultima_cuota else 0
+    cuota_activa = next((c for c in cuotas if c.estado != 'PAGADA'), None)
+    
+    if cuota_activa:
+        saldo_actual = cuota_activa.saldo_inicial or 0
+    else:
+        
+        saldo_actual = 0
+
     fecha_credito = credito.fecha_creacion.date() if credito.fecha_creacion else date.today()
 
     return render_template(
         'plan_pagos.html',
         credito=credito,
         cuotas=cuotas,
+        valor_total=valor_total,
+        valor_solicitado=valor_solicitado,
+        saldo_actual=saldo_actual,
+        cuota_mensual=cuota_mensual,
         fecha_credito=fecha_credito.strftime('%d/%m/%Y')
     )
 

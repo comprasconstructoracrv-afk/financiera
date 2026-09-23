@@ -323,7 +323,7 @@
 
                     <div class="dato">
                         <div class="label">Monto solicitado</div>
-                        <div class="valor">$ {{ "{:,.0f}".format(credito.monto or 0).replace(",", ".") }}</div>
+                        <div class="valor">$ {{ "{:,.0f}".format(valor_solicitado or 0).replace(",", ".") }}</div>
                     </div>
 
                     <div class="dato">
@@ -333,7 +333,7 @@
 
                     <div class="dato">
                         <div class="label">Monto financiado</div>
-                        <div class="valor">$ {{ "{:,.0f}".format(credito.monto_financiado or 0).replace(",", ".") }}</div>
+                        <div class="valor">$ {{ "{:,.0f}".format(valor_total or 0).replace(",", ".") }}</div>
                     </div>
 
                     <div class="dato">
@@ -348,12 +348,12 @@
 
                     <div class="dato">
                         <div class="label">Cuota mensual</div>
-                        <div class="valor">$ {{ "{:,.0f}".format(credito.cuota_mensual or 0).replace(",", ".") }}</div>
+                        <div class="valor">$ {{ "{:,.0f}".format(cuota_mensual or 0).replace(",", ".") }}</div>
                     </div>
 
                     <div class="dato">
                         <div class="label">Saldo actual</div>
-                        <div class="valor">$ {{ "{:,.0f}".format(credito.saldo_actual or 0).replace(",", ".") }}</div>
+                        <div class="valor">$ {{ "{:,.0f}".format(saldo_actual or 0).replace(",", ".") }}</div>
                     </div>
                 </div>
             </div>

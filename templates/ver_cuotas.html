@@ -1228,7 +1228,7 @@
                 <tr>
                     <th>N° Cuota</th>
                     <th>Fecha cuota</th>
-                    {% if credito.tipo_cuota == 'VARIABLE' and credito.permite_inyeccion_capital %}
+                    {% if credito.tipo_cuota == 'VARIABLE' or credito.tipo_cuota == 'FIJA' and credito.permite_inyeccion_capital %}
                         <th>Adición capital</th>
                     {% endif %}
                     <th>Saldo inicial</th>
@@ -1261,7 +1261,7 @@
                 >
                     <td>{{ cuota.numero }}</td>
                     <td>{{ cuota.fecha_pago.strftime('%d/%m/%Y') }}</td>
-                    {% if credito.tipo_cuota == 'VARIABLE' and credito.permite_inyeccion_capital %}
+                    {% if credito.tipo_cuota == 'VARIABLE' or credito.tipo_cuota == 'FIJA' and credito.permite_inyeccion_capital %}
                     <td>
                         {% set inyeccion = cuota.credito.inyecciones_capital 
                             | selectattr("numero_cuota", "equalto", cuota.numero) 
