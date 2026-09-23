@@ -639,7 +639,7 @@
                 </div>
 
                 <div class="linea">• <strong>Objeto:</strong> Financiamiento para adquisión de bien/ servicio. </div>
-                <div class="linea">• <strong>Valor Financiado:</strong> $ {{ "{:,.0f}".format(credito.monto_financiado or 0).replace(",", ".") }} </div>
+                <div class="linea">• <strong>Valor Financiado:</strong> $ {{ "{:,.0f}".format(valor_pagare).replace(",", ".") }} </div>
                 <div class="linea">• <strong>Cuotas:</strong> {% if credito.tipo_cuota == 'VARIABLE' %}
                             {{ credito.cuotas }} cuotas de valor variable
                         {% else %}

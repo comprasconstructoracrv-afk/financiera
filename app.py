@@ -6888,7 +6888,7 @@ def ver_pagare(credito_id):
     if isinstance(fecha_vencimiento_final, datetime):
         fecha_vencimiento_final = fecha_vencimiento_final.date()
 
-    cuota_mensual = primera_cuota.valor_cuota if primera_cuota else 0
+    cuota_mensual = ultima_cuota.valor_cuota if ultima_cuota else 0
     interes_mensual = credito.interes or 0
     dia_pago = fecha_inicial_pagos.day if fecha_inicial_pagos else ''
 
