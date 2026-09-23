@@ -310,7 +310,9 @@
 
         <div class="card-info">
             <span>Saldo actual</span>
-            <strong>{{ credito.saldo_actual | cop }}</strong>
+            <strong>
+                <div class="valor">$ {{ "{:,.0f}".format(saldo_actual or 0).replace(",", ".") }}</div>
+            </strong>
         </div>
 
         {% if deuda_total_fecha > 0 %}

@@ -3368,14 +3368,20 @@ def enviar_recibo_deuda_por_correo(credito_id, pagos_ids, observacion_param=""):
             os.remove(ruta_imagen)
 
 
-
-
 @app.route('/abono_capital/<int:credito_id>', methods=['GET', 'POST'])
 def abono_capital(credito_id):
     if 'user' not in session:
         return redirect('/login')
 
     credito = Credito.query.get_or_404(credito_id)
+    cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero.asc()).all()
+    
+    # Identificar la cuota activa (primera no pagada) y extraer su saldo_inicial exacto
+    cuota_referencia_saldo = next(
+        (c for c in cuotas if c.estado != 'PAGADO' and round(c.saldo_pendiente or 0, 2) > 0),
+        None
+    )    
+    saldo_actual_abono = cuota_referencia_saldo.saldo_inicial if cuota_referencia_saldo else 0
 
     actualizar_mora_credito(credito, date.today())
     db.session.commit()
@@ -3485,6 +3491,7 @@ def abono_capital(credito_id):
             credito_id=credito.id,
             fecha=fecha_pago,
             valor=valor_pago,
+            saldo_actual=saldo_actual_abono,
             medio_pago=medio_pago,
             observacion="ABONO A CAPITAL"
         )
@@ -3514,6 +3521,7 @@ def abono_capital(credito_id):
         'abono_capital.html',
         credito=credito,
         deuda_total_fecha=deuda_total_fecha,
+        saldo_actual=saldo_actual_abono,
         abonos_capital=abonos_capital
     )
 
@@ -6511,6 +6519,19 @@ def simular_inyeccion(credito_id):
 
     credito = Credito.query.get_or_404(credito_id)
 
+    cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero.asc()).all()
+    
+    # Identificar la cuota activa (primera no pagada) y extraer su saldo_inicial exacto
+    cuota_referencia_saldo = next(
+        (c for c in cuotas if c.estado != 'PAGADO' and round(c.saldo_pendiente or 0, 2) > 0),
+        None
+    )    
+    saldo_actual_simular = cuota_referencia_saldo.saldo_inicial if cuota_referencia_saldo else 0
+
+    total_inyecciones = sum(i.valor for i in credito.inyecciones_capital) if credito.inyecciones_capital else 0
+
+    valor_total = (credito.monto_financiado or 0) + total_inyecciones
+
     cuotas_simuladas = []
 
     if request.method == 'POST':
@@ -6572,7 +6593,9 @@ def simular_inyeccion(credito_id):
     return render_template(
         'simular_inyeccion.html',
         credito=credito,
-        cuotas=cuotas_simuladas
+        cuotas=cuotas_simuladas,
+        valor_total=valor_total,
+        saldo_actual=saldo_actual_simular
     )
 
 @app.route('/cambiar_tasa_interes_credito/<int:credito_id>', methods=['GET', 'POST'])
