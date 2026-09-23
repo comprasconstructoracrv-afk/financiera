@@ -6207,7 +6207,7 @@ def pagare_credito(credito_id):
     fecha_suscripcion = obtener_fecha_credito_real(credito)
     fecha_inicial_pagos, fecha_vencimiento_final, dia_pago = obtener_primera_y_ultima_cuota(credito)
 
-    valor_pagare = credito.monto_financiado or 0
+    valor_pagare = (credito.monto or 0) - (credito.abono_inicial or 0)
     valor_pagare_letras = numero_a_letras_es(valor_pagare)
 
     contexto = {
@@ -6872,7 +6872,9 @@ def ver_pagare(credito_id):
     primera_cuota = cuotas[0] if cuotas else None
     ultima_cuota = cuotas[-1] if cuotas else None
 
-    valor_pagare = credito.monto_financiado or ((credito.monto or 0) - (credito.abono_inicial or 0))
+    total_inyecciones = sum(i.valor for i in credito.inyecciones_capital) if credito.inyecciones_capital else 0
+
+    valor_pagare = (credito.monto_financiado or 0) + total_inyecciones
     plazo_meses = credito.cuotas or len(cuotas)
 
     fecha_suscripcion = credito.fecha_creacion.date() if isinstance(credito.fecha_creacion, datetime) else credito.fecha_creacion
