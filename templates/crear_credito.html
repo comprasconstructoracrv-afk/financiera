@@ -331,12 +331,18 @@
 
                             <div class="campo">
                                 <label>Teléfono 1<span class="campo-obligatorio">*</span></label>
-                                <input type="text" name="telefono_1" required>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" name="prefijo_1" value="{{ prefijo_1 | default('57') }}" style="width: 75px; text-align: center;" placeholder="57">
+                                    <input type="text" name="telefono_1" value="{{ telefono_1 | default('') }}" required>
+                                </div>
                             </div>
 
                             <div class="campo">
                                 <label>Teléfono 2</label>
-                                <input type="text" name="telefono_2">
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" name="prefijo_2" value="{{ prefijo_1 | default('57') }}"  style="width: 75px; text-align: center;" placeholder="57">
+                                    <input type="text" name="telefono_2_num" value="{{ telefono_1 | default('') }}">
+                                </div>
                             </div>
 
                             <div class="campo campo-completo">

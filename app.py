@@ -1503,8 +1503,7 @@ def login():
 
     return render_template('login.html')
 
-# 📊 DASHBOARD
-
+# DASHBOARD
 @app.route('/crear_credito', methods=['GET', 'POST'])
 def crear_credito():
     if 'user' not in session:
@@ -1533,6 +1532,8 @@ def crear_credito():
             cedula_cliente = request.form.get('cedula_cliente', '').strip()
             telefono_1 = request.form.get('telefono_1', '').strip()
             telefono_2 = request.form.get('telefono_2', '').strip()
+            prefijo_1 = request.form.get('prefijo_1', '').strip()
+            prefijo_2 = request.form.get('prefijo_2', '').strip()
             direccion_cliente = request.form.get('direccion_cliente', '').strip()
             correo_cliente = request.form.get('correo_cliente', '').strip()
 
@@ -1574,7 +1575,9 @@ def crear_credito():
                 sede=sede,
                 tipo_documento=tipo_documento,
                 cedula_cliente=cedula_cliente,
+                prefijo_1 = prefijo_1,
                 telefono_1=telefono_1,
+                prefijo_2= prefijo_2,
                 telefono_2=telefono_2,
                 direccion_cliente=direccion_cliente,
                 correo_cliente=correo_cliente,
@@ -7074,10 +7077,11 @@ def editar_cliente_credito(credito_id):
     credito = Credito.query.get_or_404(credito_id)
 
     if request.method == 'POST':
-
         credito.cliente = request.form.get('cliente')
         credito.telefono_1 = request.form.get('telefono_1')
         credito.telefono_2 = request.form.get('telefono_2')
+        credito.prefijo_1 = request.form.get('prefijo_1')
+        credito.prefijo_2 = request.form.get('prefijo_2')
         credito.direccion_cliente = request.form.get('direccion_cliente')
         credito.correo_cliente = request.form.get('correo_cliente')
 

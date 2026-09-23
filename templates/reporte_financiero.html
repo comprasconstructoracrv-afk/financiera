@@ -114,20 +114,38 @@
         .card-6 { background: linear-gradient(135deg, #dc3545, #7f1d1d); }
         .card-7 { background: linear-gradient(135deg, #334155, #0f172a); }
 
-        .bloque-navegacion-resumen {
-            background: linear-gradient(135deg, #f8fbff, #eef5ff);
-            border: 1px solid #dbe7f5;
-            border-radius: 18px;
-            padding: 18px 20px;
-            margin: 0 0 22px 0;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+        /* Estilos para los bloques de estado de cartera */
+        .estado-box {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-left: 5px solid #ccc;
+            border-radius: 14px;
+            padding: 16px 20px;
+            margin-bottom: 15px;
+        }
+        .estado-box.green { border-left-color: #198754; }
+        .estado-box.red { border-left-color: #dc3545; }
+        .estado-box.blue { border-left-color: #0ea5e9; }
+        .estado-box.yellow { border-left-color: #f59e0b; }
+        
+        .estado-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #102a43;
+        }
+        .estado-details {
+            font-size: 15px;
+            color: #4b5563;
+            line-height: 1.5;
         }
 
-        .bloque-navegacion-resumen h3 {
-            margin: 0 0 14px 0;
-            font-size: 20px;
-            color: #102a43;
-            line-height: 1.2;
+        .bloque-navegacion-resumen {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 18px;
+            padding: 22px;
+            margin-top: 22px;
         }
 
         .nav-reporte {
@@ -161,33 +179,6 @@
             box-shadow: 0 8px 18px rgba(22, 119, 255, 0.22);
         }
 
-        .grid-graficas {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 25px;
-        }
-
-        .grafica-box {
-            background: #f8fafc;
-            border: 1px solid #e5e7eb;
-            border-radius: 18px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .grafica-box h3 {
-            margin-top: 0;
-            margin-bottom: 18px;
-            font-size: 20px;
-            color: #102a43;
-        }
-
-        .canvas-container {
-            position: relative;
-            width: 100%;
-            min-height: 420px;
-        }
-
         .tabla-wrapper {
             overflow-x: auto;
             border-radius: 14px;
@@ -209,9 +200,11 @@
         }
 
         th {
-            background: #eaf2ff;
-            color: #102a43;
+            background: #06d6d6;
+            color: #111827;
             font-weight: bold;
+            font-size: 15px;
+            text-transform: uppercase;
         }
 
         tr:hover td {
@@ -232,19 +225,6 @@
             align-items: center;
             gap: 10px;
             flex-wrap: wrap;
-        }
-
-        .form-filtros label {
-            font-weight: bold;
-            color: #374151;
-        }
-
-        .form-filtros select {
-            padding: 10px 12px;
-            border-radius: 10px;
-            border: 1px solid #d1d5db;
-            font-size: 14px;
-            background: white;
         }
 
         .acciones-reporte {
@@ -307,120 +287,6 @@
             background: linear-gradient(135deg, #dc3545, #b02a37);
         }
 
-        .btn-premium:active {
-            transform: scale(0.97);
-            box-shadow: 0 3px 8px rgba(0,0,0,0.1);
-        }
-
-        .spinner {
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top: 2px solid white;
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .btn-loading {
-            pointer-events: none;
-            opacity: 0.8;
-        }
-
-        .overlay-cargando {
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 42, 0.55);
-            backdrop-filter: blur(3px);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-        }
-
-        .overlay-cargando.activo {
-            display: flex;
-        }
-
-        .overlay-contenido {
-            background: white;
-            padding: 32px 36px;
-            border-radius: 20px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.22);
-            text-align: center;
-            min-width: 320px;
-            max-width: 420px;
-        }
-
-        .overlay-contenido h3 {
-            margin: 18px 0 8px 0;
-            font-size: 24px;
-            color: #102a43;
-        }
-
-        .overlay-contenido p {
-            margin: 0;
-            font-size: 15px;
-            color: #52606d;
-        }
-
-        .spinner-overlay {
-            width: 54px;
-            height: 54px;
-            margin: 0 auto;
-            border: 5px solid rgba(22, 119, 255, 0.18);
-            border-top: 5px solid #1677ff;
-            border-radius: 50%;
-            animation: girarOverlay 0.8s linear infinite;
-        }
-
-        @keyframes girarOverlay {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .oculto {
-            display: none;
-        }
-
-        @media (max-width: 768px) {
-            .encabezado {
-                justify-content: center;
-                text-align: center;
-            }
-
-            .encabezado-texto h1 {
-                font-size: 34px;
-            }
-
-            .grid-resumen {
-                grid-template-columns: 1fr;
-            }
-
-            .bloque-navegacion-resumen {
-                min-height: auto;
-            }
-        }
-
-        .bloque-navegacion-resumen {
-            background: #f8fafc;
-            border: 1px solid #e5e7eb;
-            border-radius: 18px;
-            padding: 22px;
-            margin-top: 22px;
-        }
-
-        tr.fila-total td {
-            font-weight: bold;
-            background: #f8fafc;
-        }
-
         .cabecera-seccion {
             display: flex;
             justify-content: space-between;
@@ -471,14 +337,6 @@
             color: #111827;
             font-size: 16px;
             font-weight: bold;
-        }
-
-        #reporte-acumulado table th,
-        .seccion table th {
-            background: #06d6d6;
-            color: #111827;
-            font-size: 15px;
-            text-transform: uppercase;
         }
     </style>
 </head>
@@ -596,6 +454,48 @@
             </div>
         </div>
 
+        <!-- SECCIÓN 1: ANÁLISIS GLOBAL POR ESTADO DE CARTERA -->
+        <div class="seccion">
+            <h2>1. Análisis global por estado de cartera</h2>
+            <p class="subtitulo-seccion">Desglose detallado del comportamiento de los créditos actuales y pasados.</p>
+
+            <div class="estado-box green">
+                <div class="estado-title" style="color: #198754;">🟢 CRÉDITOS ACTIVOS (AL DÍA)</div>
+                <div class="estado-details">
+                    • Volumen: <b>{{ analisis_cartera.activos.volumen }} Créditos vigentes</b><br>
+                    • Capital Inicial: <b>{{ analisis_cartera.activos.capital_inicial | cop }}</b> | Saldo Actual: <b>{{ analisis_cartera.activos.saldo_actual | cop }}</b><br>
+                    • Comportamiento: Cartera sana generando rendimiento ordinario constante.
+                </div>
+            </div>
+
+            <div class="estado-box red">
+                <div class="estado-title" style="color: #dc3545;">🔴 CRÉDITOS EN MORA</div>
+                <div class="estado-details">
+                    • Volumen: <b>{{ analisis_cartera.mora.volumen }} Créditos en riesgo</b><br>
+                    • Capital Inicial: <b>{{ analisis_cartera.mora.capital_inicial | cop }}</b> | Mora a la fecha: <b>{{ analisis_cartera.mora.saldo_actual | cop }}</b><br>
+                    • Comportamiento: Cartera que requiere gestión jurídica o cobro persuasivo.
+                </div>
+            </div>
+
+            <div class="estado-box blue">
+                <div class="estado-title" style="color: #0ea5e9;">🔵 CRÉDITOS LIQUIDADOS (CANCELADOS)</div>
+                <div class="estado-details">
+                    • Volumen: <b>{{ analisis_cartera.liquidados.volumen }} Créditos cerrados con éxito</b><br>
+                    • Histórico Recaudado: <b>{{ analisis_cartera.liquidados.recaudado | cop }}</b><br>
+                    • Comportamiento: Ciclos de financiación culminados a cabalidad por el cliente.
+                </div>
+            </div>
+
+            <div class="estado-box yellow">
+                <div class="estado-title" style="color: #d68910;">🟡 CRÉDITOS REESTRUCTURADOS (MIGRADOS)</div>
+                <div class="estado-details">
+                    • Volumen: <b>{{ analisis_cartera.reestructurados.volumen }} Créditos reestructurados</b><br>
+                    • Saldo Trasladado: <b>{{ analisis_cartera.reestructurados.saldo_actual | cop }}</b><br>
+                    • Comportamiento: Cancelados administrativamente por el otorgamiento de un nuevo título/crédito al cliente (no representan pérdida neta).
+                </div>
+            </div>
+        </div>
+
         <div class="seccion">
             <h2>Reporte acumulado histórico</h2>
             <p class="subtitulo-seccion">
@@ -632,6 +532,15 @@
                 </table>
             </div>
         </div>
+
+
+
+
+
+
+
+
+
 
         <div class="seccion">
             <h2>Resumen detallado del reporte</h2>

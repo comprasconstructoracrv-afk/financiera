@@ -23,9 +23,10 @@ class Credito(db.Model):
     numero_pagare = db.Column(db.Integer, nullable=True)
     cliente = db.Column(db.String(100), nullable=False)
     sede = db.Column(db.String(30), nullable=False, default='CRV')
-
     cedula_cliente = db.Column(db.String(30), nullable=True)
+    prefijo_1 = db.Column(db.String(30), nullable=True, default='57')
     telefono_1 = db.Column(db.String(30), nullable=True)
+    prefijo_2 = db.Column(db.String(30), nullable=True, default='57')
     telefono_2 = db.Column(db.String(30), nullable=True)
     direccion_cliente = db.Column(db.String(255), nullable=True)
     correo_cliente = db.Column(db.String(120), nullable=True)

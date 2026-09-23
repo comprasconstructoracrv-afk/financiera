@@ -222,24 +222,33 @@
                     >
                 </div>
 
+
                 <div class="grupo">
                     <label>Teléfono 1</label>
-
-                    <input
-                        type="text"
-                        name="telefono_1"
-                        value="{{ credito.telefono_1 or '' }}"
-                    >
+                    <div style="display: flex; gap: 8px;">
+                        <input 
+                            type="text" 
+                            name= "prefijo_1"
+                            value="{{ credito.prefijo_1 or '' }}" style="width: 75px; text-align: center;" >
+                        <input 
+                            type="text" 
+                            name="telefono_1"
+                            value="{{ credito.telefono_1 or '' }}" required>
+                    </div>
                 </div>
 
                 <div class="grupo">
                     <label>Teléfono 2</label>
-
-                    <input
-                        type="text"
-                        name="telefono_2"
-                        value="{{ credito.telefono_2 or '' }}"
-                    >
+                    <div style="display: flex; gap: 8px;">
+                        <input 
+                            type="text"
+                            name="prefijo_2" 
+                            value="{{ credito.prefijo_2 or '' }}" style="width: 75px; text-align: center;" >
+                        <input 
+                            type="text"
+                            name="telefono_2"
+                            value="{{ credito.telefono_2 or '' }}">
+                    </div>
                 </div>
 
                 <div class="grupo full">
