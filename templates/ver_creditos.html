@@ -559,7 +559,7 @@
                 </td>
 
                 <td class="valor-columna">
-                    {{ item.credito.monto_total_con_inyecciones|cop }}
+                    {{ item.credito.monto_financiado_total|cop }}
                 </td>
 
                 <td>
@@ -571,7 +571,7 @@
                 </td>
 
                 <td class="valor-columna">
-                    {{ item.credito.cuota_mensual | cop }}
+                    $ {{ "{:,.0f}".format(item.valor_cuota).replace(',', '.') }}
                 </td>
 
                 <td>

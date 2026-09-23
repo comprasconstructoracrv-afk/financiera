@@ -2430,8 +2430,13 @@ def ver_creditos(sede):
         #actualizar_mora_credito(credito, hoy)
         cuotas = Cuota.query.filter_by( credito_id=credito.id ).all()
 
+        cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero.asc()).all()
+
         if not cuotas:
-                        continue
+            continue
+        # Obtener la última cuota actualizada tras inyecciones
+        ultima_cuota = cuotas[-1]
+        valor_ultima_cuota = ultima_cuota.valor_cuota or 0
 
         es_reestructurado= any(c.estado == 'REESTRUCTURADO' for c in cuotas)
 
@@ -2490,10 +2495,16 @@ def ver_creditos(sede):
             (credito.monto or 0) + (total_inyecciones or 0)
         )
 
+        credito.monto_financiado_total = (
+            (credito.monto_financiado or 0) + (total_inyecciones or 0)
+        )
+
         resumen_creditos.append({
             'credito': credito,
             'estado_credito': estado_credito,
-            'saldo_actual_credito': saldo_actual_credito
+            'saldo_actual_credito': saldo_actual_credito,
+            'valor_cuota': valor_ultima_cuota
+            
         })
 
     db.session.commit()
@@ -5284,6 +5295,38 @@ def extracto_credito(credito_id):
     cuotas = Cuota.query.filter_by(credito_id=credito.id).order_by(Cuota.numero).all()
     cuotas_ids = [c.id for c in cuotas]
 
+    total_inyecciones = sum(i.valor for i in credito.inyecciones_capital) if credito.inyecciones_capital else 0
+
+    valor_total = (credito.monto_financiado or 0) + total_inyecciones
+    
+    # Identificar la cuota activa (primera no pagada) y extraer su saldo_inicial exacto
+    cuota_referencia_saldo = next(
+        (c for c in cuotas if c.estado != 'PAGADO' and round(c.saldo_pendiente or 0, 2) > 0),
+        None
+    )    
+    saldo_actual_extracto = cuota_referencia_saldo.saldo_inicial if cuota_referencia_saldo else 0
+
+    hoy = date.today()
+
+    cuotas_exigibles_hoy = []
+    for cuota in cuotas:
+        fecha_cuota = cuota.fecha_pago.date() if isinstance(cuota.fecha_pago, datetime) else cuota.fecha_pago
+
+        if cuota.estado in ['PENDIENTE', 'EN MORA'] and fecha_cuota <= hoy:
+            cuotas_exigibles_hoy.append(cuota)
+
+    cuota_pendiente_total = round(
+        sum((cuota.saldo_pendiente or 0) for cuota in cuotas_exigibles_hoy),
+        2
+    )
+
+    mora_total = round(
+        sum((cuota.interes_mora or 0) for cuota in cuotas_exigibles_hoy),
+        2
+    )
+
+    deuda_total_fecha = round(cuota_pendiente_total + mora_total, 2)
+
     pagos = []
     if cuotas_ids:
         pagos = Pago.query.filter(Pago.cuota_id.in_(cuotas_ids)).order_by(Pago.fecha.desc()).all()
@@ -5293,8 +5336,6 @@ def extracto_credito(credito_id):
     total_capital_pagado = round(sum(p.valor_aplicado_capital or 0 for p in pagos), 2)
     total_mora_pagada = round(sum(p.valor_aplicado_mora or 0 for p in pagos), 2)
     total_prepago_capital = round(sum(p.valor_aplicado_prepago_capital or 0 for p in pagos), 2)
-
-    deuda_total_hoy = round(sum((c.total_cobro or 0) for c in cuotas if c.estado in ['PENDIENTE', 'EN MORA', 'ABONO']), 2)
 
     if all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas) and cuotas:
         estado_credito = 'CANCELADO'
@@ -5313,7 +5354,9 @@ def extracto_credito(credito_id):
         total_capital_pagado=total_capital_pagado,
         total_mora_pagada=total_mora_pagada,
         total_prepago_capital=total_prepago_capital,
-        deuda_total_hoy=deuda_total_hoy,
+        valor_total=valor_total,
+        saldo_actual_extracto=saldo_actual_extracto,
+        deuda_total_fecha=deuda_total_fecha,
         estado_credito=estado_credito
     )
 
