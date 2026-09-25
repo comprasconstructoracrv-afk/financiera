@@ -397,6 +397,13 @@
                         {% endfor %}
                     </select>
 
+                    <label for="anio_resumen_general">Mes:</label>
+                    <select name="anio" id="anio_resumen_general">
+                        {% for anio in anios_disponibles %}
+                            <option value="{{ anio }}" {% if anio == anio_seleccionado %}selected{% endif %}>{{ anio }}</option>
+                        {% endfor %}
+                    </select>
+
                     <button type="submit" class="btn btn-consultar">Ver resumen</button>
                 </form>
             </div>

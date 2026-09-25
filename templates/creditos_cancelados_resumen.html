@@ -347,26 +347,30 @@
             <table>
                 <thead>
                     <tr>
-                        <th>ID / Pagaré</th>
+                        <th>Pagaré N°</th>
                         <th>Cliente</th>
                         <th>Cédula</th>
                         <th>Sede</th>
                         <th>Monto Crédito</th>
                         <th>Estado</th>
                         <th style="text-align: center;">Acción</th>
+                        <th style="text-align: center;">Paz y Salvo</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for cred in creditos %}
                     <tr>
-                        <td style="font-weight: bold; color: #102a43;">{{ cred.id }}</td>
+                        <td style="font-weight: bold; color: #102a43;">{{ cred.numero_pagare }}</td>
                         <td>{{ cred.cliente }}</td>
                         <td>{{ cred.cedula_cliente }}</td>
                         <td style="font-weight: 600;">{{ cred.sede }}</td>
-                        <td style="font-weight: bold; color: #102a43;">${{ "{:,.2f}".format(cred.monto or 0) }}</td>
+                        <td style="font-weight: bold; color: #102a43;">${{ "{:,.2f}".format(cred.monto_individual or 0) }}</td>
                         <td><span class="badge-cancelado">CANCELADO</span></td>
                         <td style="text-align: center;">
                             <a href="{{ url_for('ver_cuotas', credito_id=cred.id) }}" class="btn-detalle">Ver detalle</a>
+                        </td>
+                        <td style="text-align: center;">
+                            <a href="{{ url_for('generar_paz_y_salvo', credito_id=cred.id) }}" class="btn-detalle">Ver documento</a>
                         </td>
                     </tr>
                     {% else %}
