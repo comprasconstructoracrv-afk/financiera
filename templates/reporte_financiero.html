@@ -469,8 +469,8 @@
             <div class="estado-box green">
                 <div class="estado-title" style="color: #198754;">🟢 CRÉDITOS ACTIVOS (AL DÍA)</div>
                 <div class="estado-details">
-                    • Volumen: <b>{{ analisis_cartera.activos.volumen }} Créditos vigentes</b><br>
-                    • Capital Inicial: <b>{{ analisis_cartera.activos.capital_inicial | cop }}</b> | Saldo Actual: <b>{{ analisis_cartera.activos.saldo_actual | cop }}</b><br>
+                    • N°: <b>{{ analisis_cartera.activos.volumen }} Créditos vigentes</b><br>
+                    • Capital Financiado: <b>{{ analisis_cartera.activos.capital_financiado | cop }} </b> | Capital Recaudado: <b>{{ analisis_cartera.activos.capital_recaudado | cop }}</b> | Capital que Deben: <b>{{ analisis_cartera.activos.capital_deben | cop }}</b><br>
                     • Comportamiento: Cartera sana generando rendimiento ordinario constante.
                 </div>
             </div>
@@ -478,8 +478,8 @@
             <div class="estado-box red">
                 <div class="estado-title" style="color: #dc3545;">🔴 CRÉDITOS EN MORA</div>
                 <div class="estado-details">
-                    • Volumen: <b>{{ analisis_cartera.mora.volumen }} Créditos en riesgo</b><br>
-                    • Capital Inicial: <b>{{ analisis_cartera.mora.capital_inicial | cop }}</b> | Mora a la fecha: <b>{{ analisis_cartera.mora.saldo_actual | cop }}</b><br>
+                    • N°: <b>{{ analisis_cartera.mora.volumen }} Créditos en riesgo</b><br>
+                    • Capital Financiado: <b>{{ analisis_cartera.mora.capital_financiado | cop }} </b> | Capital Recaudado: <b>{{ analisis_cartera.mora.capital_recaudado | cop }}</b> | Capital que Deben: <b>{{ analisis_cartera.mora.capital_deben | cop }}</b>  | Mora causada a la fecha: <b>{{ analisis_cartera.mora.mora_a_la_fecha | cop }}</b><br>
                     • Comportamiento: Cartera que requiere gestión jurídica o cobro persuasivo.
                 </div>
             </div>
@@ -487,8 +487,8 @@
             <div class="estado-box blue">
                 <div class="estado-title" style="color: #0ea5e9;">🔵 CRÉDITOS LIQUIDADOS (CANCELADOS)</div>
                 <div class="estado-details">
-                    • Volumen: <b>{{ analisis_cartera.liquidados.volumen }} Créditos cerrados con éxito</b><br>
-                    • Histórico Recaudado: <b>{{ analisis_cartera.liquidados.recaudado | cop }}</b><br>
+                    • N°: <b>{{ analisis_cartera.liquidados.volumen }} Créditos cerrados con éxito</b><br>
+                    • Capital Financiado: <b>{{ analisis_cartera.liquidados.capital_financiado | cop }} </b> <br>
                     • Comportamiento: Ciclos de financiación culminados a cabalidad por el cliente.
                 </div>
             </div>
@@ -496,8 +496,8 @@
             <div class="estado-box yellow">
                 <div class="estado-title" style="color: #d68910;">🟡 CRÉDITOS REESTRUCTURADOS (MIGRADOS)</div>
                 <div class="estado-details">
-                    • Volumen: <b>{{ analisis_cartera.reestructurados.volumen }} Créditos reestructurados</b><br>
-                    • Saldo Trasladado: <b>{{ analisis_cartera.reestructurados.saldo_actual | cop }}</b><br>
+                    • N°: <b>{{ analisis_cartera.reestructurados.volumen }} Créditos reestructurados</b><br>
+                    • Capital Financiado: <b>{{ analisis_cartera.reestructurados.capital_financiado | cop }} | </b>Capital Trasladado: <b>{{ analisis_cartera.reestructurados.capital_trasladado | cop }}</b><br>
                     • Comportamiento: Cancelados administrativamente por el otorgamiento de un nuevo título/crédito al cliente (no representan pérdida neta).
                 </div>
             </div>

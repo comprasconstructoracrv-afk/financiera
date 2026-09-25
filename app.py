@@ -4172,55 +4172,90 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
         }
 
     # ===============================
-    # ANÁLISIS GLOBAL POR ESTADO DE CARTERA (INCLUYENDO INYECCIONES)
+    # ANÁLISIS GLOBAL POR ESTADO DE CARTERA (CORRECCIÓN DE SALDO EN MORA)
     # ===============================
-    volumen_activos = cap_activos = saldo_activos = 0
-    volumen_mora = cap_mora = saldo_mora = 0
-    volumen_liquidados = cap_liquidados = saldo_liquidados = 0
-    volumen_reest = cap_reest = saldo_reest = 0
+    volumen_activos = cap_activos = rec_activos = saldo_activos = 0
+    volumen_mora = cap_mora = rec_mora = saldo_mora = mora_causada_total = 0
+    volumen_liquidados = cap_liquidados = rec_liquidados = 0
+    volumen_reest = cap_reest_limpio = saldo_reest_limpio = rec_reest = 0
 
     ids_activos, ids_mora, ids_liquidados, ids_reest = [], [], [], []
+
+    def calcular_capital_recaudado_individual(credito_id, lista_cuotas):
+        total_cap_pagado = 0
+        for c in lista_cuotas:
+            pagos_cuota = db.session.query(
+                db.func.coalesce(db.func.sum(Pago.valor), 0)
+            ).filter(
+                Pago.cuota_id == c.id,
+                Pago.activo == True,
+                Pago.reversado == False
+            ).scalar() or 0
+            
+            if pagos_cuota > 0:
+                interes_cuota = float(getattr(c, 'interes', 0) or 0)
+                cap_cuota = float(getattr(c, 'capital', 0) or 0)
+                excedente_para_capital = max(0, pagos_cuota - interes_cuota)
+                cap_efectivo_cuota = min(cap_cuota, excedente_para_capital)
+                total_cap_pagado += cap_efectivo_cuota
+
+        abonos = db.session.query(
+            db.func.coalesce(db.func.sum(AbonoCapital.valor), 0)
+        ).filter(
+            AbonoCapital.credito_id == credito_id, 
+            AbonoCapital.activo == True, 
+            AbonoCapital.reversado == False
+        ).scalar() or 0
+
+        return round(total_cap_pagado + abonos, 2)
 
     for credito in creditos_filtrados:
         cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
         
-        # Obtener el monto financiado inicial más todas sus inyecciones históricas acumuladas
+        # Capital financiado total (monto inicial + inyecciones históricas)
         monto_ini = float(getattr(credito, 'monto_financiado', 0) or 0)
-        total_iny_hist = total_inyecciones_credito(credito.id) # Histórico total de inyecciones
+        total_iny_hist = total_inyecciones_credito(credito.id)
         capital_total_credito = monto_ini + total_iny_hist
 
-        s_act = float(getattr(credito, 'saldo_actual', 0) or 0)
-        if s_act <= 0 and cuotas:
-            s_act = sum(float(getattr(c, 'valor_pend', 0) or getattr(c, 'valor_cuota', 0) or 0) for c in cuotas if c.estado not in ['PAGADA', 'LIQUIDADA'])
+        # Capital recaudado real del crédito
+        cap_rec_credito = calcular_capital_recaudado_individual(credito.id, cuotas)
+
+        # REGLA DE ORO: El saldo real que deben es obligatoriamente la resta neta
+        s_act = max(0, capital_total_credito - cap_rec_credito)
 
         if not cuotas:
             volumen_activos += 1
             cap_activos += capital_total_credito
+            rec_activos += cap_rec_credito
             saldo_activos += s_act
             ids_activos.append(credito.id)
             continue
-       
+    
         es_liquidado_total = all(c.estado in ['PAGADA', 'LIQUIDADA'] for c in cuotas) or s_act <= 0
 
         if es_liquidado_total:
             volumen_liquidados += 1
             cap_liquidados += capital_total_credito
-            saldo_liquidados += s_act
+            rec_liquidados += cap_rec_credito
             ids_liquidados.append(credito.id)
 
         elif any(c.estado == 'EN MORA' for c in cuotas):
             volumen_mora += 1
             cap_mora += capital_total_credito
-            saldo_actual_mora = sum(
-                float(getattr(c, 'valor_pend', 0) or getattr(c, 'total_cobro', 0) or 0) 
+            rec_mora += cap_rec_credito  # Acumula correctamente el recaudo de mora
+            saldo_mora += s_act         # Acumula la resta exacta de lo que deben
+            
+            mora_cuotas = sum(
+                float(getattr(c, 'mora_pend', 0) or getattr(c, 'valor_mora', 0) or getattr(c, 'interes_mora', 0) or 0)
                 for c in cuotas if c.estado == 'EN MORA'
             )
-            saldo_mora += saldo_actual_mora
+            mora_causada_total += mora_cuotas
             ids_mora.append(credito.id)
 
         elif all(c.estado in ['PENDIENTE', 'PAGADA', 'ABONO', 'AL DIA'] for c in cuotas):
             volumen_activos += 1
             cap_activos += capital_total_credito
+            rec_activos += cap_rec_credito
             saldo_activos += s_act
             ids_activos.append(credito.id)
 
@@ -4228,13 +4263,12 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
             volumen_reest += 1
             ids_reest.append(credito.id)
 
-    def calcular_recaudado(lista_ids, es_historico_total=False):
+    def calcular_capital_recaudado_global(lista_ids, es_historico_total=False):
         if not lista_ids:
             return 0
-            
         if es_historico_total:
-            valor_cuotas = db.session.query(
-                db.func.coalesce(db.func.sum(Cuota.valor_cuota), 0)
+            valor_cuotas_cap = db.session.query(
+                db.func.coalesce(db.func.sum(Cuota.capital), 0)
             ).filter(
                 Cuota.credito_id.in_(lista_ids),
                 Cuota.estado.in_(['PAGADA', 'LIQUIDADA'])
@@ -4247,23 +4281,19 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
                 AbonoCapital.activo == True, 
                 AbonoCapital.reversado == False
             ).scalar() or 0
-
-            return round(valor_cuotas + abonos, 2)
+            return round(valor_cuotas_cap + abonos, 2)
         else:
-            query_pagos = db.session.query(db.func.coalesce(db.func.sum(Pago.valor), 0)).join(Cuota, Pago.cuota_id == Cuota.id).filter(Cuota.credito_id.in_(lista_ids), Pago.activo == True, Pago.reversado == False)
+            query_pagos_cap = db.session.query(db.func.coalesce(db.func.sum(Cuota.capital), 0)).join(Pago, Pago.cuota_id == Cuota.id).filter(Cuota.credito_id.in_(lista_ids), Pago.activo == True, Pago.reversado == False)
             query_abonos = db.session.query(db.func.coalesce(db.func.sum(AbonoCapital.valor), 0)).filter(AbonoCapital.credito_id.in_(lista_ids), AbonoCapital.activo == True, AbonoCapital.reversado == False)
 
             if anio_seleccionado:
-                query_pagos = query_pagos.filter(db.extract('year', Pago.fecha) == anio_seleccionado)
+                query_pagos_cap = query_pagos_cap.filter(db.extract('year', Pago.fecha) == anio_seleccionado)
                 query_abonos = query_abonos.filter(db.extract('year', AbonoCapital.fecha) == anio_seleccionado)
 
-            pagos_est = query_pagos.scalar() or 0
-            abonos_est = query_abonos.scalar() or 0
-            return round(pagos_est + abonos_est, 2)
+            return round((query_pagos_cap.scalar() or 0) + (query_abonos.scalar() or 0), 2)
 
-    # Cálculo seguro para los reestructurados incluyendo inyecciones
-    cap_reest_limpio = 0
-    saldo_reest_limpio = 0
+    # Cálculo seguro para los reestructurados
+    cap_reest_limpio = saldo_reest_limpio = 0
     if ids_reest:
         for rid in ids_reest:
             credito_obj = Credito.query.get(rid)
@@ -4296,27 +4326,27 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
     analisis_cartera = {
         'activos': {
             'volumen': volumen_activos,
-            'capital_inicial': round(cap_activos, 2),
-            'saldo_actual': round(saldo_activos, 2),
-            'recaudado': calcular_recaudado(ids_activos, es_historico_total=False)
+            'capital_financiado': round(cap_activos, 2),
+            'capital_recaudado': round(rec_activos, 2),
+            'capital_deben': round(saldo_activos, 2)
         },
         'mora': {
             'volumen': volumen_mora,
-            'capital_inicial': round(cap_mora, 2),
-            'saldo_actual': round(saldo_mora, 2),
-            'recaudado': calcular_recaudado(ids_mora, es_historico_total=False)
+            'capital_financiado': round(cap_mora, 2),
+            'capital_recaudado': round(rec_mora, 2),
+            'capital_deben': round(saldo_mora, 2),
+            'mora_a_la_fecha': round(mora_causada_total, 2)
         },
         'liquidados': {
             'volumen': volumen_liquidados,
-            'capital_inicial': round(cap_liquidados, 2),
-            'saldo_actual': round(saldo_liquidados, 2),
-            'recaudado': calcular_recaudado(ids_liquidados, es_historico_total=True)
+            'capital_financiado': round(cap_liquidados, 2),
+            'capital_recaudado': round(rec_liquidados, 2)
         },
         'reestructurados': {
             'volumen': volumen_reest,
-            'capital_inicial': round(cap_reest_limpio, 2),
-            'saldo_actual': round(saldo_reest_limpio, 2),
-            'recaudado': calcular_recaudado(ids_reest, es_historico_total=False)
+            'capital_financiado': round(cap_reest_limpio, 2),
+            'capital_trasladado': round(saldo_reest_limpio, 2),
+            'capital_recaudado': calcular_capital_recaudado_global(ids_reest, es_historico_total=False)
         }
     }
 
@@ -4357,6 +4387,40 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
         'total_ingresos_meses': [f['total_ingresos'] for f in resumen_mensual]
     }
 
+def calcular_capital_recaudado_individual(credito_id, lista_cuotas):
+    total_cap_pagado = 0
+    for c in lista_cuotas:
+        # Consultar la suma de pagos activos y no reversados para esta cuota específica
+        pagos_cuota = db.session.query(
+            db.func.coalesce(db.func.sum(Pago.valor), 0)
+        ).filter(
+            Pago.cuota_id == c.id,
+            Pago.activo == True,
+            Pago.reversado == False
+        ).scalar() or 0
+        
+        if pagos_cuota > 0:
+            interes_cuota = float(getattr(c, 'interes', 0) or 0)
+            cap_cuota = float(getattr(c, 'capital', 0) or 0)
+            
+            # 1. El pago cubre primero los intereses de la cuota
+            excedente_para_capital = max(0, pagos_cuota - interes_cuota)
+            
+            # 2. Lo que va a capital no puede superar el capital máximo de la cuota
+            cap_efectivo_cuota = min(cap_cuota, excedente_para_capital)
+            
+            total_cap_pagado += cap_efectivo_cuota
+
+    # Sumar abonos directos a capital activos y no reversados
+    abonos = db.session.query(
+        db.func.coalesce(db.func.sum(AbonoCapital.valor), 0)
+    ).filter(
+        AbonoCapital.credito_id == credito_id, 
+        AbonoCapital.activo == True, 
+        AbonoCapital.reversado == False
+    ).scalar() or 0
+
+    return round(total_cap_pagado + abonos, 2)
 
 @app.route('/reporte_financiero')
 def reporte_financiero():
