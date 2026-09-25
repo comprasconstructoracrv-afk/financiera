@@ -4434,25 +4434,47 @@ def reporte_financiero():
 
     datos = construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_seleccionado)
 
-    # =========================
-    # SEDES DINÁMICAS
-    # =========================
     sedes_db = db.session.query(Credito.sede).distinct().all()
-
     sedes_disponibles = ['TODAS'] + sorted([
         s[0] for s in sedes_db if s[0]
     ])
+    
+    # 1. Diccionario con la suma total de inyecciones por crédito
+    dict_inyecciones = dict(
+        db.session.query(
+            InyeccionCapital.credito_id,
+            db.func.coalesce(db.func.sum(InyeccionCapital.valor), 0)
+        ).group_by(InyeccionCapital.credito_id).all()
+    )
+
+    # 2. Diccionario con la suma total de pagos activos por crédito
+    dict_pagos = dict(
+        db.session.query(
+            Cuota.credito_id,
+            db.func.coalesce(db.func.sum(Pago.valor), 0)
+        ).join(
+            Pago, Pago.cuota_id == Cuota.id
+        ).filter(
+            Pago.activo == True,
+            Pago.reversado == False
+        ).group_by(Cuota.credito_id).all()
+    )
+
+    # 3. Diccionario con la suma total de abonos a capital activos por crédito
+    dict_abonos = dict(
+        db.session.query(
+            AbonoCapital.credito_id,
+            db.func.coalesce(db.func.sum(AbonoCapital.valor), 0)
+        ).filter(
+            AbonoCapital.activo == True,
+            AbonoCapital.reversado == False
+        ).group_by(AbonoCapital.credito_id).all()
+    )
 
     # =========================
-    # REPORTE ACUMULADO GENERAL
-    # Incluye:
-    # - créditos
-    # - inyecciones de capital
-    # - pagos normales
-    # - abonos a capital activos
+    # REPORTE ACUMULADO GENERAL (Optimizado en memoria)
     # =========================
     creditos_acumulados = Credito.query.all()
-
     acumulado_por_sede = {}
 
     for credito in creditos_acumulados:
@@ -4466,29 +4488,10 @@ def reporte_financiero():
                 "total_deben": 0
             }
 
-        total_inyecciones = db.session.query(
-            db.func.coalesce(db.func.sum(InyeccionCapital.valor), 0)
-        ).filter(
-            InyeccionCapital.credito_id == credito.id
-        ).scalar() or 0
-
-        total_pagos = db.session.query(
-            db.func.coalesce(db.func.sum(Pago.valor), 0)
-        ).join(
-            Cuota, Pago.cuota_id == Cuota.id
-        ).filter(
-            Cuota.credito_id == credito.id,
-            Pago.activo == True,
-            Pago.reversado == False
-        ).scalar() or 0
-
-        total_abonos_capital = db.session.query(
-            db.func.coalesce(db.func.sum(AbonoCapital.valor), 0)
-        ).filter(
-            AbonoCapital.credito_id == credito.id,
-            AbonoCapital.activo == True,
-            AbonoCapital.reversado == False
-        ).scalar() or 0
+        # Extracción instantánea desde memoria usando los diccionarios
+        total_inyecciones = dict_inyecciones.get(credito.id, 0)
+        total_pagos = dict_pagos.get(credito.id, 0)
+        total_abonos_capital = dict_abonos.get(credito.id, 0)
 
         total_prestamo = round((credito.monto_financiado or 0) + total_inyecciones, 2)
         total_pagado = round(total_pagos + total_abonos_capital, 2)
