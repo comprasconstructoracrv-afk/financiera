@@ -6741,6 +6741,21 @@ def enviar_paz_y_salvo_por_correo(credito_id):
         nombre_cliente = getattr(credito, 'cliente', 'Cliente')
 
         fecha_hoy = date.today()
+
+        ultimo_pago = db.session.query(Pago).join(
+                Cuota, Pago.cuota_id == Cuota.id
+            ).filter(
+                Cuota.credito_id == credito.id,
+                Pago.tipo_pago != 'ABONO_CAPITAL',
+                Pago.activo == True
+            ).order_by(Pago.fecha.desc()).first()
+        
+            
+        if ultimo_pago and ultimo_pago.fecha:
+            fecha_cancelacion = ultimo_pago.fecha.date() if hasattr(ultimo_pago.fecha, 'date') else ultimo_pago.fecha
+        else:
+            fecha_cancelacion = fecha_hoy
+
         fecha_credito = credito.fecha_creacion.date() if credito.fecha_creacion else fecha_hoy
 
         monto_letras = numero_a_letras(credito.monto_financiado or 0)
@@ -6749,11 +6764,13 @@ def enviar_paz_y_salvo_por_correo(credito_id):
         fecha_actual = fecha_documento_es(fecha_hoy)
         fecha_credito_larga = fecha_documento_es(fecha_credito)
 
-        # Reraha es_correo=True opyta hag̃ua sin botones
+        fecha_cancelacion = fecha_documento_es(fecha_cancelacion)
+        
         html_paz = render_template(
             'paz_y_salvo_documento.html', 
             credito=credito,
             fecha_actual=fecha_actual,
+            fecha_cancelacion=fecha_cancelacion,
             fecha_credito_larga=fecha_credito_larga,
             monto_letras=monto_letras,
             monto_numero=monto_numero,
@@ -6877,6 +6894,21 @@ def generar_paz_y_salvo(credito_id):
         return "Este crédito aún no está cancelado o liquidado."
 
     fecha_hoy = date.today()
+    
+    ultimo_pago = db.session.query(Pago).join(
+        Cuota, Pago.cuota_id == Cuota.id
+    ).filter(
+        Cuota.credito_id == credito.id,
+        Pago.tipo_pago != 'ABONO_CAPITAL',
+        Pago.activo == True
+    ).order_by(Pago.fecha.desc()).first()
+
+    
+    if ultimo_pago and ultimo_pago.fecha:
+        fecha_cancelacion = ultimo_pago.fecha.date() if hasattr(ultimo_pago.fecha, 'date') else ultimo_pago.fecha
+    else:
+        fecha_cancelacion = fecha_hoy
+
     fecha_credito = credito.fecha_creacion.date() if credito.fecha_creacion else fecha_hoy
 
     total_inyecciones = sum(i.valor for i in credito.inyecciones_capital) if credito.inyecciones_capital else 0  
@@ -6885,12 +6917,14 @@ def generar_paz_y_salvo(credito_id):
     monto_letras = numero_a_letras((credito.monto_financiado or 0) + total_inyecciones)
 
     fecha_actual = fecha_documento_es(fecha_hoy)
+    fecha_cancelacion= fecha_documento_es(fecha_cancelacion)
     fecha_credito_larga = fecha_documento_es(fecha_credito)
                                
     return render_template(
         'paz_y_salvo_documento.html',
         credito=credito,
         fecha_actual=fecha_actual,
+        fecha_cancelacion=fecha_cancelacion,
         fecha_credito_larga=fecha_credito_larga,
         monto_letras=monto_letras,
         monto_numero=monto_numero
