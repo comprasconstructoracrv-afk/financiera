@@ -68,6 +68,90 @@
             color: #102a43;
         }
 
+        .seccion-reporte.oculto {
+            display: none !important;
+        }
+
+        .btn-nav-reporte.activo {
+            background-color: #0056b3;
+            color: #ffffff;
+            font-weight: bold;
+        }
+
+        .overlay-cargando {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.55); 
+            backdrop-filter: blur(3px); 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 99999; 
+            transition: opacity 0.3s ease;
+        }
+
+        .overlay-cargando.oculto {
+            display: none !important;
+        }
+        
+        .overlay-cargando.activo {
+            display: flex !important;
+        }
+
+        .overlay-contenido {
+            background-color: #ffffff;
+            padding: 25px 35px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+            text-align: center;
+            max-width: 320px;
+            width: 85%;
+            animation: popupEntrada 0.25s ease-out forwards;
+        }
+
+        @keyframes popupEntrada {
+            from {
+                opacity: 0;
+                transform: scale(0.85);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .spinner-overlay {
+            width: 42px;
+            height: 42px;
+            margin: 0 auto 15px auto;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0056b3; /* Color principal de la marca/aplicación */
+            border-radius: 50%;
+            animation: girarSpinner 0.9s linear infinite;
+        }
+
+        @keyframes girarSpinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 5. Título y texto de la ventana */
+        #overlay-titulo {
+            margin: 0 0 6px 0;
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        #overlay-texto {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #666666;
+        }
+
         .subtitulo-tabla {
             margin-bottom: 15px;
             color: #52606d;
@@ -360,14 +444,14 @@
                             <span>Inicio</span>
                         </a>
 
-                        <a href="/reporte_financiero/excel?anio={{ anio_seleccionado }}"
+                        <a href="/reporte_financiero/excel?anio={{ anio_seleccionado }}&mes={{ mes_seleccionado }}&sede=TODAS"
                            class="btn-premium btn-excel btn-exportar"
                            data-tipo="excel"
                            data-texto="Exportar Excel">
                             <span>Exportar Excel</span>
                         </a>
 
-                        <a href="/reporte_financiero/pdf?anio={{ anio_seleccionado }}"
+                        <a href="/reporte_financiero/pdf?anio={{ anio_seleccionado }}&mes={{ mes_seleccionado }}&sede=TODAS"
                            class="btn-premium btn-pdf btn-exportar"
                            data-tipo="pdf"
                            data-texto="Exportar PDF">
@@ -393,14 +477,14 @@
                     <label for="anio_resumen_general">Año:</label>
                     <select name="anio" id="anio_resumen_general">
                         {% for anio in anios_disponibles %}
-                            <option value="{{ anio }}" {% if anio == anio_seleccionado %}selected{% endif %}>{{ anio }}</option>
+                            <option value="{{ anio }}" {% if anio|string == anio_seleccionado|string %}selected{% endif %}>{{ anio }}</option>
                         {% endfor %}
                     </select>
 
-                    <label for="anio_resumen_general">Mes:</label>
-                    <select name="anio" id="anio_resumen_general">
-                        {% for anio in anios_disponibles %}
-                            <option value="{{ anio }}" {% if anio == anio_seleccionado %}selected{% endif %}>{{ anio }}</option>
+                    <label for="mes_resumen_general">Mes:</label>
+                    <select name="mes" id="mes_resumen_general">
+                        {% for numero, nombre in meses_nombres.items() %}
+                            <option value="{{ numero }}" {% if numero|string == mes_seleccionado|string %}selected{% endif %}>{{ nombre }}</option>
                         {% endfor %}
                     </select>
 
@@ -542,16 +626,6 @@
 
 
 
-
-
-
-
-
-
-
-        <div class="seccion">
-            <h2>Resumen detallado del reporte</h2>
-
         <div class="seccion">
             <div class="cabecera-seccion">
                 <div>
@@ -580,12 +654,11 @@
                     <button class="btn-nav-reporte" onclick="mostrarSeccionReporte('seccionTablas', this)">Tablas detalladas</button>
                     <button class="btn-nav-reporte" onclick="mostrarSeccionReporte('seccionComparativos', this)">Comparativos</button>
                 </div>
-            </div>
+            </div>  
 
             <div class="grid-resumen">
-              
             </div>
-
+            
         </div>
 
         <div class="seccion seccion-reporte oculto" id="seccionGraficas">
@@ -769,10 +842,9 @@
                     <thead>
                         <tr>
                             <th>MES</th>
-                            <th>IBAGUE</th>
-                            <th>GIRARDOT</th>
-                            <th>ESPINAL</th>
-                            <th>CRV</th>
+                            {% for sede in labels_sedes %}
+                                <th>{{ sede }}</th>
+                            {% endfor %}
                             <th>TOTAL</th>
                         </tr>
                     </thead>
@@ -780,19 +852,17 @@
                         {% for fila in tabla_intereses_causados %}
                         <tr>
                             <td><strong>{{ fila.mes }}</strong></td>
-                            <td>{{ fila.IBAGUE | cop }}</td>
-                            <td>{{ fila.GIRARDOT | cop }}</td>
-                            <td>{{ fila.ESPINAL | cop }}</td>
-                            <td>{{ fila.CRV | cop }}</td>
+                            {% for sede in labels_sedes %}
+                                <td>{{ fila[sede] | cop }}</td>
+                            {% endfor %}
                             <td><strong>{{ fila.TOTAL | cop }}</strong></td>
                         </tr>
                         {% endfor %}
                         <tr>
                             <td><strong>TOTALES</strong></td>
-                            <td><strong>{{ totales_intereses_causados.IBAGUE | cop }}</strong></td>
-                            <td><strong>{{ totales_intereses_causados.GIRARDOT | cop }}</strong></td>
-                            <td><strong>{{ totales_intereses_causados.ESPINAL | cop }}</strong></td>
-                            <td><strong>{{ totales_intereses_causados.CRV | cop }}</strong></td>
+                            {% for sede in labels_sedes %}
+                                <td><strong>{{ totales_intereses_causados[sede] | cop }}</strong></td>
+                            {% endfor %}
                             <td><strong>{{ totales_intereses_causados.TOTAL | cop }}</strong></td>
                         </tr>
                     </tbody>
@@ -805,10 +875,9 @@
                     <thead>
                         <tr>
                             <th>MES</th>
-                            <th>IBAGUE</th>
-                            <th>GIRARDOT</th>
-                            <th>ESPINAL</th>
-                            <th>CRV</th>
+                            {% for sede in labels_sedes %}
+                                <th>{{ sede }}</th>
+                            {% endfor %}
                             <th>TOTAL</th>
                         </tr>
                     </thead>
@@ -816,19 +885,17 @@
                         {% for fila in tabla_intereses_recaudados %}
                         <tr>
                             <td><strong>{{ fila.mes }}</strong></td>
-                            <td>{{ fila.IBAGUE | cop }}</td>
-                            <td>{{ fila.GIRARDOT | cop }}</td>
-                            <td>{{ fila.ESPINAL | cop }}</td>
-                            <td>{{ fila.CRV | cop }}</td>
+                            {% for sede in labels_sedes %}
+                                <td>{{ fila[sede] | cop }}</td>
+                            {% endfor %}
                             <td><strong>{{ fila.TOTAL | cop }}</strong></td>
                         </tr>
                         {% endfor %}
                         <tr>
                             <td><strong>TOTALES</strong></td>
-                            <td><strong>{{ totales_intereses_recaudados.IBAGUE | cop }}</strong></td>
-                            <td><strong>{{ totales_intereses_recaudados.GIRARDOT | cop }}</strong></td>
-                            <td><strong>{{ totales_intereses_recaudados.ESPINAL | cop }}</strong></td>
-                            <td><strong>{{ totales_intereses_recaudados.CRV | cop }}</strong></td>
+                            {% for sede in labels_sedes %}
+                                <td><strong>{{ totales_intereses_recaudados[sede] | cop }}</strong></td>
+                            {% endfor %}
                             <td><strong>{{ totales_intereses_recaudados.TOTAL | cop }}</strong></td>
                         </tr>
                     </tbody>
@@ -841,10 +908,9 @@
                     <thead>
                         <tr>
                             <th>MES</th>
-                            <th>IBAGUE</th>
-                            <th>GIRARDOT</th>
-                            <th>ESPINAL</th>
-                            <th>CRV</th>
+                            {% for sede in labels_sedes %}
+                                <th>{{ sede }}</th>
+                            {% endfor %}
                             <th>TOTAL</th>
                         </tr>
                     </thead>
@@ -852,19 +918,17 @@
                         {% for fila in tabla_diferencia_intereses %}
                         <tr>
                             <td><strong>{{ fila.mes }}</strong></td>
-                            <td>{{ fila.IBAGUE | cop }}</td>
-                            <td>{{ fila.GIRARDOT | cop }}</td>
-                            <td>{{ fila.ESPINAL | cop }}</td>
-                            <td>{{ fila.CRV | cop }}</td>
+                            {% for sede in labels_sedes %}
+                                <td>{{ fila[sede] | cop }}</td>
+                            {% endfor %}
                             <td><strong>{{ fila.TOTAL | cop }}</strong></td>
                         </tr>
                         {% endfor %}
                         <tr>
                             <td><strong>TOTALES</strong></td>
-                            <td><strong>{{ totales_diferencia_intereses.IBAGUE | cop }}</strong></td>
-                            <td><strong>{{ totales_diferencia_intereses.GIRARDOT | cop }}</strong></td>
-                            <td><strong>{{ totales_diferencia_intereses.ESPINAL | cop }}</strong></td>
-                            <td><strong>{{ totales_diferencia_intereses.CRV | cop }}</strong></td>
+                                {% for sede in labels_sedes %}
+                                    <td><strong>{{ totales_diferencia_intereses[sede] | cop }}</strong></td>
+                                {% endfor %}
                             <td><strong>{{ totales_diferencia_intereses.TOTAL | cop }}</strong></td>
                         </tr>
                     </tbody>
@@ -877,10 +941,9 @@
                     <thead>
                         <tr>
                             <th>MES</th>
-                            <th>IBAGUE</th>
-                            <th>GIRARDOT</th>
-                            <th>ESPINAL</th>
-                            <th>CRV</th>
+                            {% for sede in labels_sedes %}
+                                <th>{{ sede }}</th>
+                            {% endfor %}
                             <th>TOTAL</th>
                         </tr>
                     </thead>
@@ -888,19 +951,17 @@
                         {% for fila in tabla_mora_causada %}
                         <tr>
                             <td><strong>{{ fila.mes }}</strong></td>
-                            <td>{{ fila.IBAGUE | cop }}</td>
-                            <td>{{ fila.GIRARDOT | cop }}</td>
-                            <td>{{ fila.ESPINAL | cop }}</td>
-                            <td>{{ fila.CRV | cop }}</td>
+                            {% for sede in labels_sedes %}
+                                <td>{{ fila[sede] | cop }}</td>
+                            {% endfor %}
                             <td><strong>{{ fila.TOTAL | cop }}</strong></td>
                         </tr>
                         {% endfor %}
                         <tr>
                             <td><strong>TOTALES</strong></td>
-                            <td><strong>{{ totales_mora_causada.IBAGUE | cop }}</strong></td>
-                            <td><strong>{{ totales_mora_causada.GIRARDOT | cop }}</strong></td>
-                            <td><strong>{{ totales_mora_causada.ESPINAL | cop }}</strong></td>
-                            <td><strong>{{ totales_mora_causada.CRV | cop }}</strong></td>
+                            {% for sede in labels_sedes %}
+                                <td><strong>{{ totales_mora_causada[sede] | cop }}</strong></td>
+                            {% endfor %}
                             <td><strong>{{ totales_mora_causada.TOTAL | cop }}</strong></td>
                         </tr>
                     </tbody>
@@ -913,10 +974,9 @@
                     <thead>
                         <tr>
                             <th>MES</th>
-                            <th>IBAGUE</th>
-                            <th>GIRARDOT</th>
-                            <th>ESPINAL</th>
-                            <th>CRV</th>
+                            {% for sede in labels_sedes %}
+                                <th>{{ sede }}</th>
+                            {% endfor %}
                             <th>TOTAL</th>
                         </tr>
                     </thead>
@@ -924,19 +984,17 @@
                         {% for fila in tabla_mora_recaudada %}
                         <tr>
                             <td><strong>{{ fila.mes }}</strong></td>
-                            <td>{{ fila.IBAGUE | cop }}</td>
-                            <td>{{ fila.GIRARDOT | cop }}</td>
-                            <td>{{ fila.ESPINAL | cop }}</td>
-                            <td>{{ fila.CRV | cop }}</td>
+                            {% for sede in labels_sedes %}
+                                <td>{{ fila[sede] | cop }}</td>
+                            {% endfor %}
                             <td><strong>{{ fila.TOTAL | cop }}</strong></td>
                         </tr>
                         {% endfor %}
                         <tr>
                             <td><strong>TOTALES</strong></td>
-                            <td><strong>{{ totales_mora_recaudada.IBAGUE | cop }}</strong></td>
-                            <td><strong>{{ totales_mora_recaudada.GIRARDOT | cop }}</strong></td>
-                            <td><strong>{{ totales_mora_recaudada.ESPINAL | cop }}</strong></td>
-                            <td><strong>{{ totales_mora_recaudada.CRV | cop }}</strong></td>
+                                {% for sede in labels_sedes %}
+                                    <td><strong>{{ totales_mora_recaudada[sede] | cop }}</strong></td>
+                                {% endfor %}
                             <td><strong>{{ totales_mora_recaudada.TOTAL | cop }}</strong></td>
                         </tr>
                     </tbody>
@@ -949,10 +1007,9 @@
                     <thead>
                         <tr>
                             <th>MES</th>
-                            <th>IBAGUE</th>
-                            <th>GIRARDOT</th>
-                            <th>ESPINAL</th>
-                            <th>CRV</th>
+                            {% for sede in labels_sedes %}
+                                <th>{{ sede }}</th>
+                            {% endfor %}
                             <th>TOTAL</th>
                         </tr>
                     </thead>
@@ -960,19 +1017,17 @@
                         {% for fila in tabla_diferencia_mora %}
                         <tr>
                             <td><strong>{{ fila.mes }}</strong></td>
-                            <td>{{ fila.IBAGUE | cop }}</td>
-                            <td>{{ fila.GIRARDOT | cop }}</td>
-                            <td>{{ fila.ESPINAL | cop }}</td>
-                            <td>{{ fila.CRV | cop }}</td>
+                            {% for sede in labels_sedes %}
+                                <td>{{ fila[sede] | cop }}</td>
+                            {% endfor %}
                             <td><strong>{{ fila.TOTAL | cop }}</strong></td>
                         </tr>
                         {% endfor %}
                         <tr>
                             <td><strong>TOTALES</strong></td>
-                            <td><strong>{{ totales_diferencia_mora.IBAGUE | cop }}</strong></td>
-                            <td><strong>{{ totales_diferencia_mora.GIRARDOT | cop }}</strong></td>
-                            <td><strong>{{ totales_diferencia_mora.ESPINAL | cop }}</strong></td>
-                            <td><strong>{{ totales_diferencia_mora.CRV | cop }}</strong></td>
+                                {% for sede in labels_sedes %}
+                                    <td><strong>{{ totales_diferencia_mora[sede] | cop }}</strong></td>
+                                {% endfor %}
                             <td><strong>{{ totales_diferencia_mora.TOTAL | cop }}</strong></td>
                         </tr>
                     </tbody>
@@ -1264,24 +1319,41 @@
 
         document.querySelectorAll('.btn-exportar').forEach(btn => {
             btn.addEventListener('click', function () {
+                if (this.classList.contains('btn-loading')) return;
+
                 const overlay = document.getElementById('overlay-cargando');
                 const titulo = document.getElementById('overlay-titulo');
                 const texto = document.getElementById('overlay-texto');
                 const tipo = this.dataset.tipo;
+                const textoOriginal = this.getAttribute('data-texto') || this.innerHTML;
 
+                // 1. Cambiar mensajes de la ventana según el tipo (Excel o PDF)
                 if (tipo === 'excel') {
                     titulo.textContent = 'Generando archivo Excel...';
-                    texto.textContent = 'Estamos preparando el consolidado para descarga.';
+                    texto.textContent = 'Estamos preparando el reporte en formato XLS.';
                 } else {
                     titulo.textContent = 'Generando archivo PDF...';
-                    texto.textContent = 'Estamos armando el reporte en formato PDF.';
+                    texto.textContent = 'Estamos preparando el reporte en formato PDF.';
                 }
 
+                // 2. Cambiar estado visual del botón
+                this.classList.add('btn-loading');
+                this.innerHTML = `<div class="spinner"></div>Generando...`;
+
+                // 3. MOSTRAR LA VENTANA (Quitamos 'oculto' y agregamos 'activo')
+                overlay.classList.remove('oculto');
                 overlay.classList.add('activo');
 
+                // 4. OCULTAR LA VENTANA Y RESTAURAR EL BOTÓN (al pasar 5 segundos)
                 setTimeout(() => {
+                    // Ocultar ventana emergente
                     overlay.classList.remove('activo');
-                }, 6000);
+                    overlay.classList.add('oculto');
+
+                    // Restaurar botón
+                    this.innerHTML = textoOriginal;
+                    this.classList.remove('btn-loading');
+                }, 5000);
             });
         });
 
@@ -1301,7 +1373,7 @@
         }
     </script>
 
-    <div id="overlay-cargando" class="overlay-cargando">
+    <div id="overlay-cargando" class="overlay-cargando oculto">
         <div class="overlay-contenido">
             <div class="spinner-overlay"></div>
             <h3 id="overlay-titulo">Generando reporte...</h3>

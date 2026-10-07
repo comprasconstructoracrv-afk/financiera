@@ -57,7 +57,8 @@ class Credito(db.Model):
     valor_liquidado = db.Column(db.Float, nullable=True)
     cuotas_rel = db.relationship('Cuota', backref='credito', cascade='all, delete-orphan', lazy=True)
     tipo_documento = db.Column(db.String(20), default='CC')
-    
+
+db.Index('idx_credito_sede_fecha', Credito.sede, Credito.fecha_creacion)
 
 # CUOTAS
 class Cuota(db.Model):
@@ -80,6 +81,8 @@ class Cuota(db.Model):
     interes_mora_historico = db.Column(db.Float, default=0)
     estado = db.Column(db.String(20), default='PENDIENTE')
     pagos_rel = db.relationship('Pago', backref='cuota', cascade='all, delete-orphan', lazy=True)
+
+db.Index('idx_cuota_credito_fecha', Cuota.credito_id, Cuota.fecha_pago)
 
 # PAGOS
 class Pago(db.Model):
@@ -108,6 +111,8 @@ class Pago(db.Model):
     reversado = db.Column(db.Boolean, default=False)
     motivo_reversion = db.Column(db.String(255), nullable=True)
     fecha_reversion = db.Column(db.DateTime, nullable=True)
+
+db.Index('idx_pago_cuota_activo', Pago.cuota_id, Pago.activo, Pago.reversado)
 
 class AbonoCapital(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -188,7 +193,6 @@ class CambioTasaInteresCredito(db.Model):
     fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
 
     credito = db.relationship('Credito', backref='cambios_tasa_interes')
-    # Relación inversa opcional con Crédito si ya la tienes
     credito = db.relationship('Credito', backref=db.backref('llamadas', lazy='dynamic', cascade='all, delete-orphan'))
 
     def __repr__(self):

@@ -1293,7 +1293,7 @@ def generar_cuotas_variables(credito_id, monto, interes_inicial, cuotas, fecha_b
         credito.cuota_mensual = 0
         credito.saldo_actual = round(saldo, 2)
 
-def construir_datos_reporte(anio_seleccionado, sede_seleccionada):
+def construir_datos_reporte(anio_seleccionado, sede_seleccionada,mes_seleccionado):
     ...
     return {
         'resumen_general': resumen_general,
@@ -3872,6 +3872,10 @@ def enviar_recibo_liquidar_por_correo(pago_id):
         if ruta_imagen and os.path.exists(ruta_imagen):
             os.remove(ruta_imagen)
 
+from datetime import datetime, date, timedelta
+from collections import defaultdict
+import calendar
+from sqlalchemy.orm import joinedload
 
 def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_seleccionado=None):
     def fecha_solo_fecha(valor):
@@ -3889,11 +3893,30 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
             return 'CRV'
         return sede
 
-    sedes_db = db.session.query(Credito.sede).distinct().all()
-    sedes_base = sorted(list(set([
-        sede_normalizada(s[0]) for s in sedes_db if s[0]
-    ])))
+    # Normalizar filtros
+    filtro_anio = None
+    if anio_seleccionado and str(anio_seleccionado).upper() != "TODOS":
+        try:
+            filtro_anio = int(anio_seleccionado)
+        except (ValueError, TypeError):
+            filtro_anio = None
 
+    filtro_mes = None
+    if mes_seleccionado and str(mes_seleccionado).upper() != "TODOS":
+        try:
+            val_mes = str(mes_seleccionado).strip().upper()
+            meses_map = {
+                'ENERO': 1, 'FEBRERO': 2, 'MARZO': 3, 'ABRIL': 4,
+                'MAYO': 5, 'JUNIO': 6, 'JULIO': 7, 'AGOSTO': 8,
+                'SEPTIEMBRE': 9, 'OCTUBRE': 10, 'NOVIEMBRE': 11, 'DICIEMBRE': 12
+            }
+            filtro_mes = int(val_mes) if val_mes.isdigit() else meses_map.get(val_mes, None)
+        except (ValueError, TypeError):
+            filtro_mes = None
+
+    # Sedes disponibles
+    sedes_db = db.session.query(Credito.sede).distinct().all()
+    sedes_base = sorted(list(set([sede_normalizada(s[0]) for s in sedes_db if s[0]])))
     if not sedes_base:
         sedes_base = ['CRV']
 
@@ -3905,123 +3928,387 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
     def credito_aplica(credito):
         return sede_normalizada(credito.sede) in sedes_filtradas
 
-    def total_inyecciones_credito(credito_id, anio=None, mes=None):
-        query = db.session.query(
-            db.func.coalesce(db.func.sum(InyeccionCapital.valor), 0)
-        ).filter(
-            InyeccionCapital.credito_id == credito_id
-        )
-
-        if anio:
-            query = query.filter(db.extract('year', InyeccionCapital.fecha) == anio)
-
-        if mes:
-            query = query.filter(db.extract('month', InyeccionCapital.fecha) == mes)
-
-        return round(query.scalar() or 0, 2)
-
-    def total_abonos_credito(credito_id, anio=None, mes=None):
-        query = db.session.query(
-            db.func.coalesce(db.func.sum(AbonoCapital.valor), 0)
-        ).filter(
-            AbonoCapital.credito_id == credito_id,
-            AbonoCapital.activo == True
-        )
-
-        if anio:
-            query = query.filter(db.extract('year', AbonoCapital.fecha) == anio)
-
-        if mes:
-            query = query.filter(db.extract('month', AbonoCapital.fecha) == mes)
-
-        return round(query.scalar() or 0, 2)
-
     creditos = Credito.query.all()
     creditos_filtrados = [c for c in creditos if credito_aplica(c)]
+    ids_creditos_filtrados = [c.id for c in creditos_filtrados]
+    creditos_map = {c.id: c for c in creditos_filtrados}
 
-    creditos_anio = [
-        c for c in creditos_filtrados
-        if fecha_solo_fecha(c.fecha_creacion)
-        and fecha_solo_fecha(c.fecha_creacion).year == anio_seleccionado
-    ]
+    # =========================================================================
+    # PRECARGA MASIVA EN MEMORIA
+    # =========================================================================
 
-    pagos_anio = (
-        db.session.query(Pago, Cuota, Credito)
-        .join(Cuota, Pago.cuota_id == Cuota.id)
-        .join(Credito, Cuota.credito_id == Credito.id)
+    # 1. Precargar inyecciones
+    inyecciones_query = db.session.query(
+        InyeccionCapital.credito_id,
+        db.extract('year', InyeccionCapital.fecha).label('anio'),
+        db.extract('month', InyeccionCapital.fecha).label('mes'),
+        db.func.sum(InyeccionCapital.valor)
+    )
+    if ids_creditos_filtrados:
+        inyecciones_query = inyecciones_query.filter(InyeccionCapital.credito_id.in_(ids_creditos_filtrados))
+    
+    inyecciones_rows = inyecciones_query.group_by(
+        InyeccionCapital.credito_id, 
+        db.extract('year', InyeccionCapital.fecha),
+        db.extract('month', InyeccionCapital.fecha)
+    ).all()
+
+    inyecciones_map = defaultdict(float)
+    inyecciones_map_global = defaultdict(float)
+    for cid, anio_i, mes_i, val in inyecciones_rows:
+        v = float(val or 0)
+        inyecciones_map_global[cid] += v
+        if anio_i and mes_i:
+            inyecciones_map[(cid, int(anio_i), int(mes_i))] += v
+        if anio_i:
+            inyecciones_map[(cid, int(anio_i), None)] += v
+
+    def total_inyecciones_credito(credito_id, anio=None, mes=None):
+        a_int = int(anio) if anio and str(anio).upper() != "TODOS" else None
+        m_int = int(mes) if mes and str(mes).upper() != "TODOS" else None
+        if a_int and m_int:
+            return round(inyecciones_map.get((credito_id, a_int, m_int), 0.0), 2)
+        elif a_int:
+            return round(inyecciones_map.get((credito_id, a_int, None), 0.0), 2)
+        return round(inyecciones_map_global.get(credito_id, 0.0), 2)
+
+    # 2. Precargar abonos
+    abonos_query = db.session.query(
+        AbonoCapital.credito_id,
+        db.extract('year', AbonoCapital.fecha).label('anio'),
+        db.extract('month', AbonoCapital.fecha).label('mes'),
+        db.func.sum(AbonoCapital.valor)
+    ).filter(AbonoCapital.activo == True)
+
+    if hasattr(AbonoCapital, 'reversado'):
+        abonos_query = abonos_query.filter(AbonoCapital.reversado == False)
+    if ids_creditos_filtrados:
+        abonos_query = abonos_query.filter(AbonoCapital.credito_id.in_(ids_creditos_filtrados))
+
+    abonos_rows = abonos_query.group_by(
+        AbonoCapital.credito_id,
+        db.extract('year', AbonoCapital.fecha),
+        db.extract('month', AbonoCapital.fecha)
+    ).all()
+
+    abonos_map = defaultdict(float)
+    abonos_map_global = defaultdict(float)
+    for cid, anio_a, mes_a, val in abonos_rows:
+        v = float(val or 0)
+        abonos_map_global[cid] += v
+        if anio_a and mes_a:
+            abonos_map[(cid, int(anio_a), int(mes_a))] += v
+        if anio_a:
+            abonos_map[(cid, int(anio_a), None)] += v
+
+    def total_abonos_credito(credito_id, anio=None, mes=None):
+        a_int = int(anio) if anio and str(anio).upper() != "TODOS" else None
+        m_int = int(mes) if mes and str(mes).upper() != "TODOS" else None
+        if a_int and m_int:
+            return round(abonos_map.get((credito_id, a_int, m_int), 0.0), 2)
+        elif a_int:
+            return round(abonos_map.get((credito_id, a_int, None), 0.0), 2)
+        return round(abonos_map_global.get(credito_id, 0.0), 2)
+
+    # 3. Precargar cuotas por crédito
+    cuotas_por_credito_dict = defaultdict(list)
+    if ids_creditos_filtrados:
+        todas_cuotas = Cuota.query.filter(Cuota.credito_id.in_(ids_creditos_filtrados)).all()
+        for q in todas_cuotas:
+            cuotas_por_credito_dict[q.credito_id].append(q)
+
+    # 4. Precargar fechas de pagos por cuota
+    pagos_fecha_map = {}
+    if ids_creditos_filtrados:
+        pagos_fechas_query = db.session.query(
+            Pago.cuota_id,
+            db.func.max(Pago.fecha)
+        ).join(Cuota, Pago.cuota_id == Cuota.id)\
+         .filter(Pago.activo == True, Cuota.credito_id.in_(ids_creditos_filtrados))
+        
+        if hasattr(Pago, 'reversado'):
+            pagos_fechas_query = pagos_fechas_query.filter(Pago.reversado == False)
+            
+        for q_id, f_max in pagos_fechas_query.group_by(Pago.cuota_id).all():
+            pagos_fecha_map[q_id] = fecha_solo_fecha(f_max)
+
+    # 5. Precargar total pagado acumulado por cuota
+    pagos_por_cuota = defaultdict(float)
+    if ids_creditos_filtrados:
+        pagos_cuotas_query = db.session.query(
+            Pago.cuota_id,
+            db.func.sum(Pago.valor)
+        ).join(Cuota, Pago.cuota_id == Cuota.id)\
+         .filter(Pago.activo == True, Cuota.credito_id.in_(ids_creditos_filtrados))
+        
+        if hasattr(Pago, 'reversado'):
+            pagos_cuotas_query = pagos_cuotas_query.filter(Pago.reversado == False)
+            
+        for q_id, total_pago in pagos_cuotas_query.group_by(Pago.cuota_id).all():
+            pagos_por_cuota[q_id] = float(total_pago or 0)
+
+    def calcular_capital_recaudado_individual_opt(credito_id, lista_cuotas):
+        total_cap_pagado = 0.0
+        for c in lista_cuotas:
+            pagos_cuota = pagos_por_cuota.get(c.id, 0.0)
+            if pagos_cuota > 0:
+                interes_cuota = float(getattr(c, 'interes', 0) or 0)
+                cap_cuota = float(getattr(c, 'capital', 0) or 0)
+                excedente_para_capital = max(0.0, pagos_cuota - interes_cuota)
+                cap_efectivo_cuota = min(cap_cuota, excedente_para_capital)
+                total_cap_pagado += cap_efectivo_cuota
+        return total_cap_pagado
+
+    # =========================================================================
+    # RANGO DE FECHAS PARA EVALUACIÓN DEL PERIODO
+    # =========================================================================
+    hoy = date.today()
+    if filtro_anio and filtro_mes:
+        inicio_periodo = date(filtro_anio, filtro_mes, 1)
+        if filtro_mes == 12:
+            fin_periodo = date(filtro_anio + 1, 1, 1)
+        else:
+            fin_periodo = date(filtro_anio, filtro_mes + 1, 1)
+    elif filtro_anio:
+        inicio_periodo = date(filtro_anio, 1, 1)
+        fin_periodo = date(filtro_anio + 1, 1, 1)
+    else:
+        inicio_periodo = date(2000, 1, 1)
+        fin_periodo = hoy + timedelta(days=1)
+
+    # ===============================
+    # RECAUDO Y CAUSACIÓN DE INTERÉS
+    # ===============================  
+    ids_reest_creditos = {c.id for c in creditos_filtrados if str(getattr(c, 'estado', '')).strip().upper() == 'REESTRUCTURADO'}
+    ids_reest_cuotas = set()
+    if ids_creditos_filtrados:
+        ids_reest_cuotas = {
+            row[0] for row in db.session.query(Cuota.credito_id)
+            .join(Credito, Cuota.credito_id == Credito.id)
+            .filter(
+                db.func.upper(Cuota.estado) == 'REESTRUCTURADO',
+                Credito.id.in_(ids_creditos_filtrados)
+            ).distinct().all()
+        }
+    ids_reest_set = ids_reest_creditos.union(ids_reest_cuotas)
+    ids_operativos = [cid for cid in ids_creditos_filtrados if cid not in ids_reest_set]
+
+    # Pagos del periodo con carga ansiosa para evitar consultas repetidas N+1
+    pagos_query = db.session.query(Pago)\
+        .options(joinedload(Pago.cuota).joinedload(Cuota.credito))\
+        .join(Cuota, Pago.cuota_id == Cuota.id)\
         .filter(
             Pago.activo == True,
-            db.extract('year', Pago.fecha) == anio_seleccionado
+            Cuota.credito_id.in_(ids_operativos) if ids_operativos else False
         )
-        .all()
-    )
+    if hasattr(Pago, 'reversado'):
+        pagos_query = pagos_query.filter(Pago.reversado == False)
+    if filtro_anio is not None:
+        pagos_query = pagos_query.filter(db.extract('year', Pago.fecha) == filtro_anio)
+    if filtro_mes is not None:
+        pagos_query = pagos_query.filter(db.extract('month', Pago.fecha) == filtro_mes)
+    pagos_anio = pagos_query.distinct(Pago.id).all()
 
-    pagos_anio = [
-        (p, q, c) for p, q, c in pagos_anio
-        if credito_aplica(c)
-    ]
+    # Mapeo previo de pagos por cuota (Resuelve el error de UnboundLocalError)
+    pago_por_cuota_id_map = {}
+    for p in pagos_anio:
+        if getattr(p, 'cuota_id', None) is not None:
+            cid_str = str(p.cuota_id)
+            if cid_str not in pago_por_cuota_id_map:
+                pago_por_cuota_id_map[cid_str] = p
 
-    cuotas_anio = (
-        db.session.query(Cuota, Credito)
-        .join(Credito, Cuota.credito_id == Credito.id)
-        .filter(
-            db.extract('year', Cuota.fecha_pago) == anio_seleccionado
-        )
-        .all()
-    )
-
-    cuotas_anio = [
-        (q, c) for q, c in cuotas_anio
-        if credito_aplica(c)
-    ]
-
-    # ===============================
-    # RESUMEN GENERAL (Excluyendo Reestructurados del Prestado)
-    # ===============================
-    ids_reest = [c.id for c in creditos_filtrados if getattr(c, 'estado', '').strip().upper() == 'REESTRUCTURADO']
+    # Cuotas del periodo
+    cuotas_query = db.session.query(Cuota, Credito)\
+        .join(Credito, Cuota.credito_id == Credito.id)\
+        .filter(Credito.id.in_(ids_operativos) if ids_operativos else False)
+    if filtro_anio is not None:
+        cuotas_query = cuotas_query.filter(db.extract('year', Cuota.fecha_pago) == filtro_anio)
+    if filtro_mes is not None:
+        cuotas_query = cuotas_query.filter(db.extract('month', Cuota.fecha_pago) == filtro_mes)
+    cuotas_anio = cuotas_query.all()
     
-    total_prestado_creditos = round(sum(
-        c.saldo_actual or 0 for c in creditos_anio 
-        if c.id not in ids_reest
-    ), 2)
 
-    total_inyecciones_anio = round(sum(
-        total_inyecciones_credito(c.id, anio_seleccionado)
-        for c in creditos_filtrados
-        if c.id not in ids_reest
-    ), 2)
+    # Totales prestado
+    query_prestado = db.session.query(
+        db.func.coalesce(db.func.sum(Credito.monto_financiado), 0)
+    ).filter(Credito.id.in_(ids_operativos))
+    if filtro_anio:
+        query_prestado = query_prestado.filter(db.extract('year', Credito.fecha_creacion) == filtro_anio)
+    if filtro_mes and filtro_anio:
+        query_prestado = query_prestado.filter(db.extract('month', Credito.fecha_creacion) == filtro_mes)
 
-    total_prestado = round(total_prestado_creditos + total_inyecciones_anio, 2)
+    total_prestado_creditos = query_prestado.scalar() or 0
+    total_inyecciones = sum(total_inyecciones_credito(cid, anio_seleccionado, mes_seleccionado) for cid in ids_operativos)
+    total_prestado = round(float(total_prestado_creditos) + float(total_inyecciones), 2)
 
-    total_pagos_anio = round(sum(p.valor or 0 for p, q, c in pagos_anio), 2)
+    def capital_recaudado_global_filtrado(lista_ids, anio=None, mes=None):
+        if not lista_ids:
+            return 0
+        es_historico = not filtro_anio and not filtro_mes
+        if es_historico:
+            valor_cuotas_cap = db.session.query(
+                db.func.coalesce(db.func.sum(Cuota.capital), 0)
+            ).filter(
+                Cuota.credito_id.in_(lista_ids),
+                Cuota.estado.in_(['PAGADA', 'LIQUIDADA'])
+            ).scalar() or 0
+            abonos = sum(abonos_map_global[cid] for cid in lista_ids)
+            return round(valor_cuotas_cap + abonos, 2)
+        else:
+            query_pagos_cap = db.session.query(
+                db.func.coalesce(db.func.sum(Cuota.capital), 0)
+            ).join(Pago, Pago.cuota_id == Cuota.id).filter(
+                Cuota.credito_id.in_(lista_ids),
+                Pago.activo == True
+            )
+            if hasattr(Pago, 'reversado'):
+                query_pagos_cap = query_pagos_cap.filter(Pago.reversado == False)
+            if filtro_anio:
+                query_pagos_cap = query_pagos_cap.filter(db.extract('year', Pago.fecha) == filtro_anio)
+            if filtro_mes:
+                query_pagos_cap = query_pagos_cap.filter(db.extract('month', Pago.fecha) == filtro_mes)
 
-    total_abonos_anio = round(sum(
-        total_abonos_credito(c.id, anio_seleccionado)
-        for c in creditos_filtrados
-    ), 2)
+            total_abonos_periodo = sum(total_abonos_credito(cid, anio, mes) for cid in lista_ids)
+            return round((query_pagos_cap.scalar() or 0) + total_abonos_periodo, 2)
 
-    total_recaudado = round(total_pagos_anio + total_abonos_anio, 2)
-    saldo_actual_total = round(sum(c.saldo_actual or 0 for c in creditos_filtrados), 2)
+    total_recaudado = capital_recaudado_global_filtrado(ids_operativos, anio_seleccionado, mes_seleccionado)
 
-    interes_corriente_causado = round(sum(q.interes or 0 for q, c in cuotas_anio), 2)
-    mora_causada = round(sum(q.interes_mora or 0 for q, c in cuotas_anio), 2)
+    saldo_actual_total = round(
+        db.session.query(db.func.coalesce(db.func.sum(Credito.saldo_actual), 0))
+        .filter(Credito.id.in_(ids_operativos)).scalar() if ids_operativos else 0,
+        2
+    )
 
-    interes_corriente_recaudado = round(sum(
-        p.valor_aplicado_interes or 0 for p, q, c in pagos_anio
-    ), 2)
+    interes_corriente_causado = round(
+        sum(q[0].interes or 0 for q in cuotas_anio if getattr(q[0], 'credito_id', None) not in ids_reest_set), 
+        2
+    )
 
-    mora_recaudada = round(sum(
-        p.valor_aplicado_mora or 0 for p, q, c in pagos_anio
-    ), 2)
+    # -------------------------------------------------------------------------
+    # PRECARGA DE MORA POR CUOTA (sin filtrar por fecha de pago)
+    # La mora causada pertenece al mes de VENCIMIENTO de la cuota, sin importar
+    # cuándo se pagó. Por eso se consultan TODOS los pagos de la cuota.
+    # -------------------------------------------------------------------------
+    mora_generada_pago_map = defaultdict(float)   # mayor mora generada al momento del pago, por cuota
+    mora_aplicada_cuota_map = defaultdict(float)  # total de mora efectivamente cobrada, por cuota
+    if ids_creditos_filtrados:
+        mora_pagos_query = db.session.query(
+            Pago.cuota_id,
+            db.func.max(Pago.mora_generada_al_pago),
+            db.func.sum(Pago.valor_aplicado_mora)
+        ).join(Cuota, Pago.cuota_id == Cuota.id)\
+         .filter(Pago.activo == True, Cuota.credito_id.in_(ids_creditos_filtrados))
+
+        if hasattr(Pago, 'reversado'):
+            mora_pagos_query = mora_pagos_query.filter(Pago.reversado == False)
+
+        for q_id, mora_gen_max, mora_aplic in mora_pagos_query.group_by(Pago.cuota_id).all():
+            mora_generada_pago_map[q_id] = float(mora_gen_max or 0)
+            mora_aplicada_cuota_map[q_id] = float(mora_aplic or 0)
+
+    # =========================================================================
+    # MORA CAUSADA DIARIA, REPARTIDA POR MES (principio de causación)
+    #   - La mora corre día a día desde el día siguiente al vencimiento de la cuota
+    #     hasta que se paga (o hasta hoy si sigue sin pagar).
+    #   - Cada mes recibe SOLO los días de mora que ocurrieron dentro de ese mes.
+    #   - Pagar tarde no mueve la mora de meses anteriores: queda en el mes que se causó.
+    #   - Valor diario = mora total de la cuota / días totales de mora.
+    # =========================================================================
+    def distribuir_mora_cuota_por_mes(q):
+        venc = fecha_solo_fecha(getattr(q, 'fecha_pago', None) or getattr(q, 'fecha_vencimiento', None))
+        if not venc:
+            return []
+
+        # Mora total de la cuota: nunca se pierde por haberse pagado
+        mora_total = max(
+            mora_generada_pago_map.get(q.id, 0.0),
+            mora_aplicada_cuota_map.get(q.id, 0.0),
+            float(getattr(q, 'interes_mora', 0) or 0)
+        )
+        if mora_total <= 0:
+            return []
+
+        # Fecha en que termina de correr la mora: fecha del pago si la cuota está pagada, si no hoy
+        estado_q = str(getattr(q, 'estado', '')).strip().upper()
+        fecha_pago_q = pagos_fecha_map.get(q.id)
+        if estado_q in ('PAGADA', 'LIQUIDADA') and fecha_pago_q:
+            fin_mora = fecha_pago_q
+        else:
+            fin_mora = hoy
+
+        dias_total = (fin_mora - venc).days
+        if dias_total <= 0:
+            # Sin días medibles: se deja en el mes de vencimiento para no perder el valor
+            return [(venc.year, venc.month, mora_total)]
+
+        valor_dia = mora_total / dias_total
+        inicio_mora = venc + timedelta(days=1)
+
+        resultado = []
+        y, m = inicio_mora.year, inicio_mora.month
+        while date(y, m, 1) <= fin_mora:
+            ultimo_dia = calendar.monthrange(y, m)[1]
+            desde = max(inicio_mora, date(y, m, 1))
+            hasta = min(fin_mora, date(y, m, ultimo_dia))
+            dias_mes = (hasta - desde).days + 1
+            if dias_mes > 0:
+                resultado.append((y, m, valor_dia * dias_mes))
+            m += 1
+            if m > 12:
+                m = 1
+                y += 1
+        return resultado
+
+    # Mapa (sede, año, mes) -> mora causada en ese mes. Se calcula una sola vez.
+    mora_causada_mensual_map = defaultdict(float)
+    for cid in ids_operativos:
+        if cid in ids_reest_set:
+            continue
+        credito_obj = creditos_map.get(cid)
+        if not credito_obj:
+            continue
+        sede_c = sede_normalizada(getattr(credito_obj, 'sede', None))
+        for q in cuotas_por_credito_dict.get(cid, []):
+            for a_m, m_m, v_m in distribuir_mora_cuota_por_mes(q):
+                mora_causada_mensual_map[(sede_c, a_m, m_m)] += v_m
+
+    def mora_causada_en_periodo(sede=None, anio=None, mes=None):
+        total = 0.0
+        for (s_k, a_k, m_k), v_k in mora_causada_mensual_map.items():
+            if sede is not None and s_k != sede:
+                continue
+            if anio is not None and a_k != anio:
+                continue
+            if mes is not None and m_k != mes:
+                continue
+            total += v_k
+        return round(total, 2)
+
+    # =========================================================================
+    # CÁLCULO DE MORA GENERAL (Homologado)
+    # =========================================================================
+    mora_causada_total = mora_causada_en_periodo(None, filtro_anio, filtro_mes if filtro_anio else None)
+    mora_causada = round(mora_causada_total, 2)
+
+    # Recaudo en el periodo
+    interes_corriente_recaudado = round(
+        sum(p.valor_aplicado_interes or 0 for p in pagos_anio if getattr(p, 'cuota', None) and p.cuota.credito_id not in ids_reest_set), 
+        2
+    )
+    mora_recaudada = round(
+        sum(p.valor_aplicado_mora or 0 for p in pagos_anio if getattr(p, 'cuota', None) and p.cuota.credito_id not in ids_reest_set), 
+        2
+    )
 
     diferencia_interes_corriente = round(interes_corriente_causado - interes_corriente_recaudado, 2)
     diferencia_mora = round(mora_causada - mora_recaudada, 2)
     diferencia_total = round(diferencia_interes_corriente + diferencia_mora, 2)
 
-    capital_reestructurados = round(sum(
-        c.saldo_actual or 0 for c in creditos_filtrados 
-        if c.id not in ids_reest
-    ), 2)
+    capital_reestructurados = round(
+        db.session.query(db.func.coalesce(db.func.sum(Credito.saldo_actual), 0))
+        .filter(Credito.id.in_(list(ids_reest_set))).scalar() if ids_reest_set else 0,
+        2
+    )
 
     resumen_general = {
         'total_prestado': total_prestado,
@@ -4037,33 +4324,122 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
         'capital_reestructurados': capital_reestructurados
     }
 
-    # ===============================
-    # RESUMEN POR SEDE
-    # ===============================
+    # =========================================================================
+    # 1. FUNCIÓN DE RECAUDO DE CAPITAL Y FILTRADO POR FECHA DE CORTE
+    # =========================================================================
+    def get_recaudo_capital(p):
+        if getattr(p, 'valor_aplicado_capital', None) is not None:
+            return float(p.valor_aplicado_capital or 0)
+        valor_total = float(getattr(p, 'valor', 0) or 0)
+        int_app = float(getattr(p, 'valor_aplicado_interes', 0) or 0)
+        mora_app = float(getattr(p, 'valor_aplicado_mora', 0) or 0)
+        return max(0.0, valor_total - int_app - mora_app)
+
+    # 1.1 CORTE ESTRICTO DE FECHA: Pagos realizados ÚNICAMENTE hasta fin_periodo
+    pagos_corte_periodo = []
+    for p in pagos_anio:
+        f_pago = fecha_solo_fecha(getattr(p, 'fecha', None))
+        if f_pago and f_pago <= fin_periodo:
+            pagos_corte_periodo.append(p)
+
+    # Mapa de pagos a cuotas vigentes al corte del periodo
+    pagos_cuota_corte_map = defaultdict(list)
+    for p in pagos_corte_periodo:
+        cid = getattr(p, 'cuota_id', None)
+        if cid:
+            pagos_cuota_corte_map[cid].append(p)
+
+    # =========================================================================
+    # 3. AGRUPAMIENTO Y MAPPING DE DATOS
+    # =========================================================================
+    tiene_mes_especifico = mes_seleccionado is not None and str(mes_seleccionado).upper() != "TODOS"
+    mes_sel_int = int(mes_seleccionado) if tiene_mes_especifico else None
+    tiene_anio_especifico = anio_seleccionado is not None and str(anio_seleccionado).upper() != "TODOS"
+    anio_sel_int = int(anio_seleccionado) if tiene_anio_especifico else None
+
+    # Filtrar solo créditos operativos (excluyendo reestructurados)
+    creditos_operativos_por_sede = defaultdict(list)
+    for cid in set(ids_operativos):
+        credito_obj = creditos_map.get(cid)
+        if credito_obj and str(getattr(credito_obj, 'estado', 'ACTIVO')).strip().upper() not in ['REESTRUCTURADO', 'CANCELADA', 'LIQUIDADA']:
+            s_norm = sede_normalizada(getattr(credito_obj, 'sede', 'OTRO'))
+            creditos_operativos_por_sede[s_norm].append(credito_obj)
+
+    pagos_por_sede_map = defaultdict(list)
+    for p in pagos_corte_periodo:
+        f_p = fecha_solo_fecha(getattr(p, 'fecha', None))
+        if f_p and f_p.year == anio_sel_int:
+            if not tiene_mes_especifico or f_p.month == mes_sel_int:
+                credito_pago = None
+                if getattr(p, 'cuota', None) and getattr(p.cuota, 'credito', None):
+                    credito_pago = p.cuota.credito
+                elif getattr(p, 'credito', None):
+                    credito_pago = p.credito
+
+                sede_pago = sede_normalizada(credito_pago.sede) if credito_pago and getattr(credito_pago, 'sede', None) else 'OTRO'
+                pagos_por_sede_map[sede_pago].append(p)
+
+    cuotas_mes_por_sede_map = defaultdict(list)
+    for q, c in cuotas_anio:
+        if str(getattr(c, 'estado', 'ACTIVO')).strip().upper() not in ['REESTRUCTURADO', 'CANCELADA', 'LIQUIDADA']:
+            f_q = fecha_solo_fecha(getattr(q, 'fecha_pago', None) or getattr(q, 'fecha_vencimiento', None))
+            if f_q and f_q.year == anio_sel_int:
+                if not tiene_mes_especifico or f_q.month == mes_sel_int:
+                    cuotas_mes_por_sede_map[sede_normalizada(c.sede)].append((q, c))
+
+    creditos_por_sede_map = defaultdict(list)
+    creditos_mes_por_sede_map = defaultdict(list)
+    for c in creditos_filtrados:
+        if str(getattr(c, 'estado', 'ACTIVO')).strip().upper() != 'REESTRUCTURADO':
+            s_norm = sede_normalizada(c.sede)
+            creditos_por_sede_map[s_norm].append(c)
+
+            f_c = fecha_solo_fecha(getattr(c, 'fecha_inicio', None) or getattr(c, 'fecha_creacion', None) or getattr(c, 'fecha', None))
+            if f_c and f_c.year == anio_sel_int:
+                if not tiene_mes_especifico or f_c.month == mes_sel_int:
+                    creditos_mes_por_sede_map[s_norm].append(c)
+
+    # =========================================================================
+    # 4. CONSTRUCCIÓN DEL RESUMEN POR SEDE
+    # =========================================================================
     resumen_por_sede = []
+    set_operativos = set(ids_operativos)  # Búsqueda instantánea O(1)
 
     for sede in sedes_filtradas:
-        creditos_sede = [c for c in creditos_filtrados if sede_normalizada(c.sede) == sede]
-        creditos_sede_anio = [c for c in creditos_sede if fecha_solo_fecha(c.fecha_creacion) and fecha_solo_fecha(c.fecha_creacion).year == anio_seleccionado]
-        pagos_sede_anio = [(p, q, c) for p, q, c in pagos_anio if sede_normalizada(c.sede) == sede]
-        cuotas_sede_anio = [(q, c) for q, c in cuotas_anio if sede_normalizada(c.sede) == sede]
+        creditos_sede = creditos_por_sede_map.get(sede, [])
+        creditos_sede_mes = creditos_mes_por_sede_map.get(sede, [])
+        pagos_sede_anio = pagos_por_sede_map.get(sede, [])
+        cuotas_sede_mes = cuotas_mes_por_sede_map.get(sede, [])
 
+        # 1. Filtrado de créditos de la sede excluyendo reestructurados
+        ids_operativos_sede = [c.id for c in creditos_sede if c.id in set_operativos]
+        creditos_sede_validos = [c for c in creditos_sede if c.id in set_operativos]
+        creditos_sede_mes_validos = [c for c in creditos_sede_mes if c.id in set_operativos]
+
+        # 2. Pagos y cuotas pertenecientes únicamente a créditos operativos
+        pagos_sede_validos = [
+            p for p in pagos_sede_anio
+            if (getattr(p, 'credito_id', None) or getattr(getattr(p, 'cuota', None), 'credito_id', None)) in set_operativos
+        ]
+        cuotas_sede_validas = [(q, c) for q, c in cuotas_sede_mes if c.id in set_operativos]
+
+        # 3. Capital Prestado (Monto financiado + inyecciones de créditos operativos)
         prestado_sede = round(
-            sum(c.monto_financiado or 0 for c in creditos_sede_anio if getattr(c, 'estado', 'ACTIVO').strip().upper() != 'REESTRUCTURADO')
-            + sum(total_inyecciones_credito(c.id, anio_seleccionado) for c in creditos_sede if getattr(c, 'estado', 'ACTIVO').strip().upper() != 'REESTRUCTURADO'),
+            sum(float(getattr(c, 'monto_financiado', 0) or 0) for c in creditos_sede_mes_validos)
+            + sum(total_inyecciones_credito(c.id, anio_seleccionado, mes_seleccionado) for c in creditos_sede_mes_validos),
             2
         )
 
-        recaudado_sede = round(
-            sum(p.valor or 0 for p, q, c in pagos_sede_anio)
-            + sum(total_abonos_credito(c.id, anio_seleccionado) for c in creditos_sede),
-            2
-        )
+        # 4. Capital Recaudado (Usando la misma lógica global por lista de IDs)
+        recaudado_sede = capital_recaudado_global_filtrado(ids_operativos_sede, anio_seleccionado, mes_seleccionado)
 
-        interes_causado_sede = round(sum(q.interes or 0 for q, c in cuotas_sede_anio), 2)
-        mora_causada_sede = round(sum(q.interes_mora or 0 for q, c in cuotas_sede_anio), 2)
-        interes_recaudado_sede = round(sum(p.valor_aplicado_interes or 0 for p, q, c in pagos_sede_anio), 2)
-        mora_recaudada_sede = round(sum(p.valor_aplicado_mora or 0 for p, q, c in pagos_sede_anio), 2)
+        # 5. Intereses y Mora
+        interes_causado_sede = round(sum(float(getattr(q, 'interes', 0) or 0) for q, c in cuotas_sede_validas), 2)
+        mora_causada_sede = mora_causada_en_periodo(sede, filtro_anio, filtro_mes if filtro_anio else None)
+
+        interes_recaudado_sede = round(sum(float(getattr(p, 'valor_aplicado_interes', 0) or 0) for p in pagos_sede_validos), 2)
+        mora_recaudada_sede = round(sum(float(getattr(p, 'valor_aplicado_mora', 0) or 0) for p in pagos_sede_validos), 2)
+
         diferencia_interes_sede = round(interes_causado_sede - interes_recaudado_sede, 2)
         diferencia_mora_sede = round(mora_causada_sede - mora_recaudada_sede, 2)
 
@@ -4071,7 +4447,7 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
             'sede': sede,
             'total_prestado': prestado_sede,
             'total_recaudado': recaudado_sede,
-            'saldo_actual': round(sum(c.saldo_actual or 0 for c in creditos_sede), 2),
+            'saldo_actual': round(sum(float(getattr(c, 'saldo_actual', 0) or 0) for c in creditos_sede_validos), 2),
             'interes_corriente_causado': interes_causado_sede,
             'interes_corriente_recaudado': interes_recaudado_sede,
             'mora_causada': mora_causada_sede,
@@ -4082,19 +4458,33 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
         })
 
     # ===============================
-    # RESUMEN MENSUAL
+    # RESUMEN MENSUAL (Optimizado y Homologado)
     # ===============================
     resumen_mensual = []
+    pagos_por_mes_map = defaultdict(list)
+    for p in pagos_anio:
+        pf = fecha_solo_fecha(p.fecha)
+        if pf:
+            pagos_por_mes_map[pf.month].append(p)
+
+    cuotas_por_mes_map = defaultdict(list)
+    for q, c in cuotas_anio:
+        qf = fecha_solo_fecha(q.fecha_pago)
+        if qf:
+            cuotas_por_mes_map[qf.month].append((q, c))
+
     for mes in range(1, 13):
-        pagos_mes = [(p, q, c) for p, q, c in pagos_anio if fecha_solo_fecha(p.fecha) and fecha_solo_fecha(p.fecha).month == mes]
-        cuotas_mes = [(q, c) for q, c in cuotas_anio if fecha_solo_fecha(q.fecha_pago) and fecha_solo_fecha(q.fecha_pago).month == mes]
+        pagos_mes = pagos_por_mes_map.get(mes, [])
+        cuotas_mes = cuotas_por_mes_map.get(mes, [])
         abonos_mes = round(sum(total_abonos_credito(c.id, anio_seleccionado, mes) for c in creditos_filtrados), 2)
 
         interes_causado_mes = round(sum(q.interes or 0 for q, c in cuotas_mes), 2)
-        mora_causada_mes = round(sum(q.interes_mora or 0 for q, c in cuotas_mes), 2)
-        interes_recaudado_mes = round(sum(p.valor_aplicado_interes or 0 for p, q, c in pagos_mes), 2)
-        mora_recaudada_mes = round(sum(p.valor_aplicado_mora or 0 for p, q, c in pagos_mes), 2)
-        total_ingresos_mes = round(sum(p.valor or 0 for p, q, c in pagos_mes) + abonos_mes, 2)
+        
+        mora_causada_mes = mora_causada_en_periodo(None, filtro_anio, mes)
+        
+        interes_recaudado_mes = round(sum(p.valor_aplicado_interes or 0 for p in pagos_mes), 2)
+        mora_recaudada_mes = round(sum(p.valor_aplicado_mora or 0 for p in pagos_mes), 2)
+        total_ingresos_mes = round(sum(p.valor or 0 for p in pagos_mes) + abonos_mes, 2)
 
         resumen_mensual.append({
             'mes': MESES_ES[mes],
@@ -4108,25 +4498,81 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
         })
 
     # ===============================
-    # TABLAS DETALLADAS
+    # TABLAS DETALLADAS (Pre-agrupadas O(1))
     # ===============================
-    sedes_tabla = ['IBAGUE', 'GIRARDOT', 'ESPINAL', 'CRV']
+    set_operativos = set(ids_operativos)  # Búsqueda rápida O(1)
+
+    # 1. Normalización limpia (sin hardcodeo de nombres ni alias específicos)
+    def normalizar_sede_tabla(sede_raw):
+        return str(sede_raw or '').upper().strip()
+
+    sedes_encontradas = set()
+    
+    for q, c in cuotas_anio:
+        if c.id in set_operativos and getattr(c, 'sede', None):
+            sedes_encontradas.add(normalizar_sede_tabla(c.sede))
+
+    for p in pagos_anio:
+        cred = getattr(p, 'credito', None) or getattr(getattr(p, 'cuota', None), 'credito', None)
+        cred_id = getattr(p, 'credito_id', None) or getattr(cred, 'id', None)
+        if cred_id in set_operativos:
+            sede_raw = getattr(cred, 'sede', None) if cred else getattr(p, 'sede', None)
+            if sede_raw:
+                sedes_encontradas.add(normalizar_sede_tabla(sede_raw))
+
+    sedes_tabla = sorted(list(sedes_encontradas))
+
+    int_causado_map = defaultdict(float)
+    mora_causada_map = defaultdict(float)
+    int_recaudado_map = defaultdict(float)
+    mora_recaudada_map = defaultdict(float)
+
+    for q, c in cuotas_anio:
+        if c.id not in set_operativos:
+            continue
+        q_f = fecha_solo_fecha(q.fecha_pago)
+        if q_f and (filtro_anio is None or q_f.year == filtro_anio):
+            sede_norm = normalizar_sede_tabla(c.sede)
+            int_causado_map[(sede_norm, q_f.month)] += float(q.interes or 0)
+
+    for (s_k, a_k, m_k), v_k in mora_causada_mensual_map.items():
+        if filtro_anio is not None and a_k != filtro_anio:
+            continue
+        sede_norm = normalizar_sede_tabla(s_k)
+        mora_causada_map[(sede_norm, m_k)] += float(v_k or 0)
+
+    # C. Interés y Mora Recaudados 
+    for p in pagos_anio:
+        cred = getattr(p, 'credito', None) or getattr(getattr(p, 'cuota', None), 'credito', None)
+        cred_id = getattr(p, 'credito_id', None) or getattr(cred, 'id', None)
+
+        if cred_id not in set_operativos:
+            continue
+
+        p_f = fecha_solo_fecha(p.fecha)
+        if p_f and (filtro_anio is None or p_f.year == filtro_anio):
+            sede_raw = getattr(cred, 'sede', None) if cred else getattr(p, 'sede', None)
+            sede_norm = normalizar_sede_tabla(sede_raw)
+            
+            int_recaudado_map[(sede_norm, p_f.month)] += float(getattr(p, 'valor_aplicado_interes', 0) or 0)
+            mora_recaudada_map[(sede_norm, p_f.month)] += float(getattr(p, 'valor_aplicado_mora', 0) or 0)
 
     def crear_tabla_por_mes(campo):
         tabla = []
         for mes in range(1, 13):
             fila = {'mes': MESES_ES[mes]}
-            total = 0
+            total = 0.0
             for sede in sedes_tabla:
-                valor = 0
                 if campo == 'interes_causado':
-                    valor = sum(q.interes or 0 for q, c in cuotas_anio if sede_normalizada(c.sede) == sede and fecha_solo_fecha(q.fecha_pago) and fecha_solo_fecha(q.fecha_pago).month == mes)
+                    valor = int_causado_map.get((sede, mes), 0.0)
                 elif campo == 'interes_recaudado':
-                    valor = sum(p.valor_aplicado_interes or 0 for p, q, c in pagos_anio if sede_normalizada(c.sede) == sede and fecha_solo_fecha(p.fecha) and fecha_solo_fecha(p.fecha).month == mes)
+                    valor = int_recaudado_map.get((sede, mes), 0.0)
                 elif campo == 'mora_causada':
-                    valor = sum(q.interes_mora or 0 for q, c in cuotas_anio if sede_normalizada(c.sede) == sede and fecha_solo_fecha(q.fecha_pago) and fecha_solo_fecha(q.fecha_pago).month == mes)
+                    valor = mora_causada_map.get((sede, mes), 0.0)
                 elif campo == 'mora_recaudada':
-                    valor = sum(p.valor_aplicado_mora or 0 for p, q, c in pagos_anio if sede_normalizada(c.sede) == sede and fecha_solo_fecha(p.fecha) and fecha_solo_fecha(p.fecha).month == mes)
+                    valor = mora_recaudada_map.get((sede, mes), 0.0)
+                else:
+                    valor = 0.0
 
                 valor = round(valor, 2)
                 fila[sede] = valor
@@ -4146,8 +4592,8 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
     for i in range(12):
         fila_int = {'mes': MESES_ES[i + 1]}
         fila_mora = {'mes': MESES_ES[i + 1]}
-        total_int = 0
-        total_mora = 0
+        total_int = 0.0
+        total_mora = 0.0
 
         for sede in sedes_tabla:
             dif_int = round(tabla_intereses_causados[i][sede] - tabla_intereses_recaudados[i][sede], 2)
@@ -4163,65 +4609,29 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
         tabla_diferencia_mora.append(fila_mora)
 
     def totales_tabla(filas):
-        return {
-            'IBAGUE': round(sum(f['IBAGUE'] for f in filas), 2),
-            'GIRARDOT': round(sum(f['GIRARDOT'] for f in filas), 2),
-            'ESPINAL': round(sum(f['ESPINAL'] for f in filas), 2),
-            'CRV': round(sum(f['CRV'] for f in filas), 2),
-            'TOTAL': round(sum(f['TOTAL'] for f in filas), 2),
-        }
+        totales = {sede: round(sum(f.get(sede, 0.0) for f in filas), 2) for sede in sedes_tabla}
+        totales['TOTAL'] = round(sum(f.get('TOTAL', 0.0) for f in filas), 2)
+        return totales
 
     # ===============================
-    # ANÁLISIS GLOBAL POR ESTADO DE CARTERA (CORRECCIÓN DE SALDO EN MORA)
+    # ANÁLISIS GLOBAL POR ESTADO DE CARTERA
     # ===============================
     volumen_activos = cap_activos = rec_activos = saldo_activos = 0
     volumen_mora = cap_mora = rec_mora = saldo_mora = mora_causada_total = 0
     volumen_liquidados = cap_liquidados = rec_liquidados = 0
-    volumen_reest = cap_reest_limpio = saldo_reest_limpio = rec_reest = 0
+    volumen_reest = cap_reest_limpio = saldo_reest_limpio = 0
 
     ids_activos, ids_mora, ids_liquidados, ids_reest = [], [], [], []
 
-    def calcular_capital_recaudado_individual(credito_id, lista_cuotas):
-        total_cap_pagado = 0
-        for c in lista_cuotas:
-            pagos_cuota = db.session.query(
-                db.func.coalesce(db.func.sum(Pago.valor), 0)
-            ).filter(
-                Pago.cuota_id == c.id,
-                Pago.activo == True,
-                Pago.reversado == False
-            ).scalar() or 0
-            
-            if pagos_cuota > 0:
-                interes_cuota = float(getattr(c, 'interes', 0) or 0)
-                cap_cuota = float(getattr(c, 'capital', 0) or 0)
-                excedente_para_capital = max(0, pagos_cuota - interes_cuota)
-                cap_efectivo_cuota = min(cap_cuota, excedente_para_capital)
-                total_cap_pagado += cap_efectivo_cuota
-
-        abonos = db.session.query(
-            db.func.coalesce(db.func.sum(AbonoCapital.valor), 0)
-        ).filter(
-            AbonoCapital.credito_id == credito_id, 
-            AbonoCapital.activo == True, 
-            AbonoCapital.reversado == False
-        ).scalar() or 0
-
-        return round(total_cap_pagado + abonos, 2)
-
     for credito in creditos_filtrados:
-        cuotas = Cuota.query.filter_by(credito_id=credito.id).all()
+        cuotas = cuotas_por_credito_dict[credito.id]
         
-        # Capital financiado total (monto inicial + inyecciones históricas)
         monto_ini = float(getattr(credito, 'monto_financiado', 0) or 0)
         total_iny_hist = total_inyecciones_credito(credito.id)
         capital_total_credito = monto_ini + total_iny_hist
 
-        # Capital recaudado real del crédito
-        cap_rec_credito = calcular_capital_recaudado_individual(credito.id, cuotas)
-
-        # REGLA DE ORO: El saldo real que deben es obligatoriamente la resta neta
-        s_act = max(0, capital_total_credito - cap_rec_credito)
+        cap_rec_credito = calcular_capital_recaudado_individual_opt(credito.id, cuotas)
+        s_act = max(0.0, capital_total_credito - cap_rec_credito)
 
         if not cuotas:
             volumen_activos += 1
@@ -4242,8 +4652,8 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
         elif any(c.estado == 'EN MORA' for c in cuotas):
             volumen_mora += 1
             cap_mora += capital_total_credito
-            rec_mora += cap_rec_credito  # Acumula correctamente el recaudo de mora
-            saldo_mora += s_act         # Acumula la resta exacta de lo que deben
+            rec_mora += cap_rec_credito
+            saldo_mora += s_act
             
             mora_cuotas = sum(
                 float(getattr(c, 'mora_pend', 0) or getattr(c, 'valor_mora', 0) or getattr(c, 'interes_mora', 0) or 0)
@@ -4274,48 +4684,47 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
                 Cuota.estado.in_(['PAGADA', 'LIQUIDADA'])
             ).scalar() or 0
 
-            abonos = db.session.query(
-                db.func.coalesce(db.func.sum(AbonoCapital.valor), 0)
-            ).filter(
-                AbonoCapital.credito_id.in_(lista_ids), 
-                AbonoCapital.activo == True, 
-                AbonoCapital.reversado == False
-            ).scalar() or 0
+            abonos = sum(abonos_map_global[cid] for cid in lista_ids)
             return round(valor_cuotas_cap + abonos, 2)
         else:
-            query_pagos_cap = db.session.query(db.func.coalesce(db.func.sum(Cuota.capital), 0)).join(Pago, Pago.cuota_id == Cuota.id).filter(Cuota.credito_id.in_(lista_ids), Pago.activo == True, Pago.reversado == False)
-            query_abonos = db.session.query(db.func.coalesce(db.func.sum(AbonoCapital.valor), 0)).filter(AbonoCapital.credito_id.in_(lista_ids), AbonoCapital.activo == True, AbonoCapital.reversado == False)
-
+            query_pagos_cap = db.session.query(
+                db.func.coalesce(db.func.sum(Cuota.capital), 0)
+            ).join(Pago, Pago.cuota_id == Cuota.id).filter(
+                Cuota.credito_id.in_(lista_ids),
+                Pago.activo == True
+            )
+            if hasattr(Pago, 'reversado'):
+                query_pagos_cap = query_pagos_cap.filter(Pago.reversado == False)
             if anio_seleccionado:
                 query_pagos_cap = query_pagos_cap.filter(db.extract('year', Pago.fecha) == anio_seleccionado)
-                query_abonos = query_abonos.filter(db.extract('year', AbonoCapital.fecha) == anio_seleccionado)
 
-            return round((query_pagos_cap.scalar() or 0) + (query_abonos.scalar() or 0), 2)
+            total_abonos_periodo = sum(total_abonos_credito(cid, anio_seleccionado) for cid in lista_ids)
+            return round((query_pagos_cap.scalar() or 0) + total_abonos_periodo, 2)
 
-    # Cálculo seguro para los reestructurados
     cap_reest_limpio = saldo_reest_limpio = 0
     if ids_reest:
         for rid in ids_reest:
-            credito_obj = Credito.query.get(rid)
+            # OPTIMIZACIÓN N+1: Búsqueda en mapa precargado
+            credito_obj = creditos_map.get(rid) or Credito.query.get(rid)
+            if not credito_obj:
+                continue
+
             monto_ini_cred = float(getattr(credito_obj, 'monto_financiado', 0) or 0)
             total_iny_r = total_inyecciones_credito(rid)
             cap_reest_limpio += (monto_ini_cred + total_iny_r)
 
-            ultima_pagada = Cuota.query.filter_by(credito_id=rid).filter(
-                Cuota.estado.in_(['PAGADA', 'LIQUIDADA'])
-            ).order_by(Cuota.id.desc()).first()
+            cuotas_reest = cuotas_por_credito_dict[rid]
+            ultima_pagada = next((c for c in reversed(cuotas_reest) if c.estado in ['PAGADA', 'LIQUIDADA']), None)
 
             val_cuota = 0
             if not ultima_pagada:
-                primera_cuota = Cuota.query.filter_by(credito_id=rid).order_by(Cuota.id.asc()).first()
+                primera_cuota = cuotas_reest[0] if cuotas_reest else None
                 if primera_cuota:
                     val_cuota = float(getattr(primera_cuota, 'saldo_inicial', 0) or 0)
                 if val_cuota <= 0:
                     val_cuota = monto_ini_cred + total_iny_r
             else:
-                siguiente_cuota = Cuota.query.filter_by(credito_id=rid).filter(
-                    Cuota.id > ultima_pagada.id
-                ).order_by(Cuota.id.asc()).first()
+                siguiente_cuota = next((c for c in cuotas_reest if c.id > ultima_pagada.id), None)
                 if siguiente_cuota:
                     val_cuota = float(getattr(siguiente_cuota, 'saldo_inicial', 0) or 0)
                 if val_cuota <= 0:
@@ -4388,39 +4797,48 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
     }
 
 def calcular_capital_recaudado_individual(credito_id, lista_cuotas):
-    total_cap_pagado = 0
-    for c in lista_cuotas:
-        # Consultar la suma de pagos activos y no reversados para esta cuota específica
-        pagos_cuota = db.session.query(
+    cuota_ids = [c.id for c in lista_cuotas] if lista_cuotas else []
+    pagos_map = defaultdict(float)
+
+    if cuota_ids:
+        query_pagos = db.session.query(
+            Pago.cuota_id,
             db.func.coalesce(db.func.sum(Pago.valor), 0)
         ).filter(
-            Pago.cuota_id == c.id,
-            Pago.activo == True,
-            Pago.reversado == False
-        ).scalar() or 0
-        
+            Pago.cuota_id.in_(cuota_ids),
+            Pago.activo == True
+        )
+        if hasattr(Pago, 'reversado'):
+            query_pagos = query_pagos.filter(Pago.reversado == False)
+            
+        for q_id, val in query_pagos.group_by(Pago.cuota_id).all():
+            pagos_map[q_id] = float(val or 0)
+
+    total_cap_pagado = 0.0
+    for c in lista_cuotas:
+        pagos_cuota = pagos_map.get(c.id, 0.0)
         if pagos_cuota > 0:
             interes_cuota = float(getattr(c, 'interes', 0) or 0)
             cap_cuota = float(getattr(c, 'capital', 0) or 0)
-            
-            # 1. El pago cubre primero los intereses de la cuota
-            excedente_para_capital = max(0, pagos_cuota - interes_cuota)
-            
-            # 2. Lo que va a capital no puede superar el capital máximo de la cuota
+            excedente_para_capital = max(0.0, pagos_cuota - interes_cuota)
             cap_efectivo_cuota = min(cap_cuota, excedente_para_capital)
-            
             total_cap_pagado += cap_efectivo_cuota
 
-    # Sumar abonos directos a capital activos y no reversados
-    abonos = db.session.query(
+    abonos_query = db.session.query(
         db.func.coalesce(db.func.sum(AbonoCapital.valor), 0)
     ).filter(
         AbonoCapital.credito_id == credito_id, 
-        AbonoCapital.activo == True, 
-        AbonoCapital.reversado == False
-    ).scalar() or 0
+        AbonoCapital.activo == True
+    )
+    if hasattr(AbonoCapital, 'reversado'):
+        abonos_query = abonos_query.filter(AbonoCapital.reversado == False)
 
-    return round(total_cap_pagado + abonos, 2)
+    abonos = abonos_query.scalar() or 0.0
+
+    return round(total_cap_pagado + float(abonos), 2)
+
+from datetime import date
+from flask import render_template, request, session, redirect
 
 @app.route('/reporte_financiero')
 def reporte_financiero():
@@ -4428,98 +4846,190 @@ def reporte_financiero():
         return redirect('/login')
 
     anio_actual = date.today().year
-    anio_seleccionado = request.args.get('anio', type=int) or anio_actual
-    mes_seleccionado = request.args.get('mes', type=int) or None
+    
+    # 1. Captura de parámetros desde la URL
+    anio_str = request.args.get('anio', '').strip()
+    anio_seleccionado = anio_str if anio_str else str(anio_actual)
+
+    mes_str = request.args.get('mes', '').strip()
+    mes_seleccionado_val = mes_str if mes_str else "TODOS"
+
     sede_seleccionada = request.args.get('sede', default='TODAS', type=str).strip().upper()
 
-    datos = construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_seleccionado)
+    # 2. Conversión de filtros numéricos
+    anio_filtrado = None if anio_seleccionado == "TODOS" else (int(anio_seleccionado) if anio_seleccionado.isdigit() else anio_actual)
+    mes_filtrado = None if mes_seleccionado_val == "TODOS" or not mes_seleccionado_val else (int(mes_seleccionado_val) if mes_seleccionado_val.isdigit() else None)
 
+    # Análisis global
+    datos = construir_datos_reporte(anio_filtrado, sede_seleccionada, mes_filtrado)
+
+    # 3. Sedes disponibles normalizadas
     sedes_db = db.session.query(Credito.sede).distinct().all()
-    sedes_disponibles = ['TODAS'] + sorted([
-        s[0] for s in sedes_db if s[0]
-    ])
-    
-    # 1. Diccionario con la suma total de inyecciones por crédito
-    dict_inyecciones = dict(
-        db.session.query(
-            InyeccionCapital.credito_id,
-            db.func.coalesce(db.func.sum(InyeccionCapital.valor), 0)
-        ).group_by(InyeccionCapital.credito_id).all()
-    )
+    sedes_base = set()
+    for s in sedes_db:
+        if s[0]:
+            st = str(s[0]).strip().upper()
+            sedes_base.add('CRV' if st in ['', 'SAS'] else st)
+    sedes_disponibles = ['TODAS'] + sorted(list(sedes_base))
 
-    # 2. Diccionario con la suma total de pagos activos por crédito
-    dict_pagos = dict(
-        db.session.query(
-            Cuota.credito_id,
-            db.func.coalesce(db.func.sum(Pago.valor), 0)
-        ).join(
-            Pago, Pago.cuota_id == Cuota.id
-        ).filter(
-            Pago.activo == True,
-            Pago.reversado == False
-        ).group_by(Cuota.credito_id).all()
-    )
+    meses_nombres = {
+        "TODOS": "TODOS",
+        1: 'ENERO', 2: 'FEBRERO', 3: 'MARZO', 4: 'ABRIL',
+        5: 'MAYO', 6: 'JUNIO', 7: 'JULIO', 8: 'AGOSTO',
+        9: 'SEPTIEMBRE', 10: 'OCTUBRE', 11: 'NOVIEMBRE', 12: 'DICIEMBRE'
+    }
 
-    # 3. Diccionario con la suma total de abonos a capital activos por crédito
-    dict_abonos = dict(
-        db.session.query(
-            AbonoCapital.credito_id,
-            db.func.coalesce(db.func.sum(AbonoCapital.valor), 0)
-        ).filter(
-            AbonoCapital.activo == True,
-            AbonoCapital.reversado == False
-        ).group_by(AbonoCapital.credito_id).all()
-    )
+    anios_disponibles = ["TODOS"] + list(range(2022, anio_actual + 2))
 
-    # =========================
-    # REPORTE ACUMULADO GENERAL (Optimizado en memoria)
-    # =========================
-    creditos_acumulados = Credito.query.all()
+    # =========================================================================
+    # REPORTE ACUMULADO GENERAL (SIN REESTRUCTURADOS)
+    # =========================================================================
+    todos_creditos = Credito.query.all()
+
+    # Identificación estricta de créditos o cuotas reestructuradas
+    ids_reest_creditos = {c.id for c in todos_creditos if str(getattr(c, 'estado', '')).strip().upper() == 'REESTRUCTURADO'}
+    ids_reest_cuotas = {
+        row[0] for row in db.session.query(Cuota.credito_id)
+        .filter(db.func.upper(Cuota.estado) == 'REESTRUCTURADO')
+        .distinct().all()
+    }
+    ids_reestructurados_set = ids_reest_creditos.union(ids_reest_cuotas)
+
+    # Selección de créditos según la sede seleccionada (excluyendo reestructurados)
+    creditos_acumulados = []
+    for c in todos_creditos:
+        if c.id in ids_reestructurados_set or str(getattr(c, 'estado', '')).strip().upper() == 'REESTRUCTURADO':
+            continue
+
+        raw_sede = str(c.sede or '').strip().upper()
+        s_norm = 'CRV' if raw_sede in ['', 'SAS'] else raw_sede
+        if sede_seleccionada == 'TODAS' or s_norm == sede_seleccionada:
+            creditos_acumulados.append(c)
+
+    ids_acumulados = [c.id for c in creditos_acumulados]
+
+    dict_inyecciones = {}
+    dict_pagos_cuotas = {}
+    dict_abonos = {}
+
+    if ids_acumulados:
+        # Inyecciones de capital
+        dict_inyecciones = dict(
+            db.session.query(
+                InyeccionCapital.credito_id,
+                db.func.coalesce(db.func.sum(InyeccionCapital.valor), 0)
+            ).filter(InyeccionCapital.credito_id.in_(ids_acumulados))
+            .group_by(InyeccionCapital.credito_id).all()
+        )
+
+        # A) Capital de cuotas completamente liquidadas (cierra migraciones o sin fila Pago)
+        cuotas_salvadas = dict(
+            db.session.query(
+                Cuota.credito_id,
+                db.func.coalesce(db.func.sum(Cuota.capital), 0)
+            ).filter(
+                Cuota.credito_id.in_(ids_acumulados),
+                db.func.upper(Cuota.estado).in_(['PAGADO', 'LIQUIDADO', 'CANCELADO', 'PAGADA', 'LIQUIDADA', 'CANCELADA'])
+            ).group_by(Cuota.credito_id).all()
+        )
+
+        # B) Recaudo real en la tabla Pago para cuotas no cerradas aún (pagos parciales/mora)
+        pagos_parciales = dict(
+            db.session.query(
+                Cuota.credito_id,
+                db.func.coalesce(
+                    db.func.sum(
+                        db.func.coalesce(Pago.valor_aplicado_capital, Pago.valor, 0)
+                    ), 0
+                )
+            ).join(Pago, Pago.cuota_id == Cuota.id)
+            .filter(
+                Cuota.credito_id.in_(ids_acumulados),
+                Pago.activo == True,
+                Pago.reversado == False if hasattr(Pago, 'reversado') else True,
+                db.func.upper(Cuota.estado).notin_(['PAGADO', 'LIQUIDADO', 'CANCELADO', 'PAGADA', 'LIQUIDADA', 'CANCELADA'])
+            ).group_by(Cuota.credito_id).all()
+        )
+
+        # Combinar pagos de cuotas
+        for cid in ids_acumulados:
+            dict_pagos_cuotas[cid] = float(cuotas_salvadas.get(cid, 0)) + float(pagos_parciales.get(cid, 0))
+
+        # Abonos extraordinarios directos a capital
+        dict_abonos = dict(
+            db.session.query(
+                AbonoCapital.credito_id,
+                db.func.coalesce(db.func.sum(AbonoCapital.valor), 0)
+            ).filter(
+                AbonoCapital.credito_id.in_(ids_acumulados),
+                AbonoCapital.activo == True,
+                AbonoCapital.reversado == False if hasattr(AbonoCapital, 'reversado') else True
+            ).group_by(AbonoCapital.credito_id).all()
+        )
+
+    # Acumulación de métricas detalladas por sede
     acumulado_por_sede = {}
 
     for credito in creditos_acumulados:
-        sede = credito.sede or "SIN SEDE"
+        raw_sede = str(credito.sede or '').strip().upper()
+        sede = 'CRV' if raw_sede in ['', 'SAS'] else raw_sede
 
         if sede not in acumulado_por_sede:
             acumulado_por_sede[sede] = {
                 "sede": sede,
-                "total_prestamo": 0,
-                "total_pagado": 0,
-                "total_deben": 0
+                "monto_financiado_base": 0.0,
+                "total_inyecciones": 0.0,
+                "total_prestamo": 0.0,        # Monto financiado base + Inyecciones
+                "pagos_cuotas": 0.0,         # Recaudo acumulado en cuotas
+                "pagos_abonos": 0.0,         # Abonos directos a capital
+                "total_pagado": 0.0,         # pagos_cuotas + pagos_abonos
+                "total_deben": 0.0           # total_prestamo - total_pagado
             }
 
-        # Extracción instantánea desde memoria usando los diccionarios
-        total_inyecciones = dict_inyecciones.get(credito.id, 0)
-        total_pagos = dict_pagos.get(credito.id, 0)
-        total_abonos_capital = dict_abonos.get(credito.id, 0)
+        monto_base = float(credito.monto_financiado or 0)
+        inyeccion_val = float(dict_inyecciones.get(credito.id, 0) or 0)
+        pagos_cuota_val = float(dict_pagos_cuotas.get(credito.id, 0) or 0)
+        abonos_capital_val = float(dict_abonos.get(credito.id, 0) or 0)
 
-        total_prestamo = round((credito.monto_financiado or 0) + total_inyecciones, 2)
-        total_pagado = round(total_pagos + total_abonos_capital, 2)
-        total_deben = round(total_prestamo - total_pagado, 2)
+        total_prestamo_credito = round(monto_base + inyeccion_val, 2)
+        total_pagado_credito = round(pagos_cuota_val + abonos_capital_val, 2)
+        total_deben_credito = round(max(0.0, total_prestamo_credito - total_pagado_credito), 2)
 
-        if total_deben < 0:
-            total_deben = 0
-
-        acumulado_por_sede[sede]["total_prestamo"] += total_prestamo
-        acumulado_por_sede[sede]["total_pagado"] += total_pagado
-        acumulado_por_sede[sede]["total_deben"] += total_deben
+        # Sumar a la sede
+        acumulado_por_sede[sede]["monto_financiado_base"] += monto_base
+        acumulado_por_sede[sede]["total_inyecciones"] += inyeccion_val
+        acumulado_por_sede[sede]["total_prestamo"] += total_prestamo_credito
+        acumulado_por_sede[sede]["pagos_cuotas"] += pagos_cuota_val
+        acumulado_por_sede[sede]["pagos_abonos"] += abonos_capital_val
+        acumulado_por_sede[sede]["total_pagado"] += total_pagado_credito
+        acumulado_por_sede[sede]["total_deben"] += total_deben_credito
 
     reporte_acumulado = list(acumulado_por_sede.values())
 
-    total_prestamo_acumulado = sum(f["total_prestamo"] for f in reporte_acumulado)
-    total_pagado_acumulado = sum(f["total_pagado"] for f in reporte_acumulado)
-    total_deben_acumulado = sum(f["total_deben"] for f in reporte_acumulado)
+    # Totales consolidados para el pie de tabla
+    total_monto_base_acumulado = round(sum(f["monto_financiado_base"] for f in reporte_acumulado), 2)
+    total_inyecciones_acumulado = round(sum(f["total_inyecciones"] for f in reporte_acumulado), 2)
+    total_prestamo_acumulado = round(sum(f["total_prestamo"] for f in reporte_acumulado), 2)
+    total_pagos_cuotas_acumulado = round(sum(f["pagos_cuotas"] for f in reporte_acumulado), 2)
+    total_pagos_abonos_acumulado = round(sum(f["pagos_abonos"] for f in reporte_acumulado), 2)
+    total_pagado_acumulado = round(sum(f["total_pagado"] for f in reporte_acumulado), 2)
+    total_deben_acumulado = round(max(0.0, total_prestamo_acumulado - total_pagado_acumulado), 2)
 
     return render_template(
         'reporte_financiero.html',
         anio_actual=anio_actual,
         anio_seleccionado=anio_seleccionado,
-        anios_disponibles=list(range(2022, anio_actual + 2)),
-        mes_seleccionado=mes_seleccionado,
+        anios_disponibles=anios_disponibles,
+        mes_seleccionado=mes_seleccionado_val,
+        meses_nombres=meses_nombres,
         sede_seleccionada=sede_seleccionada,
         sedes_disponibles=sedes_disponibles,
         reporte_acumulado=reporte_acumulado,
+        total_monto_base_acumulado=total_monto_base_acumulado,
+        total_inyecciones_acumulado=total_inyecciones_acumulado,
         total_prestamo_acumulado=total_prestamo_acumulado,
+        total_pagos_cuotas_acumulado=total_pagos_cuotas_acumulado,
+        total_pagos_abonos_acumulado=total_pagos_abonos_acumulado,
         total_pagado_acumulado=total_pagado_acumulado,
         total_deben_acumulado=total_deben_acumulado,
         **datos
@@ -4535,10 +5045,6 @@ def imprimir_solo_creditos_al_dia():
     """
     hoy = date.today()
     creditos = Credito.query.all()
-
-    print("\n" + "="*50)
-    print(" INICIO: REPORTE DE CRÉDITOS ESTRICTAMENTE AL DÍA ")
-    print("="*50)
 
     contador_al_dia = 0
     suma_general=0.0
@@ -4593,18 +5099,24 @@ def imprimir_solo_creditos_al_dia():
         cliente = getattr(credito, 'cliente', 'N/A')
         sede = getattr(credito, 'sede', 'N/A')
 
-        # Impresión limpia y organizada en consola
-        print(f"[{contador_al_dia}] ID: {credito.id} | Pagaré: {pagare} | Sede: {sede} | Cliente: {cliente} | Monto Base: \({monto_base:,.0f} | Inyecciones:\){total_inyecciones:,.0f} | Total: ${valor_total_con_inyecciones:,.0f}")
-
-    print("="*50)
-    print(f" TOTAL DE CRÉDITOS AL DÍA ENCONTRADOS: {contador_al_dia}")
-    print(f"SUMA TOTAL: {suma_general}")
-    print("="*50 + "\n")
-
 @app.route('/probar_al_dia')
 def probar_al_dia():
     imprimir_solo_creditos_al_dia()
     return "¡Revisa tu consola de Python/Flask para ver el listado impreso!"
+
+from flask import request, redirect, session, send_file
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from io import BytesIO
+from datetime import date
+
+from flask import request, redirect, session, send_file
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from io import BytesIO
+from datetime import date
 
 @app.route('/reporte_financiero/excel')
 def exportar_reporte_excel():
@@ -4612,130 +5124,251 @@ def exportar_reporte_excel():
         return redirect('/login')
 
     anio_actual = date.today().year
-    anio_seleccionado = request.args.get('anio', type=int) or anio_actual
+    anio_seleccionado = request.args.get('anio', default=anio_actual, type=int)
+    mes_seleccionado = request.args.get('mes', default='TODOS', type=str).strip().upper()
     sede_seleccionada = request.args.get('sede', default='TODAS', type=str).strip().upper()
 
-    datos = construir_datos_reporte(anio_seleccionado, sede_seleccionada)
+    datos = construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_seleccionado)
+
+    # --- OBTENCIÓN DINÁMICA DE SEDES ---
+    lista_sedes = [item["sede"] for item in datos.get("resumen_por_sede", []) if item.get("sede") != "TODAS"]
 
     wb = Workbook()
+
+    fill_header = PatternFill("solid", fgColor="0B2F4F")
+    fill_sub = PatternFill("solid", fgColor="F0F6FF")
+    fill_totales = PatternFill("solid", fgColor="E2E8F0")
+    
+    font_white = Font(name="Calibri", color="FFFFFF", bold=True, size=11)
+    font_bold = Font(name="Calibri", bold=True, size=11)
+    font_title = Font(name="Calibri", bold=True, size=14, color="0B2F4F")
+    
+    center = Alignment(horizontal="center", vertical="center")
+    align_left = Alignment(horizontal="left", vertical="center")
+    align_right = Alignment(horizontal="right", vertical="center")
+    
+    border_thin = Border(
+        left=Side(style='thin', color='CBD5E1'),
+        right=Side(style='thin', color='CBD5E1'),
+        top=Side(style='thin', color='CBD5E1'),
+        bottom=Side(style='thin', color='CBD5E1')
+    )
+    border_total = Border(
+        top=Side(style='thin', color='000000'),
+        bottom=Side(style='double', color='000000')
+    )
+
+    fmt_cop = '$ #,##0;($ #,##0);"-"'
+    texto_periodo = (
+        f"Periodo: Mes {mes_seleccionado} - Año {anio_seleccionado} | Sede: {sede_seleccionada}"
+        if mes_seleccionado != 'TODOS'
+        else f"Consolidado Anual {anio_seleccionado} | Sede: {sede_seleccionada}"
+    )
+
+    # HOJA 1: RESUMEN GENERAL
     ws1 = wb.active
     ws1.title = "Resumen General"
+    ws1.views.sheetView[0].showGridLines = True
 
-    # Estilos básicos
-    fill_header = PatternFill("solid", fgColor="1F4E78")
-    fill_sub = PatternFill("solid", fgColor="D9EAF7")
-    font_white = Font(color="FFFFFF", bold=True)
-    font_bold = Font(bold=True)
-    center = Alignment(horizontal="center", vertical="center")
+    ws1["A1"] = "REPORTE FINANCIERO GERENCIAL"
+    ws1["A1"].font = font_title
+    ws1["A2"] = texto_periodo
+    ws1["A2"].font = Font(name="Calibri", italic=True, size=10, color="475569")
 
-    # Título
-    ws1["A1"] = f"Reporte Financiero - Año {anio_seleccionado} - Sede {sede_seleccionada}"
-    ws1["A1"].font = Font(bold=True, size=14)
+    ws1["A4"], ws1["B4"] = "Concepto Indicador", "Valor"
+    for c in ["A4", "B4"]:
+        ws1[c].fill, ws1[c].font, ws1[c].alignment = fill_header, font_white, center
 
-    # Resumen general
-    ws1["A3"] = "Concepto"
-    ws1["B3"] = "Valor"
-    for c in ["A3", "B3"]:
-        ws1[c].fill = fill_header
-        ws1[c].font = font_white
-        ws1[c].alignment = center
-
-    resumen_general = datos["resumen_general"]
+    r = datos.get("resumen_general", {})
     filas_general = [
-        ("Total prestado", resumen_general["total_prestado"]),
-        ("Total recaudado", resumen_general["total_recaudado"]),
-        ("Saldo actual total", resumen_general["saldo_actual_total"]),
-        ("Interés corriente causado", resumen_general["interes_corriente_causado"]),
-        ("Interés corriente recaudado", resumen_general["interes_corriente_recaudado"]),
-        ("Mora causada", resumen_general["mora_causada"]),
-        ("Mora recaudada", resumen_general["mora_recaudada"]),
+        ("Total prestado", r.get("total_prestado", 0)),
+        ("Total recaudado", r.get("total_recaudado", 0)),
+        ("Saldo actual total", r.get("saldo_actual_total", 0)),
+        ("Interés corriente causado", r.get("interes_corriente_causado", 0)),
+        ("Interés corriente recaudado", r.get("interes_corriente_recaudado", 0)),
+        ("Mora causada", r.get("mora_causada", 0)),
+        ("Mora recaudada", r.get("mora_recaudada", 0)),
+        ("Diferencia Total", r.get("diferencia_total", 0)),
     ]
 
-    fila = 4
+    fila = 5
     for concepto, valor in filas_general:
         ws1[f"A{fila}"] = concepto
         ws1[f"B{fila}"] = valor
-        ws1[f"B{fila}"].number_format = '$ #,##0'
+        ws1[f"A{fila}"].border = border_thin
+        ws1[f"B{fila}"].border = border_thin
+        ws1[f"B{fila}"].number_format = fmt_cop
+        if concepto == "Diferencia Total":
+            ws1[f"A{fila}"].font = ws1[f"B{fila}"].font = font_bold
+            ws1[f"A{fila}"].fill = ws1[f"B{fila}"].fill = fill_sub
         fila += 1
 
-    # Hoja por sede
+    # HOJA 2: POR SEDE
     ws2 = wb.create_sheet("Por Sede")
+    ws2.views.sheetView[0].showGridLines = True
+    ws2["A1"] = f"Resumen por Sede ({texto_periodo})"
+    ws2["A1"].font = font_title
+
     headers_sede = [
-        "Sede", "Total prestado", "Total recaudado", "Saldo actual",
-        "Interés corriente causado", "Interés corriente recaudado",
-        "Mora causada", "Mora recaudada"
+        "Sede", "Total Prestado", "Total Recaudado", "Saldo Actual",
+        "Int. Causado", "Int. Recaudado", "Mora Causada", "Mora Recaudada", "Diferencia Total"
     ]
-    ws2.append(headers_sede)
-    for col in range(1, len(headers_sede) + 1):
-        cell = ws2.cell(row=1, column=col)
-        cell.fill = fill_header
-        cell.font = font_white
-        cell.alignment = center
+    ws2.row_dimensions[3].height = 24
+    for col_idx, text in enumerate(headers_sede, 1):
+        cell = ws2.cell(row=3, column=col_idx, value=text)
+        cell.fill, cell.font, cell.alignment = fill_header, font_white, center
 
-    for item in datos["resumen_por_sede"]:
-        ws2.append([
-            item["sede"],
-            item["total_prestado"],
-            item["total_recaudado"],
-            item["saldo_actual"],
-            item["interes_corriente_causado"],
-            item["interes_corriente_recaudado"],
-            item["mora_causada"],
-            item["mora_recaudada"],
-        ])
+    fila = 4
+    tot_p = tot_r = tot_s = tot_ic = tot_ir = tot_mc = tot_mr = tot_d = 0
+    for item in datos.get("resumen_por_sede", []):
+        tot_p += item.get("total_prestado", 0)
+        tot_r += item.get("total_recaudado", 0)
+        tot_s += item.get("saldo_actual", 0)
+        tot_ic += item.get("interes_corriente_causado", 0)
+        tot_ir += item.get("interes_corriente_recaudado", 0)
+        tot_mc += item.get("mora_causada", 0)
+        tot_mr += item.get("mora_recaudada", 0)
+        tot_d += item.get("diferencia_total", 0)
 
-    for row in ws2.iter_rows(min_row=2, min_col=2, max_col=8):
-        for cell in row:
-            cell.number_format = '$ #,##0'
+        valores = [
+            item.get("sede", ""), item.get("total_prestado", 0), item.get("total_recaudado", 0),
+            item.get("saldo_actual", 0), item.get("interes_corriente_causado", 0),
+            item.get("interes_corriente_recaudado", 0), item.get("mora_causada", 0),
+            item.get("mora_recaudada", 0), item.get("diferencia_total", 0)
+        ]
+        for col_idx, val in enumerate(valores, 1):
+            cell = ws2.cell(row=fila, column=col_idx, value=val)
+            cell.border = border_thin
+            if col_idx == 1:
+                cell.alignment, cell.font = align_left, font_bold
+            else:
+                cell.number_format, cell.alignment = fmt_cop, align_right
+        fila += 1
 
-    # Hoja mensual
-    ws3 = wb.create_sheet("Resumen Mensual")
-    headers_mes = [
-        "Mes", "Interés corriente causado", "Interés corriente recaudado",
-        "Mora causada", "Mora recaudada", "Total ingresos"
-    ]
-    ws3.append(headers_mes)
-    for col in range(1, len(headers_mes) + 1):
-        cell = ws3.cell(row=1, column=col)
-        cell.fill = fill_header
-        cell.font = font_white
-        cell.alignment = center
+    totales_sede = ["TOTALES", tot_p, tot_r, tot_s, tot_ic, tot_ir, tot_mc, tot_mr, tot_d]
+    for col_idx, val in enumerate(totales_sede, 1):
+        cell = ws2.cell(row=fila, column=col_idx, value=val)
+        cell.font, cell.fill, cell.border = font_bold, fill_totales, border_total
+        cell.alignment = align_left if col_idx == 1 else align_right
+        if col_idx > 1:
+            cell.number_format = fmt_cop
 
-    for item in datos["resumen_mensual"]:
-        ws3.append([
-            item["mes"],
-            item["interes_corriente_causado"],
-            item["interes_corriente_recaudado"],
-            item["mora_causada"],
-            item["mora_recaudada"],
-            item["total_ingresos"],
-        ])
+    # DETALLES ANUALES (SI CORRESPONDE)
+    if mes_seleccionado == 'TODOS':
+        if "resumen_mensual" in datos:
+            ws3 = wb.create_sheet("Resumen Mensual")
+            ws3.views.sheetView[0].showGridLines = True
+            ws3["A1"] = f"Resumen Consolidado Mensual - Año {anio_seleccionado}"
+            ws3["A1"].font = font_title
 
-    for row in ws3.iter_rows(min_row=2, min_col=2, max_col=6):
-        for cell in row:
-            cell.number_format = '$ #,##0'
+            headers_mes = [
+                "Mes", "Int. Causado", "Int. Recaudado", "Mora Causada", 
+                "Mora Recaudada", "Dif. Interés", "Dif. Mora", "Total Ingresos"
+            ]
+            ws3.row_dimensions[3].height = 24
+            for col_idx, text in enumerate(headers_mes, 1):
+                cell = ws3.cell(row=3, column=col_idx, value=text)
+                cell.fill, cell.font, cell.alignment = fill_header, font_white, center
 
-    # Anchos
-    for ws in [ws1, ws2, ws3]:
+            fila = 4
+            for item in datos["resumen_mensual"]:
+                valores = [
+                    item.get("mes", ""), item.get("interes_corriente_causado", 0),
+                    item.get("interes_corriente_recaudado", 0), item.get("mora_causada", 0),
+                    item.get("mora_recaudada", 0), item.get("diferencia_interes_corriente", 0),
+                    item.get("diferencia_mora", 0), item.get("total_ingresos", 0)
+                ]
+                for col_idx, val in enumerate(valores, 1):
+                    cell = ws3.cell(row=fila, column=col_idx, value=val)
+                    cell.border = border_thin
+                    if col_idx == 1:
+                        cell.alignment, cell.font = align_left, font_bold
+                    else:
+                        cell.number_format, cell.alignment = fmt_cop, align_right
+                fila += 1
+
+        # FUNCIÓN AUXILIAR CON CONSTRUCCIÓN DINÁMICA DE MATRIZ
+        def agregar_matriz_excel_dinamica(ws, titulo, filas, totales, fila_inicio, sedes):
+            ws.cell(row=fila_inicio, column=1, value=titulo).font = Font(name="Calibri", bold=True, size=12, color="0B2F4F")
+            fila_inicio += 1
+            
+            headers = ["Mes"] + sedes + ["TOTAL"]
+            ws.row_dimensions[fila_inicio].height = 20
+            for col_idx, h in enumerate(headers, 1):
+                cell = ws.cell(row=fila_inicio, column=col_idx, value=h)
+                cell.fill, cell.font, cell.alignment = fill_header, font_white, center
+            
+            fila_inicio += 1
+            for f in filas:
+                ws.cell(row=fila_inicio, column=1, value=f.get("mes", "")).font = font_bold
+                ws.cell(row=fila_inicio, column=1).alignment = align_left
+                
+                # Iteración dinámica por cada sede
+                for i, s in enumerate(sedes, start=2):
+                    c = ws.cell(row=fila_inicio, column=i, value=f.get(s, 0))
+                    c.number_format, c.alignment, c.border = fmt_cop, align_right, border_thin
+                
+                # Columna TOTAL
+                col_total = len(sedes) + 2
+                c_tot = ws.cell(row=fila_inicio, column=col_total, value=f.get("TOTAL", 0))
+                c_tot.number_format, c_tot.alignment, c_tot.border = fmt_cop, align_right, border_thin
+                c_tot.font, c_tot.fill = font_bold, fill_sub
+                
+                fila_inicio += 1
+
+            # Fila de Totales Generales
+            ws.cell(row=fila_inicio, column=1, value="TOTALES").font = font_bold
+            ws.cell(row=fila_inicio, column=1).alignment = align_left
+            ws.cell(row=fila_inicio, column=1).fill, ws.cell(row=fila_inicio, column=1).border = fill_totales, border_total
+
+            for i, s in enumerate(sedes, start=2):
+                c = ws.cell(row=fila_inicio, column=i, value=totales.get(s, 0))
+                c.number_format, c.alignment = fmt_cop, align_right
+                c.font, c.fill, c.border = font_bold, fill_totales, border_total
+
+            col_total = len(sedes) + 2
+            c_tot = ws.cell(row=fila_inicio, column=col_total, value=totales.get("TOTAL", 0))
+            c_tot.number_format, c_tot.alignment = fmt_cop, align_right
+            c_tot.font, c_tot.fill, c_tot.border = font_bold, fill_totales, border_total
+
+            return fila_inicio + 3
+
+        ws_detalles = wb.create_sheet("Detalle Mensual por Sede")
+        ws_detalles.views.sheetView[0].showGridLines = True
+        
+        row_curr = 1
+        tablas_config = [
+            ("tabla_intereses_causados", "totales_intereses_causados", "1. Intereses Corrientes Causados por Sede"),
+            ("tabla_intereses_recaudados", "totales_intereses_recaudados", "2. Intereses Corrientes Recaudados por Sede"),
+            ("tabla_mora_causada", "totales_mora_causada", "3. Mora Causada por Sede"),
+            ("tabla_mora_recaudada", "totales_mora_recaudada", "4. Mora Recaudada por Sede"),
+            ("tabla_diferencia_intereses", "totales_diferencia_intereses", "5. Diferencia de Intereses Corrientes por Sede"),
+            ("tabla_diferencia_mora", "totales_diferencia_mora", "6. Diferencia de Mora por Sede")
+        ]
+
+        for clave_tabla, clave_totales, titulo in tablas_config:
+            if clave_tabla in datos:
+                row_curr = agregar_matriz_excel_dinamica(
+                    ws_detalles, titulo, datos[clave_tabla], datos.get(clave_totales, {}), row_curr, lista_sedes
+                )
+
+    # AUTO-AJUSTE ANCHO COLUMNAS
+    for ws in wb.worksheets:
         for col in ws.columns:
-            max_length = 0
-            col_letter = col[0].column_letter
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
             for cell in col:
-                try:
-                    max_length = max(max_length, len(str(cell.value)))
-                except:
-                    pass
-            ws.column_dimensions[col_letter].width = min(max_length + 3, 28)
+                if cell.value is not None and not (cell.row in [1, 2] and cell.column == 1):
+                    max_len = max(max_len, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = max(max_len + 4, 15)
 
     output = BytesIO()
     wb.save(output)
     output.seek(0)
-
-    nombre = f"reporte_financiero_{anio_seleccionado}_{sede_seleccionada}.xlsx"
     return send_file(
-        output,
-        as_attachment=True,
-        download_name=nombre,
+        output, 
+        as_attachment=True, 
+        download_name=f"reporte_financiero_{anio_seleccionado}_{mes_seleccionado}_{sede_seleccionada}.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
@@ -4744,331 +5377,245 @@ def exportar_reporte_pdf():
     if 'user' not in session:
         return redirect('/login')
 
-    from reportlab.platypus import (
-        SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
-    )
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import landscape, letter
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import inch
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
     import os
+    from io import BytesIO
+    from datetime import date
 
     anio_actual = date.today().year
-    anio_seleccionado = request.args.get('anio', type=int) or anio_actual
+    anio_seleccionado = request.args.get('anio', default=anio_actual, type=int)
+    mes_seleccionado = request.args.get('mes', default='TODOS', type=str).strip().upper()
     sede_seleccionada = request.args.get('sede', default='TODAS', type=str).strip().upper()
 
-    datos = construir_datos_reporte(anio_seleccionado, sede_seleccionada)
+    datos = construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_seleccionado)
+
+    # --- OBTENCIÓN DINÁMICA DE SEDES ---
+    lista_sedes = [item["sede"] for item in datos.get("resumen_por_sede", []) if item.get("sede") != "TODAS"]
 
     output = BytesIO()
-
-    doc = SimpleDocTemplate(
-        output,
-        pagesize=landscape(letter),
-        rightMargin=25,
-        leftMargin=25,
-        topMargin=25,
-        bottomMargin=25
-    )
-
+    doc = SimpleDocTemplate(output, pagesize=landscape(letter), rightMargin=25, leftMargin=25, topMargin=25, bottomMargin=25)
     styles = getSampleStyleSheet()
 
-    azul = colors.HexColor("#0b2f4f")
-    dorado = colors.HexColor("#d6a21e")
+    azul_principal = colors.HexColor("#0b2f4f")
+    gris_oscuro = colors.HexColor("#1f2937")
     gris_claro = colors.HexColor("#f4f7fb")
-    borde = colors.HexColor("#d9e2ec")
-    verde = colors.HexColor("#15803d")
-    rojo = colors.HexColor("#b91c1c")
-    naranja = colors.HexColor("#c76a00")
+    borde = colors.HexColor("#cbd5e1")
+    fondo_tarjeta_suave = colors.HexColor("#f0f6ff")
+    texto_tarjeta_titulo = colors.HexColor("#475569")
+    texto_tarjeta_valor = colors.HexColor("#0b2f4f")
 
-    titulo_style = ParagraphStyle(
-        "TituloCRV",
-        parent=styles["Title"],
-        fontSize=22,
-        textColor=azul,
-        alignment=TA_CENTER,
-        spaceAfter=8
-    )
-
-    subtitulo_style = ParagraphStyle(
-        "SubtituloCRV",
-        parent=styles["Normal"],
-        fontSize=10,
-        textColor=colors.HexColor("#334155"),
-        alignment=TA_CENTER,
-        spaceAfter=12
-    )
-
-    seccion_style = ParagraphStyle(
-        "SeccionCRV",
-        parent=styles["Heading2"],
-        fontSize=14,
-        textColor=azul,
-        spaceBefore=12,
-        spaceAfter=8
-    )
-
-    normal_style = ParagraphStyle(
-        "NormalCRV",
-        parent=styles["Normal"],
-        fontSize=9,
-        textColor=colors.HexColor("#1f2937"),
-        alignment=TA_LEFT
-    )
+    titulo_style = ParagraphStyle("T1", parent=styles["Title"], fontSize=20, textColor=azul_principal, alignment=TA_CENTER)
+    subtitulo_style = ParagraphStyle("S1", parent=styles["Normal"], fontSize=9, textColor=colors.HexColor("#334155"), alignment=TA_CENTER)
+    seccion_style = ParagraphStyle("SEC", parent=styles["Heading2"], fontSize=12, textColor=azul_principal, spaceBefore=8, spaceAfter=6)
+    normal_style = ParagraphStyle("N1", parent=styles["Normal"], fontSize=8, textColor=gris_oscuro)
+    cell_right = ParagraphStyle("CR", parent=styles["Normal"], fontSize=8, textColor=gris_oscuro, alignment=TA_RIGHT)
+    cell_left = ParagraphStyle("CL", parent=styles["Normal"], fontSize=8, textColor=gris_oscuro, alignment=TA_LEFT)
+    cell_header = ParagraphStyle("CH", parent=styles["Normal"], fontSize=8, textColor=colors.white, alignment=TA_CENTER)
 
     elementos = []
 
     def agregar_encabezado():
         logo_path = os.path.join(app.static_folder, "logo.png")
-
-        logo = ""
-        if os.path.exists(logo_path):
-            logo = Image(logo_path, width=95, height=58)
-
+        logo = Image(logo_path, width=85, height=50) if os.path.exists(logo_path) else ""
         empresa = Paragraph("""
             <b>CONSTRUCCIONES Y URBANIZACIONES S.A.S</b><br/>
-            NIT: 901.527.083-2<br/>
-            AV. AMBALÁ N° 27-136 - PISO 3<br/>
-            IBAGUÉ - TOLIMA<br/>
-            TELÉFONO: 311 414 5843
+            NIT: 901.527.083-2 | TEL: 311 414 5843<br/>
+            AV. AMBALÁ N° 27-136 - PISO 3 (IBAGUÉ - TOLIMA)
         """, normal_style)
-
-        titulo = Paragraph("REPORTE FINANCIERO", titulo_style)
-        subtitulo = Paragraph(
-            f"Consolidado financiero - Año {anio_seleccionado} - Sede {sede_seleccionada}",
-            subtitulo_style
+        texto_periodo = (
+            f"Mes: {mes_seleccionado} - Año: {anio_seleccionado} - Sede: {sede_seleccionada}"
+            if mes_seleccionado != 'TODOS'
+            else f"Consolidado Anual: {anio_seleccionado} - Sede: {sede_seleccionada}"
         )
+        titulo = Paragraph("REPORTE FINANCIERO GERENCIAL", titulo_style)
+        subtitulo = Paragraph(texto_periodo, subtitulo_style)
 
-        tabla_header = Table(
-            [[logo, [titulo, subtitulo], empresa]],
-            colWidths=[140, 360, 230]
-        )
-
+        tabla_header = Table([[logo, [titulo, subtitulo], empresa]], colWidths=[110, 420, 210])
         tabla_header.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("ALIGN", (0, 0), (0, 0), "LEFT"),
             ("ALIGN", (1, 0), (1, 0), "CENTER"),
             ("ALIGN", (2, 0), (2, 0), "RIGHT"),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
-            ("LINEBELOW", (0, 0), (-1, -1), 1, borde),
+            ("LINEBELOW", (0, 0), (-1, -1), 1, azul_principal),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ]))
-
         elementos.append(tabla_header)
-        elementos.append(Spacer(1, 14))
+        elementos.append(Spacer(1, 10))
 
-    def card(titulo, valor, color_fondo):
+    def card(titulo, valor):
         return [
-            Paragraph(f"<font color='white'><b>{titulo}</b></font>", normal_style),
-            Paragraph(f"<font color='white' size='14'><b>{formato_cop(valor)}</b></font>", normal_style)
+            Paragraph(f"<b>{titulo}</b>", ParagraphStyle('CT', parent=normal_style, fontSize=7, textColor=texto_tarjeta_titulo, alignment=TA_CENTER)),
+            Paragraph(f"<b>{formato_cop(valor)}</b>", ParagraphStyle('CV', parent=normal_style, fontSize=10, textColor=texto_tarjeta_valor, alignment=TA_CENTER))
         ]
 
     def tabla_resumen_general():
         r = datos["resumen_general"]
-
-        data = [
-            [
-                card("TOTAL PRESTADO", r["total_prestado"], azul),
-                card("TOTAL RECAUDADO", r["total_recaudado"], verde),
-                card("SALDO ACTUAL TOTAL", r["saldo_actual_total"], naranja),
-                card("INTERÉS CAUSADO", r["interes_corriente_causado"], colors.HexColor("#6d28d9")),
-            ],
-            [
-                card("INTERÉS RECAUDADO", r["interes_corriente_recaudado"], colors.HexColor("#0e7490")),
-                card("MORA CAUSADA", r["mora_causada"], rojo),
-                card("MORA RECAUDADA", r["mora_recaudada"], colors.HexColor("#1e293b")),
-                card("DIFERENCIA TOTAL", r["diferencia_total"], azul),
-            ]
+        data_kpis = [
+            [card("TOTAL PRESTADO", r["total_prestado"]), card("TOTAL RECAUDADO", r["total_recaudado"]), card("SALDO ACTUAL TOTAL", r["saldo_actual_total"]), card("INTERÉS CAUSADO", r["interes_corriente_causado"])],
+            [card("INTERÉS RECAUDADO", r["interes_corriente_recaudado"]), card("MORA CAUSADA", r["mora_causada"]), card("MORA RECAUDADA", r["mora_recaudada"]), card("DIFERENCIA TOTAL", r["diferencia_total"])]
         ]
-
-        t = Table(data, colWidths=[180, 180, 180, 180], rowHeights=[65, 65])
-
-        t.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#1d4ed8")),
-            ("BACKGROUND", (1, 0), (1, 0), colors.HexColor("#15803d")),
-            ("BACKGROUND", (2, 0), (2, 0), colors.HexColor("#d97706")),
-            ("BACKGROUND", (3, 0), (3, 0), colors.HexColor("#6d28d9")),
-            ("BACKGROUND", (0, 1), (0, 1), colors.HexColor("#0e7490")),
-            ("BACKGROUND", (1, 1), (1, 1), colors.HexColor("#b91c1c")),
-            ("BACKGROUND", (2, 1), (2, 1), colors.HexColor("#1e293b")),
-            ("BACKGROUND", (3, 1), (3, 1), colors.HexColor("#0f172a")),
+        t_kpis = Table(data_kpis, colWidths=[182, 182, 182, 182], rowHeights=[38, 38])
+        t_kpis.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), fondo_tarjeta_suave),
             ("BOX", (0, 0), (-1, -1), 0.5, borde),
-            ("INNERGRID", (0, 0), (-1, -1), 8, colors.white),
+            ("INNERGRID", (0, 0), (-1, -1), 3, colors.white),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 12),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 12),
         ]))
-
-        elementos.append(Paragraph("Resumen general anual", seccion_style))
-        elementos.append(t)
-        elementos.append(Spacer(1, 14))
+        elementos.append(Paragraph("Resumen General de Indicadores", seccion_style))
+        elementos.append(t_kpis)
+        elementos.append(Spacer(1, 10))
 
     def tabla_normal(titulo, headers, filas, col_widths=None):
         elementos.append(Paragraph(titulo, seccion_style))
-
         data = [headers] + filas
-
         if col_widths is None:
-            col_widths = [90] * len(headers)
+            col_widths = [82] * len(headers)
 
         t = Table(data, repeatRows=1, colWidths=col_widths)
-
-        estilo = [
-            ("BACKGROUND", (0, 0), (-1, 0), azul),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, 0), 8),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), azul_principal),
+            ("GRID", (0, 0), (-1, -1), 0.5, borde),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("GRID", (0, 0), (-1, -1), 0.4, borde),
-            ("BACKGROUND", (0, 1), (-1, -1), colors.white),
-            ("FONTSIZE", (0, 1), (-1, -1), 7),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, gris_claro]),
-        ]
-
-        t.setStyle(TableStyle(estilo))
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#e2e8f0")),
+        ]))
         elementos.append(t)
-        elementos.append(Spacer(1, 12))
+        elementos.append(Spacer(1, 10))
 
+    # --- FUNCIONES ADAPTADAS DINÁMICAS PARA PDF ---
+    def filas_tabla_detalle_dinamica(filas, sedes):
+        resultado = []
+        for f in filas:
+            fila_p = [Paragraph(f"<b>{f['mes']}</b>", cell_left)]
+            for s in sedes:
+                fila_p.append(Paragraph(formato_cop(f.get(s, 0)), cell_right))
+            fila_p.append(Paragraph(f"<b>{formato_cop(f.get('TOTAL', 0))}</b>", cell_right))
+            resultado.append(fila_p)
+        return resultado
+
+    def agregar_tabla_detalle_dinamica(titulo, filas, totales, sedes):
+        headers_def = ["Mes"] + sedes + ["TOTAL"]
+        headers_p = [Paragraph(f"<b>{h}</b>", cell_header) for h in headers_def]
+        
+        cuerpo = filas_tabla_detalle_dinamica(filas, sedes)
+        
+        # Fila de Totales
+        totales_p = [Paragraph("<b>TOTALES</b>", cell_left)]
+        for s in sedes:
+            totales_p.append(Paragraph(f"<b>{formato_cop(totales.get(s, 0))}</b>", cell_right))
+        totales_p.append(Paragraph(f"<b>{formato_cop(totales.get('TOTAL', 0))}</b>", cell_right))
+        
+        cuerpo.append(totales_p)
+
+        # Cálculo dinámico de ancho de columnas (742 pt disponible)
+        ancho_total_disponible = 742
+        ancho_mes = 90
+        columnas_numericas = len(sedes) + 1  # Sedes + Total
+        ancho_col_num = (ancho_total_disponible - ancho_mes) / columnas_numericas
+        
+        col_widths = [ancho_mes] + [ancho_col_num] * columnas_numericas
+
+        tabla_normal(titulo, headers_p, cuerpo, col_widths)
+
+    # ---------------------------------------------------------
+    # CONSTRUCCIÓN PÁGINA 1
+    # ---------------------------------------------------------
     agregar_encabezado()
     tabla_resumen_general()
 
     filas_sede = []
-    for item in datos["resumen_por_sede"]:
+    tot_p = tot_r = tot_s = tot_ic = tot_ir = tot_mc = tot_mr = tot_d = 0
+
+    for item in datos.get("resumen_por_sede", []):
+        tot_p += item["total_prestado"]
+        tot_r += item["total_recaudado"]
+        tot_s += item["saldo_actual"]
+        tot_ic += item["interes_corriente_causado"]
+        tot_ir += item["interes_corriente_recaudado"]
+        tot_mc += item["mora_causada"]
+        tot_mr += item["mora_recaudada"]
+        tot_d += item["diferencia_total"]
+
         filas_sede.append([
-            item["sede"],
-            formato_cop(item["total_prestado"]),
-            formato_cop(item["total_recaudado"]),
-            formato_cop(item["saldo_actual"]),
-            formato_cop(item["interes_corriente_causado"]),
-            formato_cop(item["interes_corriente_recaudado"]),
-            formato_cop(item["mora_causada"]),
-            formato_cop(item["mora_recaudada"]),
-            formato_cop(item["diferencia_total"]),
+            Paragraph(f"<b>{item['sede']}</b>", cell_left),
+            Paragraph(formato_cop(item["total_prestado"]), cell_right),
+            Paragraph(formato_cop(item["total_recaudado"]), cell_right),
+            Paragraph(formato_cop(item["saldo_actual"]), cell_right),
+            Paragraph(formato_cop(item["interes_corriente_causado"]), cell_right),
+            Paragraph(formato_cop(item["interes_corriente_recaudado"]), cell_right),
+            Paragraph(formato_cop(item["mora_causada"]), cell_right),
+            Paragraph(formato_cop(item["mora_recaudada"]), cell_right),
+            Paragraph(formato_cop(item["diferencia_total"]), cell_right),
         ])
 
-    tabla_normal(
-        "Resumen por sede",
-        [
-            "Sede", "Prestado", "Recaudado", "Saldo",
-            "Int. causado", "Int. recaudado",
-            "Mora causada", "Mora recaudada", "Dif. total"
-        ],
-        filas_sede,
-        [75, 85, 85, 85, 90, 90, 90, 90, 85]
-    )
+    filas_sede.append([
+        Paragraph("<b>TOTALES</b>", cell_left),
+        Paragraph(f"<b>{formato_cop(tot_p)}</b>", cell_right),
+        Paragraph(f"<b>{formato_cop(tot_r)}</b>", cell_right),
+        Paragraph(f"<b>{formato_cop(tot_s)}</b>", cell_right),
+        Paragraph(f"<b>{formato_cop(tot_ic)}</b>", cell_right),
+        Paragraph(f"<b>{formato_cop(tot_ir)}</b>", cell_right),
+        Paragraph(f"<b>{formato_cop(tot_mc)}</b>", cell_right),
+        Paragraph(f"<b>{formato_cop(tot_mr)}</b>", cell_right),
+        Paragraph(f"<b>{formato_cop(tot_d)}</b>", cell_right),
+    ])
 
-    elementos.append(PageBreak())
-    agregar_encabezado()
+    headers_sede = ["Sede", "Prestado", "Recaudado", "Saldo", "Int. Causado", "Int. Recaudado", "Mora Causada", "Mora Recaudada", "Dif. Total"]
+    headers_sede_p = [Paragraph(f"<b>{h}</b>", cell_header) for h in headers_sede]
+    tit_tabla = f"Resumen por Sede ({mes_seleccionado} {anio_seleccionado})" if mes_seleccionado != 'TODOS' else "Resumen Consolidado por Sede"
+    tabla_normal(tit_tabla, headers_sede_p, filas_sede, [80, 81, 81, 81, 81, 81, 81, 81, 81])
 
-    filas_mes = []
-    for item in datos["resumen_mensual"]:
-        filas_mes.append([
-            item["mes"],
-            formato_cop(item["interes_corriente_causado"]),
-            formato_cop(item["interes_corriente_recaudado"]),
-            formato_cop(item["mora_causada"]),
-            formato_cop(item["mora_recaudada"]),
-            formato_cop(item["diferencia_interes_corriente"]),
-            formato_cop(item["diferencia_mora"]),
-            formato_cop(item["total_ingresos"]),
-        ])
+    # ---------------------------------------------------------
+    # PÁGINAS ADICIONALES (SOLO CONSOLIDADO ANUAL)
+    # ---------------------------------------------------------
+    if mes_seleccionado == 'TODOS' and "resumen_mensual" in datos:
+        elementos.append(PageBreak())
+        agregar_encabezado()
 
-    tabla_normal(
-        "Resumen mensual",
-        [
-            "Mes", "Int. causado", "Int. recaudado",
-            "Mora causada", "Mora recaudada",
-            "Dif. interés", "Dif. mora", "Ingresos"
-        ],
-        filas_mes,
-        [90, 95, 95, 95, 95, 95, 95, 95]
-    )
-
-    elementos.append(PageBreak())
-    agregar_encabezado()
-
-    def filas_tabla_detalle(filas):
-        resultado = []
-        for f in filas:
-            resultado.append([
-                f["mes"],
-                formato_cop(f["IBAGUE"]),
-                formato_cop(f["GIRARDOT"]),
-                formato_cop(f["ESPINAL"]),
-                formato_cop(f["CRV"]),
-                formato_cop(f["TOTAL"]),
+        filas_mes = []
+        for item in datos["resumen_mensual"]:
+            filas_mes.append([
+                Paragraph(f"<b>{item['mes']}</b>", cell_left),
+                Paragraph(formato_cop(item["interes_corriente_causado"]), cell_right),
+                Paragraph(formato_cop(item["interes_corriente_recaudado"]), cell_right),
+                Paragraph(formato_cop(item["mora_causada"]), cell_right),
+                Paragraph(formato_cop(item["mora_recaudada"]), cell_right),
+                Paragraph(formato_cop(item["diferencia_interes_corriente"]), cell_right),
+                Paragraph(formato_cop(item["diferencia_mora"]), cell_right),
+                Paragraph(f"<b>{formato_cop(item['total_ingresos'])}</b>", cell_right),
             ])
-        return resultado
 
-    def agregar_tabla_detalle(titulo, filas, totales):
-        cuerpo = filas_tabla_detalle(filas)
-        cuerpo.append([
-            "TOTALES",
-            formato_cop(totales["IBAGUE"]),
-            formato_cop(totales["GIRARDOT"]),
-            formato_cop(totales["ESPINAL"]),
-            formato_cop(totales["CRV"]),
-            formato_cop(totales["TOTAL"]),
-        ])
+        headers_mes = ["Mes", "Int. Causado", "Int. Recaudado", "Mora Causada", "Mora Recaudada", "Dif. Interés", "Dif. Mora", "Ingresos"]
+        headers_mes_p = [Paragraph(f"<b>{h}</b>", cell_header) for h in headers_mes]
+        tabla_normal("Resumen Consolidado Mensual", headers_mes_p, filas_mes, [90, 91, 91, 91, 91, 91, 91, 92])
 
-        tabla_normal(
-            titulo,
-            ["Mes", "IBAGUE", "GIRARDOT", "ESPINAL", "CRV", "TOTAL"],
-            cuerpo,
-            [110, 115, 115, 115, 115, 115]
-        )
+        # TABLAS DE DETALLE DINÁMICAS (PÁGINAS 3, 4 Y 5)
+        tablas_config = [
+            ("tabla_intereses_causados", "totales_intereses_causados", "Intereses Corrientes Causados por Sede", True),
+            ("tabla_intereses_recaudados", "totales_intereses_recaudados", "Intereses Corrientes Recaudados por Sede", False),
+            ("tabla_mora_causada", "totales_mora_causada", "Mora Causada por Sede", True),
+            ("tabla_mora_recaudada", "totales_mora_recaudada", "Mora Recaudada por Sede", False),
+            ("tabla_diferencia_intereses", "totales_diferencia_intereses", "Diferencia de Intereses Corrientes por Sede", True),
+            ("tabla_diferencia_mora", "totales_diferencia_mora", "Diferencia de Mora por Sede", False)
+        ]
 
-    agregar_tabla_detalle(
-        "Intereses corrientes causados",
-        datos["tabla_intereses_causados"],
-        datos["totales_intereses_causados"]
-    )
-
-    agregar_tabla_detalle(
-        "Intereses corrientes recaudados",
-        datos["tabla_intereses_recaudados"],
-        datos["totales_intereses_recaudados"]
-    )
-
-    elementos.append(PageBreak())
-    agregar_encabezado()
-
-    agregar_tabla_detalle(
-        "Mora causada",
-        datos["tabla_mora_causada"],
-        datos["totales_mora_causada"]
-    )
-
-    agregar_tabla_detalle(
-        "Mora recaudada",
-        datos["tabla_mora_recaudada"],
-        datos["totales_mora_recaudada"]
-    )
-
-    elementos.append(PageBreak())
-    agregar_encabezado()
-
-    agregar_tabla_detalle(
-        "Diferencia intereses corrientes",
-        datos["tabla_diferencia_intereses"],
-        datos["totales_diferencia_intereses"]
-    )
-
-    agregar_tabla_detalle(
-        "Diferencia mora",
-        datos["tabla_diferencia_mora"],
-        datos["totales_diferencia_mora"]
-    )
+        for clave_tabla, clave_totales, titulo, salto_pagina in tablas_config:
+            if clave_tabla in datos:
+                if salto_pagina:
+                    elementos.append(PageBreak())
+                    agregar_encabezado()
+                agregar_tabla_detalle_dinamica(titulo, datos[clave_tabla], datos.get(clave_totales, {}), lista_sedes)
 
     doc.build(elementos)
     output.seek(0)
-
-    nombre = f"reporte_financiero_{anio_seleccionado}_{sede_seleccionada}.pdf"
-
     return send_file(
-        output,
-        as_attachment=True,
-        download_name=nombre,
+        output, 
+        as_attachment=True, 
+        download_name=f"reporte_financiero_{anio_seleccionado}_{mes_seleccionado}_{sede_seleccionada}.pdf",
         mimetype="application/pdf"
     )
 
