@@ -4285,7 +4285,7 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
         return round(total, 2)
 
     # =========================================================================
-    # CÁLCULO DE MORA GENERAL (Homologado)
+    # CÁLCULO DE MORA GENERAL
     # =========================================================================
     mora_causada_total = mora_causada_en_periodo(None, filtro_anio, filtro_mes if filtro_anio else None)
     mora_causada = round(mora_causada_total, 2)
@@ -4403,39 +4403,56 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
     # 4. CONSTRUCCIÓN DEL RESUMEN POR SEDE
     # =========================================================================
     resumen_por_sede = []
-    set_operativos = set(ids_operativos)  # Búsqueda instantánea O(1)
+    set_operativos = set(ids_operativos)
+
+    es_anio_todos = str(anio_seleccionado).upper() == 'TODOS'
+    es_mes_todos = str(mes_seleccionado).upper() == 'TODOS'
+
+    # Normalizar 'TODOS' a None para funciones auxiliares SQL
+    anio_param = None if es_anio_todos else anio_seleccionado
+    mes_param = None if es_mes_todos else mes_seleccionado
+
+    f_anio = None if ('filtro_anio' in locals() and str(filtro_anio).upper() == 'TODOS') else (filtro_anio if 'filtro_anio' in locals() else anio_param)
+    f_mes = None if ('filtro_mes' in locals() and str(filtro_mes).upper() == 'TODOS') else (filtro_mes if 'filtro_mes' in locals() else mes_param)
 
     for sede in sedes_filtradas:
         creditos_sede = creditos_por_sede_map.get(sede, [])
-        creditos_sede_mes = creditos_mes_por_sede_map.get(sede, [])
-        pagos_sede_anio = pagos_por_sede_map.get(sede, [])
-        cuotas_sede_mes = cuotas_mes_por_sede_map.get(sede, [])
-
+        
         # 1. Filtrado de créditos de la sede excluyendo reestructurados
         ids_operativos_sede = [c.id for c in creditos_sede if c.id in set_operativos]
         creditos_sede_validos = [c for c in creditos_sede if c.id in set_operativos]
+
+        # Créditos del periodo
+        creditos_sede_mes = creditos_mes_por_sede_map.get(sede, [])
+        if not creditos_sede_mes and (es_anio_todos or es_mes_todos):
+            creditos_sede_mes = creditos_sede
+
         creditos_sede_mes_validos = [c for c in creditos_sede_mes if c.id in set_operativos]
 
-        # 2. Pagos y cuotas pertenecientes únicamente a créditos operativos
+        # 2. Obtención de pagos y cuotas iniciales desde los mapas del reporte
+        pagos_sede_anio = pagos_por_sede_map.get(sede, [])
+        cuotas_sede_mes = cuotas_mes_por_sede_map.get(sede, [])
+
+        # 3. Pagos y cuotas pertenecientes únicamente a créditos operativos
         pagos_sede_validos = [
             p for p in pagos_sede_anio
             if (getattr(p, 'credito_id', None) or getattr(getattr(p, 'cuota', None), 'credito_id', None)) in set_operativos
         ]
-        cuotas_sede_validas = [(q, c) for q, c in cuotas_sede_mes if c.id in set_operativos]
+        cuotas_sede_validas = [(q, c) for q, c in cuotas_sede_mes if getattr(c, 'id', None) in set_operativos]
 
-        # 3. Capital Prestado (Monto financiado + inyecciones de créditos operativos)
+        # 4. Capital Prestado (Monto financiado + inyecciones de créditos operativos)
         prestado_sede = round(
             sum(float(getattr(c, 'monto_financiado', 0) or 0) for c in creditos_sede_mes_validos)
-            + sum(total_inyecciones_credito(c.id, anio_seleccionado, mes_seleccionado) for c in creditos_sede_mes_validos),
+            + sum(total_inyecciones_credito(c.id, anio_param, mes_param) for c in creditos_sede_mes_validos),
             2
         )
 
-        # 4. Capital Recaudado (Usando la misma lógica global por lista de IDs)
-        recaudado_sede = capital_recaudado_global_filtrado(ids_operativos_sede, anio_seleccionado, mes_seleccionado)
+        # 5. Capital Recaudado
+        recaudado_sede = capital_recaudado_global_filtrado(ids_operativos_sede, anio_param, mes_param)
 
-        # 5. Intereses y Mora
+        # 6. Intereses y Mora
         interes_causado_sede = round(sum(float(getattr(q, 'interes', 0) or 0) for q, c in cuotas_sede_validas), 2)
-        mora_causada_sede = mora_causada_en_periodo(sede, filtro_anio, filtro_mes if filtro_anio else None)
+        mora_causada_sede = mora_causada_en_periodo(sede, f_anio, f_mes if f_anio else None)
 
         interes_recaudado_sede = round(sum(float(getattr(p, 'valor_aplicado_interes', 0) or 0) for p in pagos_sede_validos), 2)
         mora_recaudada_sede = round(sum(float(getattr(p, 'valor_aplicado_mora', 0) or 0) for p in pagos_sede_validos), 2)
@@ -5407,10 +5424,16 @@ def exportar_reporte_pdf():
     from datetime import date
 
     anio_actual = date.today().year
-    anio_seleccionado = request.args.get('anio', default=anio_actual, type=int)
+    
+    # 1. CAPTURA SEGURA DEL PARÁMETRO 'anio'
+    # Si viene un número (ej. "2024"), se convierte a int; si viene "TODOS", se mantiene como 'TODOS'
+    raw_anio = request.args.get('anio', default=str(anio_actual), type=str).strip().upper()
+    anio_seleccionado = int(raw_anio) if raw_anio.isdigit() else 'TODOS'
+    
     mes_seleccionado = request.args.get('mes', default='TODOS', type=str).strip().upper()
     sede_seleccionada = request.args.get('sede', default='TODAS', type=str).strip().upper()
 
+    # Se construyen los datos según la combinación de filtros seleccionados
     datos = construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_seleccionado)
 
     # --- OBTENCIÓN DINÁMICA DE SEDES ---
@@ -5446,11 +5469,15 @@ def exportar_reporte_pdf():
             NIT: 901.527.083-2 | TEL: 311 414 5843<br/>
             AV. AMBALÁ N° 27-136 - PISO 3 (IBAGUÉ - TOLIMA)
         """, normal_style)
-        texto_periodo = (
-            f"Mes: {mes_seleccionado} - Año: {anio_seleccionado} - Sede: {sede_seleccionada}"
-            if mes_seleccionado != 'TODOS'
-            else f"Consolidado Anual: {anio_seleccionado} - Sede: {sede_seleccionada}"
-        )
+        
+        # Etiqueta de período dinámica según los filtros activos
+        if anio_seleccionado == 'TODOS':
+            texto_periodo = f"Histórico General (Todos los Años) - Sede: {sede_seleccionada}"
+        elif mes_seleccionado != 'TODOS':
+            texto_periodo = f"Mes: {mes_seleccionado} - Año: {anio_seleccionado} - Sede: {sede_seleccionada}"
+        else:
+            texto_periodo = f"Consolidado Anual: {anio_seleccionado} - Sede: {sede_seleccionada}"
+
         titulo = Paragraph("REPORTE FINANCIERO GERENCIAL", titulo_style)
         subtitulo = Paragraph(texto_periodo, subtitulo_style)
 
@@ -5475,8 +5502,8 @@ def exportar_reporte_pdf():
     def tabla_resumen_general():
         r = datos["resumen_general"]
         data_kpis = [
-            [card("TOTAL PRESTADO", r["total_prestado"]), card("TOTAL RECAUDADO", r["total_recaudado"]), card("SALDO ACTUAL TOTAL", r["saldo_actual_total"]), card("INTERÉS CAUSADO", r["interes_corriente_causado"])],
-            [card("INTERÉS RECAUDADO", r["interes_corriente_recaudado"]), card("MORA CAUSADA", r["mora_causada"]), card("MORA RECAUDADA", r["mora_recaudada"]), card("DIFERENCIA TOTAL", r["diferencia_total"])]
+            [card("TOTAL PRESTADO", r.get("total_prestado", 0)), card("TOTAL RECAUDADO", r.get("total_recaudado", 0)), card("SALDO ACTUAL TOTAL", r.get("saldo_actual_total", 0)), card("INTERÉS CAUSADO", r.get("interes_corriente_causado", 0))],
+            [card("INTERÉS RECAUDADO", r.get("interes_corriente_recaudado", 0)), card("MORA CAUSADA", r.get("mora_causada", 0)), card("MORA RECAUDADA", r.get("mora_recaudada", 0)), card("DIFERENCIA TOTAL", r.get("diferencia_total", 0))]
         ]
         t_kpis = Table(data_kpis, colWidths=[182, 182, 182, 182], rowHeights=[38, 38])
         t_kpis.setStyle(TableStyle([
@@ -5506,24 +5533,23 @@ def exportar_reporte_pdf():
         elementos.append(t)
         elementos.append(Spacer(1, 10))
 
-    # --- FUNCIONES ADAPTADAS DINÁMICAS PARA PDF ---
     def filas_tabla_detalle_dinamica(filas, sedes):
         resultado = []
         for f in filas:
-            fila_p = [Paragraph(f"<b>{f['mes']}</b>", cell_left)]
+            col_etiqueta = f.get('mes', f.get('anio', ''))
+            fila_p = [Paragraph(f"<b>{col_etiqueta}</b>", cell_left)]
             for s in sedes:
                 fila_p.append(Paragraph(formato_cop(f.get(s, 0)), cell_right))
             fila_p.append(Paragraph(f"<b>{formato_cop(f.get('TOTAL', 0))}</b>", cell_right))
             resultado.append(fila_p)
         return resultado
 
-    def agregar_tabla_detalle_dinamica(titulo, filas, totales, sedes):
-        headers_def = ["Mes"] + sedes + ["TOTAL"]
+    def agregar_tabla_detalle_dinamica(titulo, filas, totales, sedes, nombre_columna_inicial="Mes"):
+        headers_def = [nombre_columna_inicial] + sedes + ["TOTAL"]
         headers_p = [Paragraph(f"<b>{h}</b>", cell_header) for h in headers_def]
         
         cuerpo = filas_tabla_detalle_dinamica(filas, sedes)
         
-        # Fila de Totales
         totales_p = [Paragraph("<b>TOTALES</b>", cell_left)]
         for s in sedes:
             totales_p.append(Paragraph(f"<b>{formato_cop(totales.get(s, 0))}</b>", cell_right))
@@ -5531,18 +5557,16 @@ def exportar_reporte_pdf():
         
         cuerpo.append(totales_p)
 
-        # Cálculo dinámico de ancho de columnas (742 pt disponible)
         ancho_total_disponible = 742
-        ancho_mes = 90
-        columnas_numericas = len(sedes) + 1  # Sedes + Total
-        ancho_col_num = (ancho_total_disponible - ancho_mes) / columnas_numericas
-        
-        col_widths = [ancho_mes] + [ancho_col_num] * columnas_numericas
+        ancho_inicial = 90
+        columnas_numericas = len(sedes) + 1
+        ancho_col_num = (ancho_total_disponible - ancho_inicial) / columnas_numericas
+        col_widths = [ancho_inicial] + [ancho_col_num] * columnas_numericas
 
         tabla_normal(titulo, headers_p, cuerpo, col_widths)
 
     # ---------------------------------------------------------
-    # CONSTRUCCIÓN PÁGINA 1
+    # PÁGINA 1: RESUMEN GENERAL Y RESUMEN POR SEDE
     # ---------------------------------------------------------
     agregar_encabezado()
     tabla_resumen_general()
@@ -5551,25 +5575,25 @@ def exportar_reporte_pdf():
     tot_p = tot_r = tot_s = tot_ic = tot_ir = tot_mc = tot_mr = tot_d = 0
 
     for item in datos.get("resumen_por_sede", []):
-        tot_p += item["total_prestado"]
-        tot_r += item["total_recaudado"]
-        tot_s += item["saldo_actual"]
-        tot_ic += item["interes_corriente_causado"]
-        tot_ir += item["interes_corriente_recaudado"]
-        tot_mc += item["mora_causada"]
-        tot_mr += item["mora_recaudada"]
-        tot_d += item["diferencia_total"]
+        tot_p += item.get("total_prestado", 0)
+        tot_r += item.get("total_recaudado", 0)
+        tot_s += item.get("saldo_actual", 0)
+        tot_ic += item.get("interes_corriente_causado", 0)
+        tot_ir += item.get("interes_corriente_recaudado", 0)
+        tot_mc += item.get("mora_causada", 0)
+        tot_mr += item.get("mora_recaudada", 0)
+        tot_d += item.get("diferencia_total", 0)
 
         filas_sede.append([
             Paragraph(f"<b>{item['sede']}</b>", cell_left),
-            Paragraph(formato_cop(item["total_prestado"]), cell_right),
-            Paragraph(formato_cop(item["total_recaudado"]), cell_right),
-            Paragraph(formato_cop(item["saldo_actual"]), cell_right),
-            Paragraph(formato_cop(item["interes_corriente_causado"]), cell_right),
-            Paragraph(formato_cop(item["interes_corriente_recaudado"]), cell_right),
-            Paragraph(formato_cop(item["mora_causada"]), cell_right),
-            Paragraph(formato_cop(item["mora_recaudada"]), cell_right),
-            Paragraph(formato_cop(item["diferencia_total"]), cell_right),
+            Paragraph(formato_cop(item.get("total_prestado", 0)), cell_right),
+            Paragraph(formato_cop(item.get("total_recaudado", 0)), cell_right),
+            Paragraph(formato_cop(item.get("saldo_actual", 0)), cell_right),
+            Paragraph(formato_cop(item.get("interes_corriente_causado", 0)), cell_right),
+            Paragraph(formato_cop(item.get("interes_corriente_recaudado", 0)), cell_right),
+            Paragraph(formato_cop(item.get("mora_causada", 0)), cell_right),
+            Paragraph(formato_cop(item.get("mora_recaudada", 0)), cell_right),
+            Paragraph(formato_cop(item.get("diferencia_total", 0)), cell_right),
         ])
 
     filas_sede.append([
@@ -5590,9 +5614,49 @@ def exportar_reporte_pdf():
     tabla_normal(tit_tabla, headers_sede_p, filas_sede, [80, 81, 81, 81, 81, 81, 81, 81, 81])
 
     # ---------------------------------------------------------
-    # PÁGINAS ADICIONALES (SOLO CONSOLIDADO ANUAL)
+    # CASO A: HISTÓRICO DE TODOS LOS AÑOS (anio == 'TODOS')
     # ---------------------------------------------------------
-    if mes_seleccionado == 'TODOS' and "resumen_mensual" in datos:
+    if anio_seleccionado == 'TODOS' and "resumen_anual" in datos:
+        elementos.append(PageBreak())
+        agregar_encabezado()
+
+        filas_anio = []
+        for item in datos["resumen_anual"]:
+            filas_anio.append([
+                Paragraph(f"<b>{item['anio']}</b>", cell_left),
+                Paragraph(formato_cop(item.get("interes_corriente_causado", 0)), cell_right),
+                Paragraph(formato_cop(item.get("interes_corriente_recaudado", 0)), cell_right),
+                Paragraph(formato_cop(item.get("mora_causada", 0)), cell_right),
+                Paragraph(formato_cop(item.get("mora_recaudada", 0)), cell_right),
+                Paragraph(formato_cop(item.get("diferencia_interes_corriente", 0)), cell_right),
+                Paragraph(formato_cop(item.get("diferencia_mora", 0)), cell_right),
+                Paragraph(f"<b>{formato_cop(item.get('total_ingresos', 0))}</b>", cell_right),
+            ])
+
+        headers_anio = ["Año", "Int. Causado", "Int. Recaudado", "Mora Causada", "Mora Recaudada", "Dif. Interés", "Dif. Mora", "Ingresos"]
+        headers_anio_p = [Paragraph(f"<b>{h}</b>", cell_header) for h in headers_anio]
+        tabla_normal("Resumen Consolidado por Años", headers_anio_p, filas_anio, [90, 91, 91, 91, 91, 91, 91, 92])
+
+        tablas_config = [
+            ("tabla_intereses_causados", "totales_intereses_causados", "Intereses Corrientes Causados por Sede (Años)", True),
+            ("tabla_intereses_recaudados", "totales_intereses_recaudados", "Intereses Corrientes Recaudados por Sede (Años)", False),
+            ("tabla_mora_causada", "totales_mora_causada", "Mora Causada por Sede (Años)", True),
+            ("tabla_mora_recaudada", "totales_mora_recaudada", "Mora Recaudada por Sede (Años)", False),
+            ("tabla_diferencia_intereses", "totales_diferencia_intereses", "Diferencia de Intereses Corrientes por Sede (Años)", True),
+            ("tabla_diferencia_mora", "totales_diferencia_mora", "Diferencia de Mora por Sede (Años)", False)
+        ]
+
+        for clave_tabla, clave_totales, titulo, salto_pagina in tablas_config:
+            if clave_tabla in datos:
+                if salto_pagina:
+                    elementos.append(PageBreak())
+                    agregar_encabezado()
+                agregar_tabla_detalle_dinamica(titulo, datos[clave_tabla], datos.get(clave_totales, {}), lista_sedes, nombre_columna_inicial="Año")
+
+    # ---------------------------------------------------------
+    # CASO B: CONSOLIDADO ANUAL DE UN AÑO ESPECÍFICO (mes == 'TODOS')
+    # ---------------------------------------------------------
+    elif mes_seleccionado == 'TODOS' and "resumen_mensual" in datos:
         elementos.append(PageBreak())
         agregar_encabezado()
 
@@ -5600,20 +5664,19 @@ def exportar_reporte_pdf():
         for item in datos["resumen_mensual"]:
             filas_mes.append([
                 Paragraph(f"<b>{item['mes']}</b>", cell_left),
-                Paragraph(formato_cop(item["interes_corriente_causado"]), cell_right),
-                Paragraph(formato_cop(item["interes_corriente_recaudado"]), cell_right),
-                Paragraph(formato_cop(item["mora_causada"]), cell_right),
-                Paragraph(formato_cop(item["mora_recaudada"]), cell_right),
-                Paragraph(formato_cop(item["diferencia_interes_corriente"]), cell_right),
-                Paragraph(formato_cop(item["diferencia_mora"]), cell_right),
-                Paragraph(f"<b>{formato_cop(item['total_ingresos'])}</b>", cell_right),
+                Paragraph(formato_cop(item.get("interes_corriente_causado", 0)), cell_right),
+                Paragraph(formato_cop(item.get("interes_corriente_recaudado", 0)), cell_right),
+                Paragraph(formato_cop(item.get("mora_causada", 0)), cell_right),
+                Paragraph(formato_cop(item.get("mora_recaudada", 0)), cell_right),
+                Paragraph(formato_cop(item.get("diferencia_interes_corriente", 0)), cell_right),
+                Paragraph(formato_cop(item.get("diferencia_mora", 0)), cell_right),
+                Paragraph(f"<b>{formato_cop(item.get('total_ingresos', 0))}</b>", cell_right),
             ])
 
         headers_mes = ["Mes", "Int. Causado", "Int. Recaudado", "Mora Causada", "Mora Recaudada", "Dif. Interés", "Dif. Mora", "Ingresos"]
         headers_mes_p = [Paragraph(f"<b>{h}</b>", cell_header) for h in headers_mes]
         tabla_normal("Resumen Consolidado Mensual", headers_mes_p, filas_mes, [90, 91, 91, 91, 91, 91, 91, 92])
 
-        # TABLAS DE DETALLE DINÁMICAS (PÁGINAS 3, 4 Y 5)
         tablas_config = [
             ("tabla_intereses_causados", "totales_intereses_causados", "Intereses Corrientes Causados por Sede", True),
             ("tabla_intereses_recaudados", "totales_intereses_recaudados", "Intereses Corrientes Recaudados por Sede", False),
@@ -5628,7 +5691,7 @@ def exportar_reporte_pdf():
                 if salto_pagina:
                     elementos.append(PageBreak())
                     agregar_encabezado()
-                agregar_tabla_detalle_dinamica(titulo, datos[clave_tabla], datos.get(clave_totales, {}), lista_sedes)
+                agregar_tabla_detalle_dinamica(titulo, datos[clave_tabla], datos.get(clave_totales, {}), lista_sedes, nombre_columna_inicial="Mes")
 
     doc.build(elementos)
     output.seek(0)
@@ -6765,7 +6828,7 @@ def enviar_paz_y_salvo_por_correo(credito_id):
         fecha_credito_larga = fecha_documento_es(fecha_credito)
 
         fecha_cancelacion = fecha_documento_es(fecha_cancelacion)
-        
+
         html_paz = render_template(
             'paz_y_salvo_documento.html', 
             credito=credito,
