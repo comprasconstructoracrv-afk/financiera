@@ -2300,6 +2300,67 @@ def ver_creditos_cancelados_resumen():
         valor_total=valor_total
     )
 
+from flask import render_template, request, session, redirect
+from sqlalchemy import exists, func
+
+@app.route('/creditos_reestructurados_resumen')
+def ver_creditos_reestructurados_resumen():
+    if 'user' not in session:
+        return redirect('/login')
+
+    rol = session.get('rol', '').lower()
+    es_admin = (rol == 'admin')
+    sede_usuario = session.get('sede') or session.get('user', '')
+
+    if not es_admin:
+        sede_filtro = sede_usuario
+    else:
+        sede_filtro = request.args.get('sede', 'TODAS')
+
+    # Subconsulta 1: El crédito debe tener al menos una cuota
+    subq_tiene_cuotas = exists().where(Cuota.credito_id == Credito.id)
+
+    # Subconsulta 2: Verificar si el crédito tiene al menos una cuota con estado 'REESTRUCTURADO'
+    subq_cuota_reestructurada = exists().where(
+        (Cuota.credito_id == Credito.id) &
+        (func.upper(Cuota.estado) == 'REESTRUCTURADO')
+    )
+
+    # Consulta principal en SQL
+    query = Credito.query.filter(
+        subq_tiene_cuotas,
+        subq_cuota_reestructurada
+    )
+
+    # Aplicar filtro por sede
+    if not es_admin:
+        query = query.filter(func.lower(Credito.sede) == sede_filtro.lower())
+    elif sede_filtro and sede_filtro != 'TODAS':
+        query = query.filter(func.lower(Credito.sede) == sede_filtro.lower())
+
+    creditos_filtrados = query.all()
+
+    # Cargar inyecciones de capital en memoria para calcular el total sin consultas N+1
+    sedes_disponibles = Sede.query.filter_by(activa=True).all() if es_admin else []
+    
+    valor_total = 0
+    for c in creditos_filtrados:
+        inyecciones = sum(i.valor for i in c.inyecciones_capital) if getattr(c, 'inyecciones_capital', None) else 0
+        c.monto_individual = (c.monto_financiado or 0) + inyecciones
+        valor_total += c.monto_individual
+
+    # Ordenar por nombre de cliente de forma segura en memoria
+    creditos_filtrados.sort(key=lambda x: (getattr(x, 'cliente', '') or '').lower())
+
+    return render_template(
+        'creditos_reestructurados_resumen.html',
+        creditos=creditos_filtrados,
+        sedes=sedes_disponibles,
+        sede_seleccionada=sede_filtro,
+        es_admin=es_admin,
+        valor_total=valor_total
+    )
+
 from collections import defaultdict
 from datetime import datetime
 from sqlalchemy import func
