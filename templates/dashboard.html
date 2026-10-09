@@ -626,11 +626,14 @@
                         </div>
                     </a>
 
-                    <div class="stat-box">
-                        <div class="stat-label"> Reestructurados </div>
-                        <div class="stat-value reestructurado">{{ creditos_reestructurados }}</div>
-                    </div>
+                    <a href="{{ url_for('ver_creditos_reestructurados_resumen') }}"class="stat-box" style="display: flex; flex-direction: column; justify-content: space-between; text-decoration: none; color: inherit; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)';" onmouseout="this.style.transform='scale(1)';">
+                        <div >
+                            <div class="stat-label"> Reestructurados </div>
+                            <div class="stat-value reestructurado">{{ creditos_reestructurados }}</div>
+                        </div>
+                    </a>
 
+                    
 
                 </div>
             </div>
