@@ -346,7 +346,6 @@
 <body>
     <div class="contenedor">
 
-        <!-- Encabezado Principal -->
         <div class="encabezado">
             <div>
                 <h1>Cartera en Mora</h1>
@@ -359,17 +358,15 @@
                            class="btn-premium btn-excel btn-exportar"
                            data-tipo="excel"   
                            data-texto="Exportar Excel">
-                            <span>Exportar Excel</span>
+                           <span>Exportar Excel</span>
                     </a>
 
                     <a href="/creditos_en_mora/pdf?sede={{sede_seleccionada}}&estado={{estado_seleccionado}}"
                            class="btn-premium btn-pdf btn-exportar"
                            data-tipo="pdf"
                            data-texto="Exportar PDF">
-                            <span>Exportar PDF</span>   
+                           <span>Exportar PDF</span>   
                     </a>
-
-        
                 </div>
             </div>
 
@@ -378,22 +375,18 @@
             </div>
         </div>
 
-        <!-- Tarjeta de Filtros -->
         <div class="card-filtros">
 
-            <!-- Encabezado del panel de filtros + Recuadro en la esquina opuesta -->
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                 <div class="titulo-seccion" style="margin-top: 0; font-size: 20px;">Filtrar registros</div>
                 
-                <!-- Recuadro del total de la consulta ubicado en la esquina derecha -->
                 <div style="display: flex; align-items: center; gap: 12px; background: #f8fafc; padding: 10px 18px; border-radius: 8px; border: 1px dashed #cbd5e1;">
                     <span style="font-size: 14px; color: #475569; font-weight: 700;">TOTAL CRÉDITOS EN MORA:</span>
                     <span style="font-size: 22px; font-weight: bold; color: #1e293b;">{{ resultados | length }}</span>
                 </div>
             </div>
             <form method="GET" action="{{ url_for('ver_creditos_en_mora') }}" class="form-filtros">
-                
-                <!-- Selector de Sede -->
+               
                 <div class="grupo-filtro">
                     <label>Sede:</label>
                     {% if es_admin %}
@@ -409,18 +402,18 @@
                     {% endif %}
                 </div>
 
-                <!-- Selector de Estado -->
+                
                 <div class="grupo-filtro">
                     <label>Meses de mora:</label>
                     <select name="estado">
                         <option value="TODAS" {% if estado_seleccionado == 'TODAS' %}selected{% endif %}>TODOS</option>
                         <option value="1 MES" {% if estado_seleccionado == '1 MES' %}selected{% endif %}>1 Mes</option>
                         <option value="2 MESES" {% if estado_seleccionado == '2 MESES' %}selected{% endif %}>2 Meses</option>
-                        <option value="3 MESES" {% if estado_seleccionado == '3 MESES' %}selected{% endif %}>+3 Meses</option>
+                        <option value="3 MESES" {% if estado_seleccionado in ['3 MESES', '+3 MESES', '3 MESES O MÁS', 'MAS DE 3 MESES'] %}selected{% endif %}>+3 Meses</option>
                     </select>
                 </div>
 
-                <!-- Botón -->
+                
                 <div>
                     <button type="submit" class="btn-filtrar">Aplicar filtros</button>
                 </div>
@@ -456,9 +449,10 @@
                 </thead>
                 <tbody>
                     {% for item in resultados %}
-                    <tr>
-                        <td style="font-weight: bold; color: #102a43;">{{ item.credito.numero_pagare or item.credito.id }}</td>
-                        <td>{{ item.credito.cliente }}</td>
+                   
+                    <tr class="fila-credito-mora">
+                        <td style="font-weight: bold; color: #102a43;">{{ item.credito.numero_pagare or item.credito.pagare or item.credito.id }}</td>
+                        <td>{{ item.credito.cliente_nombre or item.credito.cliente }}</td>
                         <td style="font-weight: 600;">{{ item.credito.sede }}</td>
                         <td>{{ item.cuotas_mora }} cuota(s)</td>
                         <td>
@@ -486,18 +480,18 @@
             </table>
         </div>
 
-        <!-- Modales independientes con todas las columnas de la tabla de cuotas -->
+        
         {% for item in resultados %}
         <div id="modalMora_{{ item.credito.id }}" class="modal-mora-overlay">
             <div class="modal-mora-contenido" style="max-width: 98vw; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="margin: 0; color: #102a43;">Cuotas en Mora - Pagaré {{ item.credito.numero_pagare or item.credito.id }}</h3>
+                    <h3 style="margin: 0; color: #102a43;">Cuotas en Mora - Pagaré {{ item.credito.numero_pagare or item.credito.pagare or item.credito.id }}</h3>
                     <button type="button" onclick="cerrarModalMora({{ item.credito.id }})" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #64748b;">&times;</button>
                 </div>
                 
-                <p style="margin-bottom: 15px; color: #52606d;">Cliente: <strong>{{ item.credito.cliente }}</strong> | Sede: <strong>{{ item.credito.sede }}</strong></p>
+                <p style="margin-bottom: 15px; color: #52606d;">Cliente: <strong>{{ item.credito.cliente_nombre or item.credito.cliente }}</strong> | Sede: <strong>{{ item.credito.sede }}</strong></p>
 
-                <!-- Contenedor con scroll horizontal para las 16 columnas -->
+                
                 <div style="overflow-x: auto; width: 100%; flex-grow: 1; margin-bottom: 20px;">
                     <table style="width: 100%; border-collapse: collapse; min-width: 1400px; font-size: 12px; text-align: left;">
                         <thead>
@@ -517,43 +511,41 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for c in item.cuotas | sort(attribute='numero') %}
-                                {% if c.estado == 'EN MORA' %}
-                                <tr style="border-bottom: 1px solid #f1f5f9; color: #334155;">
-                                    <td style="padding: 10px; font-weight: bold;">{{ c.numero_cuota or c.numero }}</td>
-                                    <td style="padding: 10px;">{{ c.fecha_pago.strftime('%d/%m/%Y') if c.fecha_pago else '' }}</td>
-                                    <td style="padding: 10px;">${{ "{:,.0f}".format(c.saldo_inicial or 0).replace(',','.') }}</td>
-                                    <td style="padding: 10px;">${{ "{:,.0f}".format(c.valor_cuota or 0).replace(',','.') }}</td>
-                                    <td style="padding: 10px;">${{ "{:,.0f}".format(c.capital or 0).replace(',','.') }}</td>
-                                    <td style="padding: 10px;">${{ "{:,.0f}".format(c.interes or 0).replace(',','.') }}</td>
-                                    <td style="padding: 10px;">${{ "{:,.0f}".format(c.saldo_restante or 0).replace(',','.') }}</td>
-                                    <td style="padding: 10px;">
-                                        {% if c.tasa_mora_mensual_cuota is not none and c.tasa_mora_mensual_cuota != '' and c.tasa_mora_mensual_cuota != '-' %}
-                                            {{ "%.2f"|format(c.tasa_mora_mensual_cuota|float) }}%
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                    <td style="padding: 10px;">{{ c.dias_mora or 0 }}</td>
-                                    <td style="padding: 10px;">${{ "{:,.0f}".format(c.interes_mora or 0).replace(',','.') }}</td>
-                                    <td style="padding: 10px; font-weight: bold; color: #dc2626;">${{ "{:,.0f}".format(c.total_cobro or 0).replace(',','.') }}</td>
-                                    <td style="padding: 10px;"><span class="badge badge-rojo">{{ c.estado }}</span></td>
-                                </tr>
-                                {% endif %}
+                            {% for c in item.cuotas_filtradas_mora | default(item.cuotas) | sort(attribute='numero') %}
+                            <tr style="border-bottom: 1px solid #f1f5f9; color: #334155;">
+                                <td style="padding: 10px; font-weight: bold;">{{ c.numero_cuota or c.numero }}</td>
+                                <td style="padding: 10px;">{{ c.fecha_pago.strftime('%d/%m/%Y') if c.fecha_pago else (c.fecha_vencimiento.strftime('%d/%m/%Y') if c.fecha_vencimiento else '') }}</td>
+                                <td style="padding: 10px;">${{ "{:,.0f}".format(c.saldo_inicial or 0).replace(',','.') }}</td>
+                                <td style="padding: 10px;">${{ "{:,.0f}".format(c.valor_cuota or 0).replace(',','.') }}</td>
+                                <td style="padding: 10px;">${{ "{:,.0f}".format(c.capital or 0).replace(',','.') }}</td>
+                                <td style="padding: 10px;">${{ "{:,.0f}".format(c.interes or 0).replace(',','.') }}</td>
+                                <td style="padding: 10px;">${{ "{:,.0f}".format(c.saldo_restante or 0).replace(',','.') }}</td>
+                                <td style="padding: 10px;">
+                                    {% if c.tasa_mora_mensual_cuota is not none and c.tasa_mora_mensual_cuota != '' and c.tasa_mora_mensual_cuota != '-' %}
+                                        {{ "%.2f"|format(c.tasa_mora_mensual_cuota|float) }}%
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 10px;">{{ c.dias_mora or 0 }}</td>
+                                <td style="padding: 10px;">${{ "{:,.0f}".format(c.interes_mora or c.mora or 0).replace(',','.') }}</td>
+                                <td style="padding: 10px; font-weight: bold; color: #dc2626;">
+                                    ${{ "{:,.0f}".format(c.total_cobro or (c.valor_cuota + (c.interes_mora or 0)) or 0).replace(',','.') }}
+                                </td>
+                                <td style="padding: 10px;"><span class="badge badge-rojo">{{ c.estado or 'EN MORA' }}</span></td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="12" style="text-align: center; padding: 20px; color: #64748b;">No hay cuotas registradas en mora.</td>
+                            </tr>
                             {% endfor %}
                         </tbody>
-                        
+
                         <tfoot>
-                            {% set ns = namespace(total_mora=0) %}
-                            {% for c in item.cuotas | sort(attribute='numero') %}
-                                {% if c.estado == 'EN MORA' %}
-                                    {% set ns.total_mora = ns.total_mora + (c.total_cobro or 0) %}
-                                {% endif %}
-                            {% endfor %}
                             <tr style="border-top: 2px solid #cbd5e1; background-color: #f8fafc; font-weight: bold; color: #102a43;">
                                 <td colspan="10" style="padding: 10px; text-align: right;">Total Deuda Fecha:</td>
                                 <td style="padding: 10px; color: #dc2626; font-weight: bold;">
-                                    ${{ "{:,.0f}".format(ns.total_mora).replace(',','.') }}
+                                    ${{ "{:,.0f}".format(item.total_cobro).replace(',','.') }}
                                 </td>
                                 <td style="padding: 10px;"></td>
                             </tr>
@@ -561,13 +553,15 @@
                     </table>
                 </div>
 
-                <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #e2e8f0; pt-3;">
+                <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
                     <button type="button" onclick="cerrarModalMora({{ item.credito.id }})" style="padding: 10px 18px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-weight: bold;">Cerrar</button>
                     <a href="{{ url_for('ver_cuotas', credito_id=item.credito.id) }}" class="btn-detalle" style="background: #2563eb; color: white; padding: 10px 18px; text-decoration: none; border-radius: 8px; font-weight: bold;">Ir a Crédito</a>
                 </div>
             </div>
         </div>
         {% endfor %}
+
+    </div>
 
     <script>
         function abrirModalMora(id) {
@@ -614,10 +608,11 @@
             });
         });
 
+        // FILTRO DE BÚSQUEDA CORREGIDO: SOLO APLICA A LAS FILAS DE LA TABLA PRINCIPAL
         function filtrarTablaCreditos() {
             const input = document.getElementById("buscadorCreditos");
-            const filtro = input.value.toLowerCase();
-            const filas = document.querySelectorAll("tbody tr");
+            const filtro = input.value.toLowerCase().trim();
+            const filas = document.querySelectorAll(".fila-credito-mora");
 
             filas.forEach(fila => {
                 const textoFila = fila.innerText.toLowerCase();

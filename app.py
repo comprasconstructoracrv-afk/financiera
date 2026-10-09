@@ -1732,50 +1732,74 @@ def dashboard():
     response.headers["Expires"] = "0"
     return response
 
+from flask import render_template, request, session, redirect
+from sqlalchemy import func
+from collections import defaultdict
 
 @app.route('/creditos_en_mora')
 def ver_creditos_en_mora():
     if 'user' not in session:
         return redirect('/login')
 
-    rol= session.get('rol', '').lower()
-    sede_usuario= session.get('user', '')
-    es_admin= (rol=='admin')
-
-    # Capturamos los filtros desde los selectores de la interfaz
+    rol = session.get('rol', '').lower()
+    es_admin = (rol == 'admin')
+    
     if not es_admin:
-        sede_usuario = session.get('sede') or session.get('user', '') # Ajusta al key de tu session (ej: session['sede_nombre'])
+        sede_usuario = session.get('sede') or session.get('user', '')
         sede_filtro = sede_usuario
     else:
         sede_filtro = request.args.get('sede', 'TODAS')
 
-    estado_filtro = request.args.get('estado', 'TODAS')
+    estado_filtro = request.args.get('estado', 'TODAS').strip().upper()
 
-    # Consulta base de todos los créditos
+    # 1. Consulta única de créditos por sede
     query = Credito.query
-
-    # Aplicamos filtro de sede estricto si no es admin, o el del selector si es admin
     if not es_admin:
         query = query.filter(func.lower(Credito.sede) == sede_filtro.lower())
     elif sede_filtro and sede_filtro != 'TODAS':
         query = query.filter(func.lower(Credito.sede) == sede_filtro.lower())
 
     creditos_filtrados = query.all()
-    
-    # Lista para almacenar los resultados detallados con su respectivo subestado de mora calculado
+    if not creditos_filtrados:
+        sedes_disponibles = Sede.query.filter_by(activa=True).all() if es_admin else []
+        return render_template(
+            'creditos_en_mora.html',
+            resultados=[],
+            sedes=sedes_disponibles,
+            sede_seleccionada=sede_filtro,
+            estado_seleccionado=estado_filtro,
+            es_admin=es_admin
+        )
+
+    # 2. OPTIMIZACIÓN RAILWAY: Traer todas las cuotas en 1 sola consulta SQL
+    ids_creditos = [cred.id for cred in creditos_filtrados]
+    todas_cuotas = Cuota.query.filter(Cuota.credito_id.in_(ids_creditos)).all()
+
+    # Agrupar cuotas por crédito en memoria
+    cuotas_por_credito = defaultdict(list)
+    for c in todas_cuotas:
+        cuotas_por_credito[c.credito_id].append(c)
+
     resultado_lista = []
 
     for cred in creditos_filtrados:
-        cuotas = Cuota.query.filter_by(credito_id=cred.id).all()
+        # Excluir créditos cancelados o finalizados
+        estado_cred = str(getattr(cred, 'estado', '') or '').strip().upper()
+        if estado_cred in ['CANCELADO', 'FINALIZADO', 'AL DIA', 'PAZ Y SALVO']:
+            continue
+
+        cuotas = cuotas_por_credito.get(cred.id, [])
         if not cuotas:
             continue
 
-        cuotas_en_mora_count = sum(1 for c in cuotas if c.estado == 'EN MORA')
+        # Normalizamos y filtramos STRICTAMENTE las cuotas con estado 'EN MORA'
+        cuotas_en_mora = [c for c in cuotas if str(getattr(c, 'estado', '')).strip().upper() == 'EN MORA']
+        cuotas_en_mora_count = len(cuotas_en_mora)
 
         if cuotas_en_mora_count == 0:
-            continue  # Si no está en mora, lo ignoramos
+            continue  # Si no tiene cuotas en mora, ignorar
 
-        # Clasificación exacta según las reglas de negocio
+        # Clasificación según reglas de negocio
         if cuotas_en_mora_count == 1:
             subestado = '1 MES'
         elif cuotas_en_mora_count == 2:
@@ -1783,22 +1807,29 @@ def ver_creditos_en_mora():
         else:
             subestado = '3 MESES'
 
-        # Aplicar el filtro de estado si se seleccionó uno específico
-        if estado_filtro != 'TODAS' and subestado != estado_filtro:
-            continue
+        # Filtro por subestado selector (Soporta búsquedas de +3 Meses)
+        if estado_filtro != 'TODAS':
+            if estado_filtro in ['3 MESES', '+3 MESES', '3 MESES O MÁS', 'MAS DE 3 MESES']:
+                if cuotas_en_mora_count < 3:
+                    continue
+            elif subestado != estado_filtro:
+                continue
 
-        saldo_pendiente_total= sum(c.total_cobro for c in cuotas if c.estado !='PAGADA')
-
+        # CORRECCIÓN CLAVE: Suma ÚNICAMENTE los valores de las cuotas en mora
+        saldo_pendiente_total = sum(
+            (getattr(c, 'total_cobro', None) or (getattr(c, 'valor_cuota', 0) + getattr(c, 'interes_mora', 0))) 
+            for c in cuotas_en_mora
+        )
 
         resultado_lista.append({
             'credito': cred,
             'cuotas_mora': cuotas_en_mora_count,
             'subestado': subestado,
             'total_cobro': saldo_pendiente_total,
-            'cuotas': cuotas
+            'cuotas': cuotas,                     # Lista completa para vista de crédito
+            'cuotas_filtradas_mora': cuotas_en_mora # Lista de cuotas en mora para el modal
         })
 
-    # Obtenemos la lista única de sedes activas para poblar el menú desplegable
     sedes_disponibles = Sede.query.filter_by(activa=True).all() if es_admin else []
 
     return render_template(
