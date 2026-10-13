@@ -4497,58 +4497,136 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
     resumen_por_sede = []
     set_operativos = set(ids_operativos)
 
-    es_anio_todos = str(anio_seleccionado).upper() == 'TODOS'
-    es_mes_todos = str(mes_seleccionado).upper() == 'TODOS'
+    # 1. Normalización de filtros
+    es_anio_todos = str(anio_seleccionado).upper() in ['TODOS', 'NONE', '']
+    es_mes_todos = str(mes_seleccionado).upper() in ['TODOS', 'NONE', '']
 
-    # Normalizar 'TODOS' a None para funciones auxiliares SQL
     anio_param = None if es_anio_todos else anio_seleccionado
     mes_param = None if es_mes_todos else mes_seleccionado
 
-    f_anio = None if ('filtro_anio' in locals() and str(filtro_anio).upper() == 'TODOS') else (filtro_anio if 'filtro_anio' in locals() else anio_param)
-    f_mes = None if ('filtro_mes' in locals() and str(filtro_mes).upper() == 'TODOS') else (filtro_mes if 'filtro_mes' in locals() else mes_param)
+    try:
+        filtro_anio = None if es_anio_todos else int(anio_seleccionado)
+    except (ValueError, TypeError):
+        filtro_anio = None
+
+    try:
+        filtro_mes = None if es_mes_todos else int(mes_seleccionado)
+    except (ValueError, TypeError):
+        filtro_mes = None
+
+    def normalizar_sede_tabla(sede_raw):
+        return str(sede_raw or '').upper().strip()
+
+    # Referencias seguras a listas universales de Tablas Detalladas
+    list_cuotas_anio = locals().get('cuotas_anio') or globals().get('cuotas_anio') or []
+    list_pagos_anio = locals().get('pagos_anio') or globals().get('pagos_anio') or []
+    map_mora_causada = locals().get('mora_causada_mensual_map') or globals().get('mora_causada_mensual_map') or {}
 
     for sede in sedes_filtradas:
+        s_norm = normalizar_sede_tabla(sede)
+
+        # 2. Créditos de la sede y filtrado operativo general
         creditos_sede = creditos_por_sede_map.get(sede, [])
-        
-        # 1. Filtrado de créditos de la sede excluyendo reestructurados
-        ids_operativos_sede = [c.id for c in creditos_sede if c.id in set_operativos]
-        creditos_sede_validos = [c for c in creditos_sede if c.id in set_operativos]
+        creditos_sede_validos = [c for c in creditos_sede if getattr(c, 'id', None) in set_operativos]
+        ids_operativos_sede = [c.id for c in creditos_sede_validos]
 
-        # Créditos del periodo
-        creditos_sede_mes = creditos_mes_por_sede_map.get(sede, [])
-        if not creditos_sede_mes and (es_anio_todos or es_mes_todos):
+        # 3. Asignación correcta de créditos del período para TOTAL PRESTADO
+        # Si AMBOS filtros son TODOS-TODOS -> toma el histórico global de la sede
+        if es_anio_todos and es_mes_todos:
             creditos_sede_mes = creditos_sede
+        else:
+            # Si hay un año o mes específico (ej: 2026) -> toma el mapa prefiltrado
+            creditos_sede_mes = creditos_mes_por_sede_map.get(sede, [])
+            if not creditos_sede_mes and es_anio_todos:
+                creditos_sede_mes = creditos_sede
 
-        creditos_sede_mes_validos = [c for c in creditos_sede_mes if c.id in set_operativos]
+        creditos_sede_mes_validos = [c for c in creditos_sede_mes if getattr(c, 'id', None) in set_operativos]
 
-        # 2. Obtención de pagos y cuotas iniciales desde los mapas del reporte
-        pagos_sede_anio = pagos_por_sede_map.get(sede, [])
-        cuotas_sede_mes = cuotas_mes_por_sede_map.get(sede, [])
-
-        # 3. Pagos y cuotas pertenecientes únicamente a créditos operativos
-        pagos_sede_validos = [
-            p for p in pagos_sede_anio
-            if (getattr(p, 'credito_id', None) or getattr(getattr(p, 'cuota', None), 'credito_id', None)) in set_operativos
-        ]
-        cuotas_sede_validas = [(q, c) for q, c in cuotas_sede_mes if getattr(c, 'id', None) in set_operativos]
-
-        # 4. Capital Prestado (Monto financiado + inyecciones de créditos operativos)
+        # 4. Capital Prestado, Recaudado y Saldo Actual
         prestado_sede = round(
             sum(float(getattr(c, 'monto_financiado', 0) or 0) for c in creditos_sede_mes_validos)
             + sum(total_inyecciones_credito(c.id, anio_param, mes_param) for c in creditos_sede_mes_validos),
             2
         )
 
-        # 5. Capital Recaudado
         recaudado_sede = capital_recaudado_global_filtrado(ids_operativos_sede, anio_param, mes_param)
+        saldo_actual_sede = round(sum(float(getattr(c, 'saldo_actual', 0) or 0) for c in creditos_sede_validos), 2)
 
-        # 6. Intereses y Mora
-        interes_causado_sede = round(sum(float(getattr(q, 'interes', 0) or 0) for q, c in cuotas_sede_validas), 2)
-        mora_causada_sede = mora_causada_en_periodo(sede, f_anio, f_mes if f_anio else None)
+        # 5. Interés Causado (Sincronizado con Tablas Detalladas)
+        interes_causado_sede = 0.0
+        if list_cuotas_anio:
+            for q, c in list_cuotas_anio:
+                if getattr(c, 'id', None) not in set_operativos:
+                    continue
+                if normalizar_sede_tabla(getattr(c, 'sede', None)) != s_norm:
+                    continue
+                q_f = fecha_solo_fecha(getattr(q, 'fecha_pago', None))
+                if q_f:
+                    if filtro_anio is not None and q_f.year != filtro_anio:
+                        continue
+                    if filtro_mes is not None and q_f.month != filtro_mes:
+                        continue
+                    interes_causado_sede += float(getattr(q, 'interes', 0) or 0)
+        else:
+            cuotas_sede_mes = cuotas_mes_por_sede_map.get(sede, [])
+            cuotas_sede_validas = [(q, c) for q, c in cuotas_sede_mes if getattr(c, 'id', None) in set_operativos]
+            interes_causado_sede = sum(float(getattr(q, 'interes', 0) or 0) for q, c in cuotas_sede_validas)
 
-        interes_recaudado_sede = round(sum(float(getattr(p, 'valor_aplicado_interes', 0) or 0) for p in pagos_sede_validos), 2)
-        mora_recaudada_sede = round(sum(float(getattr(p, 'valor_aplicado_mora', 0) or 0) for p in pagos_sede_validos), 2)
+        interes_causado_sede = round(interes_causado_sede, 2)
 
+        # 6. Mora Causada (Sincronizada con Tablas Detalladas)
+        mora_causada_sede = 0.0
+        if isinstance(map_mora_causada, dict) and map_mora_causada:
+            for (s_k, a_k, m_k), v_k in map_mora_causada.items():
+                if normalizar_sede_tabla(s_k) != s_norm:
+                    continue
+                if filtro_anio is not None and a_k != filtro_anio:
+                    continue
+                if filtro_mes is not None and m_k != filtro_mes:
+                    continue
+                mora_causada_sede += float(v_k or 0)
+        else:
+            f_anio_arg = None if es_anio_todos else filtro_anio
+            f_mes_arg = None if es_mes_todos else filtro_mes
+            mora_causada_sede = mora_causada_en_periodo(sede, f_anio_arg, f_mes_arg if f_anio_arg else None)
+
+        mora_causada_sede = round(mora_causada_sede, 2)
+
+        # 7. Interés Recaudado y Mora Recaudada (Sincronizados con Tablas Detalladas)
+        interes_recaudado_sede = 0.0
+        mora_recaudada_sede = 0.0
+
+        if list_pagos_anio:
+            for p in list_pagos_anio:
+                cred = getattr(p, 'credito', None) or getattr(getattr(p, 'cuota', None), 'credito', None)
+                cred_id = getattr(p, 'credito_id', None) or getattr(cred, 'id', None)
+                if cred_id not in set_operativos:
+                    continue
+
+                p_f = fecha_solo_fecha(getattr(p, 'fecha', None))
+                if p_f:
+                    if filtro_anio is not None and p_f.year != filtro_anio:
+                        continue
+                    if filtro_mes is not None and p_f.month != filtro_mes:
+                        continue
+
+                    sede_raw = getattr(cred, 'sede', None) if cred else getattr(p, 'sede', None)
+                    if normalizar_sede_tabla(sede_raw) == s_norm:
+                        interes_recaudado_sede += float(getattr(p, 'valor_aplicado_interes', 0) or 0)
+                        mora_recaudada_sede += float(getattr(p, 'valor_aplicado_mora', 0) or 0)
+        else:
+            pagos_sede_anio = pagos_por_sede_map.get(sede, [])
+            pagos_sede_validos = [
+                p for p in pagos_sede_anio
+                if (getattr(p, 'credito_id', None) or getattr(getattr(p, 'cuota', None), 'credito_id', None)) in set_operativos
+            ]
+            interes_recaudado_sede = sum(float(getattr(p, 'valor_aplicado_interes', 0) or 0) for p in pagos_sede_validos)
+            mora_recaudada_sede = sum(float(getattr(p, 'valor_aplicado_mora', 0) or 0) for p in pagos_sede_validos)
+
+        interes_recaudado_sede = round(interes_recaudado_sede, 2)
+        mora_recaudada_sede = round(mora_recaudada_sede, 2)
+
+        # 8. Diferencias
         diferencia_interes_sede = round(interes_causado_sede - interes_recaudado_sede, 2)
         diferencia_mora_sede = round(mora_causada_sede - mora_recaudada_sede, 2)
 
@@ -4556,7 +4634,7 @@ def construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_selecciona
             'sede': sede,
             'total_prestado': prestado_sede,
             'total_recaudado': recaudado_sede,
-            'saldo_actual': round(sum(float(getattr(c, 'saldo_actual', 0) or 0) for c in creditos_sede_validos), 2),
+            'saldo_actual': saldo_actual_sede,
             'interes_corriente_causado': interes_causado_sede,
             'interes_corriente_recaudado': interes_recaudado_sede,
             'mora_causada': mora_causada_sede,
