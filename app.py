@@ -5310,23 +5310,27 @@ from openpyxl.utils import get_column_letter
 from io import BytesIO
 from datetime import date
 
-from flask import request, redirect, session, send_file
-from openpyxl import Workbook
-from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
-from io import BytesIO
-from datetime import date
-
 @app.route('/reporte_financiero/excel')
 def exportar_reporte_excel():
     if 'user' not in session:
         return redirect('/login')
 
     anio_actual = date.today().year
-    anio_seleccionado = request.args.get('anio', default=anio_actual, type=int)
+
+    # --- CORRECCIÓN DE CAPTURA DEL AÑO ---
+    raw_anio = str(request.args.get('anio', default=anio_actual)).strip().upper()
+    if raw_anio in ['TODOS', 'NONE', '']:
+        anio_seleccionado = 'TODOS'
+    else:
+        try:
+            anio_seleccionado = int(raw_anio)
+        except (ValueError, TypeError):
+            anio_seleccionado = anio_actual
+
     mes_seleccionado = request.args.get('mes', default='TODOS', type=str).strip().upper()
     sede_seleccionada = request.args.get('sede', default='TODAS', type=str).strip().upper()
 
+    # Construcción de los datos con el valor correcto ('TODOS' o el año numérico)
     datos = construir_datos_reporte(anio_seleccionado, sede_seleccionada, mes_seleccionado)
 
     # --- OBTENCIÓN DINÁMICA DE SEDES ---
@@ -5358,11 +5362,14 @@ def exportar_reporte_excel():
     )
 
     fmt_cop = '$ #,##0;($ #,##0);"-"'
-    texto_periodo = (
-        f"Periodo: Mes {mes_seleccionado} - Año {anio_seleccionado} | Sede: {sede_seleccionada}"
-        if mes_seleccionado != 'TODOS'
-        else f"Consolidado Anual {anio_seleccionado} | Sede: {sede_seleccionada}"
-    )
+
+    # Texto descriptivo dinámico del período
+    if str(anio_seleccionado).upper() == 'TODOS' and mes_seleccionado == 'TODOS':
+        texto_periodo = f"Consolidado Histórico General | Sede: {sede_seleccionada}"
+    elif mes_seleccionado != 'TODOS':
+        texto_periodo = f"Periodo: Mes {mes_seleccionado} - Año {anio_seleccionado} | Sede: {sede_seleccionada}"
+    else:
+        texto_periodo = f"Consolidado Anual {anio_seleccionado} | Sede: {sede_seleccionada}"
 
     # HOJA 1: RESUMEN GENERAL
     ws1 = wb.active
@@ -5457,7 +5464,13 @@ def exportar_reporte_excel():
         if "resumen_mensual" in datos:
             ws3 = wb.create_sheet("Resumen Mensual")
             ws3.views.sheetView[0].showGridLines = True
-            ws3["A1"] = f"Resumen Consolidado Mensual - Año {anio_seleccionado}"
+            
+            titulo_resumen_m = (
+                "Resumen Consolidado Mensual - Histórico" 
+                if str(anio_seleccionado).upper() == 'TODOS' 
+                else f"Resumen Consolidado Mensual - Año {anio_seleccionado}"
+            )
+            ws3["A1"] = titulo_resumen_m
             ws3["A1"].font = font_title
 
             headers_mes = [
