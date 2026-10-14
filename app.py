@@ -428,31 +428,19 @@ def actualizar_mora_credito(credito, fecha_corte=None):
         cuota.saldo_pendiente = saldo_base
 
         if fecha_corte > fecha_vencimiento:
-            # 1. Verificar si la cuota ya tuvo un pago registrado en esta misma fecha de corte
-            pago_hoy = any(
-                (p.fecha.date() if isinstance(p.fecha, datetime) else p.fecha) == fecha_corte
-                for p in pagos_activos
-            )
-
-            # 2. Si ya pagó hoy, no recalculamos nuevos días/mora sobre el saldo pendiente residual
-            if pago_hoy:
-                cuota.dias_mora = 0
-                interes_mora = 0.0
-            else:
-                dias_mora = (fecha_corte - fecha_vencimiento).days
-                cuota.dias_mora = dias_mora
-                interes_mora = saldo_base * tasa_diaria * dias_mora
+            # 1. Calcular los días transcurridos desde la fecha de vencimiento original
+            dias_mora = (fecha_corte - fecha_vencimiento).days
+            cuota.dias_mora = dias_mora
+            
+            # 2. Calcular la mora sobre el saldo pendiente residual
+            interes_mora = saldo_base * tasa_diaria * dias_mora
 
             cuota.interes_mora = round(interes_mora + mora_pendiente_historica, 2)
             cuota.total_cobro = round(saldo_base + cuota.interes_mora, 2)
             
-            # Asignar estado según si le queda interés o si solo es un abono de capital
-            if cuota.interes_mora > 1:
-                cuota.estado = 'EN MORA'
-            elif total_pagado_activo > 0:
-                cuota.estado = 'ABONO'
-            else:
-                cuota.estado = 'EN MORA'
+            # 3. Al estar vencida y con saldo pendiente, el estado DEBE ser EN MORA
+            cuota.estado = 'EN MORA'
+            
         else:
             cuota.dias_mora = 0
             cuota.interes_mora = round(mora_pendiente_historica, 2)
@@ -2875,7 +2863,7 @@ def pagar_cuota(cuota_id):
         valor_pago = limpiar_valor_moneda(request.form['valor'])
         medio_pago = request.form['medio_pago']
         observacion = request.form.get('observacion', '').strip()
-        numero_referencia= request.form.get('numero_referencia', '').strip()
+        numero_referencia = request.form.get('numero_referencia', '').strip()
 
         pago_duplicado = Pago.query.filter_by(numero_referencia=numero_referencia).first()
         if pago_duplicado:
@@ -2912,9 +2900,17 @@ def pagar_cuota(cuota_id):
         valor_aplicado_interes = 0
         valor_aplicado_capital = 0
 
-        if cuota.saldo_pendiente > 0:
+        # 1. CUBRIR PRIMERO LA MORA GENERADA
+        if cuota.interes_mora > 0:
+            aplicado_mora = min(restante, round(cuota.interes_mora, 2))
+            valor_aplicado_mora = round(aplicado_mora, 2)
+            cuota.interes_mora = round(cuota.interes_mora - aplicado_mora, 2)
+            restante = round(restante - aplicado_mora, 2)
+
+        # 2. APLICAR EL DINERO RESTANTE AL SALDO PENDIENTE DE LA CUOTA
+        if restante > 0 and cuota.saldo_pendiente > 0:
             aplicado_cuota = min(restante, round(cuota.saldo_pendiente, 2))
-            valor_aplicado_cuota = round(valor_aplicado_cuota + aplicado_cuota, 2)
+            valor_aplicado_cuota = round(aplicado_cuota, 2)
             cuota.saldo_pendiente = round(cuota.saldo_pendiente - aplicado_cuota, 2)
             restante = round(restante - aplicado_cuota, 2)
 
@@ -2930,12 +2926,7 @@ def pagar_cuota(cuota_id):
                 cuota.saldo_pendiente = 0
                 credito.saldo_actual = round(cuota.saldo_restante or 0, 2)
 
-        if restante > 0 and cuota.interes_mora > 0:
-            aplicado_mora = min(restante, round(cuota.interes_mora, 2))
-            valor_aplicado_mora = round(valor_aplicado_mora + aplicado_mora, 2)
-            cuota.interes_mora = round(cuota.interes_mora - aplicado_mora, 2)
-            restante = round(restante - aplicado_mora, 2)
-
+        # 3. SI AÚN SOBRA DINERO TRAS CUBRIR MORA Y CUOTA COMPLETA -> PREPAGO A CAPITAL
         if restante > 0:
             valor_aplicado_prepago = round(restante, 2)
             credito.saldo_actual = round((credito.saldo_actual or 0) - restante, 2)
@@ -2991,7 +2982,7 @@ def pagar_cuota(cuota_id):
             saldo_pendiente_antes_pago=saldo_pendiente_antes_pago,
             total_exigible_al_pago=total_exigible,
             observacion=observacion if observacion else "Pago registrado en el sistema financiero",
-            numero_referencia= numero_referencia
+            numero_referencia=numero_referencia
         )
 
         db.session.add(pago)
@@ -3010,10 +3001,11 @@ def pagar_cuota(cuota_id):
                     cuota_actual_numero=cuota.numero,
                     fecha_base=cuota.fecha_pago
                 )
+
         actualizar_mora_credito(credito, fecha_pago)
         db.session.commit()
-           
-        resultado_correo= enviar_recibo_cuota_por_correo(pago_id=pago.id, mora_aplicada=pago.mora_generada_al_pago, saldo_pendiente=cuota.saldo_restante)
+
+        resultado_correo = enviar_recibo_cuota_por_correo(pago_id=pago.id, mora_aplicada=pago.mora_generada_al_pago, saldo_pendiente=cuota.saldo_restante)
         flash(resultado_correo, 'estado_correo')
 
         db.session.refresh(credito)
@@ -3036,7 +3028,7 @@ def pagar_cuota(cuota_id):
 
         return redirect(url_for('ver_recibo_pago', pago_id=pago.id))
 
-    # MODO GET Soporta fecha seleccionada por parámetro o toma la fecha de hoy por defecto
+    # MODO GET
     fecha_param = request.args.get('fecha_pago')
     if fecha_param:
         fecha_evaluar = datetime.strptime(fecha_param, '%Y-%m-%d').date()
