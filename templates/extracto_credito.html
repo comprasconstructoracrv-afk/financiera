@@ -233,20 +233,40 @@
             font-size: 12px;
             color: #475569;
         }
+        .btn-imprimir {
+            background: linear-gradient(135deg, #102a43, #102a43);
+            color: white;
+        }
 
         @media print {
-            body {
-                background: white;
-                padding: 0;
+            /* Ocultar botones de navegación al generar el PDF */
+            .acciones {
+                display: none !important;
             }
 
-            .acciones {
-                display: none;
+            /* Quitar fondo gris de la pantalla para aprovechar la hoja */
+            body {
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
             }
 
             .documento {
-                box-shadow: none;
-                border-radius: 0;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+                padding: 0 !important;
+            }
+
+            /* Forzar al navegador a imprimir los colores de fondo de las tarjetas y tablas */
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            /* Configurar márgenes de la página física / PDF */
+            @page {
+                size: tabloid landscape;
+                margin: 9mm;
             }
         }
     </style>
@@ -281,7 +301,7 @@
 
         <div class="acciones">
             <a href="/ver_cuotas/{{ credito.id }}" class="btn btn-volver">Volver al crédito</a>
-            <a href="/extracto_credito_pdf/{{ credito.id }}" class="btn btn-pdf" target="_blank">Descargar PDF</a>
+            <button onclick="window.print()" class="btn btn-imprimir">Imprimir</button>
         </div>
 
         <div class="seccion">
