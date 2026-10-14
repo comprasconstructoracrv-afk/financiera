@@ -160,7 +160,7 @@
         .card-kpi {
             border-radius: 18px;
             padding: 18px;
-            color: white;
+            color: black;
             min-height: 120px;
             display: flex;
             flex-direction: column;
@@ -177,17 +177,14 @@
         }
 
         .card-kpi .valor {
-            font-size: 28px;
+            font-size: 26px;
             font-weight: bold;
         }
 
-        .k1 { background: linear-gradient(135deg, #1677ff, #0d47a1); }
-        .k2 { background: linear-gradient(135deg, #f59e0b, #b45309); }
-        .k3 { background: linear-gradient(135deg, #198754, #0f5132); }
-        .k4 { background: linear-gradient(135deg, #dc3545, #7f1d1d); }
-        .k5 { background: linear-gradient(135deg, #0ea5e9, #075985); }
-        .k6 { background: linear-gradient(135deg, #7c3aed, #4c1d95); }
-        .k7 { background: linear-gradient(135deg, #14b8a6, #115e59); }
+        .k9 { background: linear-gradient(135deg, #e9eef0, #eef1f1); }
+       
+        .k11 { background: linear-gradient(135deg, #e9eef0, #eef1f1); }
+        
 
         .bloque-navegacion-resumen {
             background: linear-gradient(135deg, #f8fbff, #eef5ff);
@@ -304,6 +301,24 @@
             font-size: 15px;
         }
 
+        .badge-variacion {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .badge-pos {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .badge-neg {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
         .oculto {
             display: none;
         }
@@ -322,27 +337,16 @@
                 grid-template-columns: 1fr;
             }
         }
-
-        .k8 { background: linear-gradient(135deg, #be123c, #881337); }
-        .k9 { background: linear-gradient(135deg, #16a34a, #14532d); }
-        .k10 { background: linear-gradient(135deg, #2563eb, #1e3a8a); }
-        .k11 { background: linear-gradient(135deg, #0891b2, #164e63); }
-        .k12 { background: linear-gradient(135deg, #ea580c, #7c2d12); }
-        .k13 { background: linear-gradient(135deg, #f97316, #9a3412); }
-        .k14 { background: linear-gradient(135deg, #dc2626, #7f1d1d); }
-        .k15 { background: linear-gradient(135deg, #991b1b, #450a0a); }
-        .k16 { background: linear-gradient(135deg, #581c87, #3b0764); }
     </style>
 </head>
 <body>
     <div class="contenedor">
 
+        <!-- ENCABEZADO PRINCIPAL -->
         <div class="encabezado">
             <div>
                 <h1>Dashboard gerencial</h1>
-                <p>
-                    Indicadores anuales y reporte detallado mensual de la cartera.
-                </p>
+                <p>Indicadores anuales y reporte detallado mensual de la cartera</p>
 
                 <div class="barra-controles">
                     <div class="texto-filtro-superior">
@@ -360,299 +364,288 @@
             </div>
         </div>
 
+        <!-- SECCIÓN 1: FOTOGRAFÍA ACTUAL DE LA CARTERA (STOCK / HOY)-->
         <div class="seccion">
             <div class="cabecera-seccion">
                 <div>
-                    <h2>KPIs principales anuales</h2>
-                    <p class="subtitulo-seccion">Vista ejecutiva del comportamiento anual consolidado.</p>
+                    <h2>KPIs principales cartera activa acumulada</h2>
+                    <p class="subtitulo-seccion">Estado en tiempo real de la cartera activa acumulada</p>
                 </div>
-
-                <form method="GET" class="form-filtro-seccion">
-                    <label for="anio_kpi">Año:</label>
-                    <select name="anio" id="anio_kpi">
-                        {% for anio in anios_disponibles %}
-                            <option value="{{ anio }}" {% if anio == anio_seleccionado %}selected{% endif %}>{{ anio }}</option>
-                        {% endfor %}
-                    </select>
-
-                    <button type="submit" class="btn btn-consultar">Ver resumen</button>
-                </form>
             </div>
 
             <div class="grid-kpis">
-                <div class="card-kpi k1">
+                <div class="card-kpi k9">
                     <div class="label">Cartera activa</div>
-                    <div class="valor">{{ kpis.cartera_activa }}</div>
+                    <div class="valor">{{ stock.cartera_activa }}</div>
                 </div>
 
-                <div class="card-kpi k2">
+                <div class="card-kpi k9">
                     <div class="label">Saldo total por cobrar</div>
-                    <div class="valor">{{ kpis.saldo_total | cop }}</div>
+                    <div class="valor">{{ stock.saldo_total_cobrar | cop }}</div>
                 </div>
 
-                <div class="card-kpi k3">
-                    <div class="label">Recaudo del mes</div>
-                    <div class="valor">{{ kpis.recaudo_mes | cop }}</div>
-                </div>
-
-                <div class="card-kpi k4">
+                <div class="card-kpi k9">
                     <div class="label">Créditos en mora</div>
-                    <div class="valor">{{ kpis.creditos_en_mora }}</div>
+                    <div class="valor">{{ stock.creditos_en_mora }}</div>
                 </div>
 
-                <div class="card-kpi k5">
+                <div class="card-kpi k9">
                     <div class="label">Créditos al día</div>
-                    <div class="valor">{{ kpis.creditos_al_dia }}</div>
+                    <div class="valor">{{ stock.creditos_al_dia }}</div>
                 </div>
 
-                <div class="card-kpi k6">
+                <div class="card-kpi k9">
                     <div class="label">Créditos cancelados</div>
-                    <div class="valor">{{ kpis.creditos_cancelados }}</div>
+                    <div class="valor">{{ stock.creditos_cancelados }}</div>
                 </div>
 
-                <div class="card-kpi k7">
-                    <div class="label">Mora acumulada</div>
-                    <div class="valor">{{ kpis.mora_acumulada | cop }}</div>
+                <div class="card-kpi k9">
+                    <div class="label">Créditos reestructurados</div>
+                    <div class="valor">{{ stock.creditos_reestructurados }}</div>
                 </div>
 
-                <div class="card-kpi k8">
+                <div class="card-kpi k9">
+                    <div class="label">Mora acumulada hoy</div>
+                    <div class="valor">{{ stock.mora_acumulada_hoy | cop }}</div>
+                </div>
+
+                <div class="card-kpi k9">
                     <div class="label">Sede con mayor mora</div>
-                    <div class="valor">{{ kpis.sede_mayor_mora }}</div>
+                    <div class="valor">{{ stock.sede_mayor_mora }}</div>
                 </div>
 
                 <div class="card-kpi k9">
                     <div class="label">Sede con más al día</div>
-                    <div class="valor">{{ kpis.sede_mas_al_dia }}</div>
+                    <div class="valor">{{ stock.sede_mas_al_dia }}</div>
                 </div>
 
-                <div class="card-kpi k10">
-                    <div class="label">DSO aproximado</div>
-                    <div class="valor">{{ kpis.dso }} días</div>
-                </div>
-
-                <div class="card-kpi k11">
-                    <div class="label">CEI cobranza</div>
-                    <div class="valor">{{ kpis.cei }}%</div>
-                </div>
-
-                <div class="card-kpi k12">
+                <div class="card-kpi k9">
                     <div class="label">Índice de morosidad</div>
-                    <div class="valor">{{ kpis.indice_morosidad }}%</div>
+                    <div class="valor">{{ stock.indice_morosidad }}%</div>
                 </div>
 
-                <div class="card-kpi k13">
+                <div class="card-kpi k9">
                     <div class="label">Clientes con 2 cuotas vencidas</div>
-                    <div class="valor">{{ kpis.clientes_2_cuotas_vencidas }}</div>
+                    <div class="valor">{{ stock.clientes_2_cuotas }}</div>
                 </div>
 
-                <div class="card-kpi k14">
+                <div class="card-kpi k9">
                     <div class="label">Clientes con más de 3 cuotas vencidas</div>
-                    <div class="valor">{{ kpis.clientes_mas_3_cuotas_vencidas }}</div>
+                    <div class="valor">{{ stock.clientes_mas_3_cuotas }}</div>
                 </div>
 
-                <div class="card-kpi k15">
-                    <div class="label">Cartera crítica</div>
-                    <div class="valor">{{ kpis.cartera_critica | cop }}</div>
+                <div class="card-kpi k9">
+                    <div class="label">Cartera crítica (más de 3 cuotas)</div>
+                    <div class="valor">{{ stock.cartera_critica_monto | cop }}</div>
                 </div>
 
-                <div class="card-kpi k16">
+                <div class="card-kpi k9">
                     <div class="label">Tasa posible incobrable</div>
-                    <div class="valor">{{ kpis.tasa_incobrabilidad }}%</div>
+                    <div class="valor">{{ stock.tasa_incobrabilidad }}%</div>
                 </div>
             </div>
         </div>
 
+        <!-- SECCIÓN 2: DESEMPEÑO Y GESTIÓN DEL PERÍODO (FLUJO / OPERACIÓN)        -->
         <div class="seccion">
             <div class="cabecera-seccion">
                 <div>
                     <h2>Resumen detallado del dashboard</h2>
-                    <p class="subtitulo-seccion">Consulta el detalle por mes, por sede, gráficas y tablas gerenciales.</p>
+                    <p class="subtitulo-seccion">Consulta desembolsos, recaudos e indicadores operativos del período seleccionado.</p>
                 </div>
 
-                <form method="GET" class="form-filtro-seccion">
+                <form method="GET" action="/dashboard_gerencial" class="form-filtro-seccion">
+                    
                     <label for="anio_detalle">Año:</label>
                     <select name="anio" id="anio_detalle">
                         {% for anio in anios_disponibles %}
-                            <option value="{{ anio }}" {% if anio == anio_seleccionado %}selected{% endif %}>{{ anio }}</option>
+                            <option value="{{ anio }}" {% if anio|string == anio_seleccionado|string %}selected{% endif %}>{{ anio }}</option>
                         {% endfor %}
                     </select>
 
                     <label for="mes_detalle">Mes:</label>
                     <select name="mes" id="mes_detalle">
                         {% for numero_mes, nombre_mes in meses_disponibles.items() %}
-                            <option value="{{ numero_mes }}" {% if numero_mes == mes_seleccionado %}selected{% endif %}>{{ nombre_mes }}</option>
+                            <option value="{{ numero_mes }}" {% if numero_mes|string == mes_seleccionado|string %}selected{% endif %}>{{ nombre_mes }}</option>
                         {% endfor %}
                     </select>
 
-                    <button type="submit" class="btn btn-consultar">Ver detalle</button>
+                    <label for="sede_detalle">Sede:</label>
+                    <select name="sede" id="sede_detalle">
+                        {% for s in sedes_disponibles %}
+                            <option value="{{ s }}" {% if s == sede_seleccionada %}selected{% endif %}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <button type="submit" class="btn btn-consultar">Consultar período</button>
                 </form>
             </div>
 
+            <!-- RESUMEN  DE FLUJO DEL PERÍODO -->
+            <div class="grid-kpis mb-4" style="margin-bottom: 25px;">
+                <div class="card-kpi k11">
+                    <div class="label">Total prestado (Desembolsos)</div>
+                    <div class="valor">{{ flujo.total_prestado | cop }}</div>
+                </div>
+
+                <div class="card-kpi k11">
+                    <div class="label">Recaudo total ingresado a caja</div>
+                    <div class="valor">{{ flujo.recaudo_total | cop }}</div>
+                </div>
+
+                <div class="card-kpi k11">
+                    <div class="label">Recaudo capital</div>
+                    <div class="valor">{{ flujo.recaudo_capital | cop }}</div>
+                </div>
+
+                <div class="card-kpi k11">
+                    <div class="label">Recaudo interés corriente</div>
+                    <div class="valor">{{ flujo.recaudo_interes | cop }}</div>
+                </div>
+
+                <div class="card-kpi k11">
+                    <div class="label">Recaudo mora</div>
+                    <div class="valor">{{ flujo.recaudo_mora | cop }}</div>
+                </div>
+
+                <div class="card-kpi k11">
+                    <div class="label">CEI Cobranza (Indice de Efectividad de Cobranzas)</div>
+                    <div class="valor">{{ flujo.cei }}%</div>
+                </div>
+
+                <div class="card-kpi k11">
+                    <div class="label">DSO (Dias Promedio Cobro) Aproximado</div>
+                    <div class="valor">{{ flujo.dso }} días</div>
+                </div>
+            </div>
+
+            <!-- NAVEGACIÓN ENTRE TABLAS Y GRÁFICAS -->
             <div class="bloque-navegacion-resumen">
-                <h3>Reportes detallados</h3>
+                <h3>Reportes detallados del período</h3>
                 <div class="nav-reporte">
+                    <button class="btn-nav-reporte activo" onclick="mostrarSeccionDashboard('seccionSedes', this)">Resumen por sede</button>
+                    <button class="btn-nav-reporte" onclick="mostrarSeccionDashboard('seccionComparativos', this)">Comparativos (Mes a Mes)</button>
                     <button class="btn-nav-reporte" onclick="mostrarSeccionDashboard('seccionGraficas', this)">Gráficas</button>
-                    <button class="btn-nav-reporte" onclick="mostrarSeccionDashboard('seccionSedes', this)">Resumen por sede</button>
-                    <button class="btn-nav-reporte" onclick="mostrarSeccionDashboard('seccionComparativos', this)">Comparativos</button>
                 </div>
             </div>
         </div>
 
-        <div class="seccion seccion-dashboard oculto" id="seccionGraficas">
-            <h2>Gráficas gerenciales</h2>
-
-            <div class="grid-graficas">
-                <div class="grafica-box">
-                    <h3>Saldo actual por sede</h3>
-                    <div class="canvas-container">
-                        <canvas id="graficaSaldoSede"></canvas>
-                    </div>
-                </div>
-
-                <div class="grafica-box">
-                    <h3>Recaudo del mes por sede</h3>
-                    <div class="canvas-container">
-                        <canvas id="graficaRecaudoSede"></canvas>
-                    </div>
-                </div>
-
-                <div class="grafica-box">
-                    <h3>Estado de créditos por sede</h3>
-                    <div class="canvas-container">
-                        <canvas id="graficaEstadoSede"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="seccion seccion-dashboard oculto" id="seccionSedes">
-            <h2>Resumen por sede</h2>
-            <div class="subtitulo-tabla">Vista consolidada de cartera, recaudo y estado de créditos por cada sede.</div>
+        <!-- PESTAÑA 1: RESUMEN POR SEDE (FLUJO DEL PERÍODO) -->
+        <div class="seccion seccion-dashboard" id="seccionSedes">
+            <h2>Resumen de flujo de caja por sede</h2>
+            <div class="subtitulo-tabla">Movimiento operativo de desembolsos y recaudo registrado en el período seleccionado.</div>
 
             <div class="tabla-wrapper">
                 <table>
                     <thead>
                         <tr>
                             <th>Sede</th>
-                            <th>Total créditos</th>
-                            <th>Saldo actual</th>
-                            <th>Recaudo del mes</th>
-                            <th>En mora</th>
-                            <th>Al día</th>
-                            <th>Cancelados</th>
+                            <th>Total prestado (Mes)</th>
+                            <th>Recaudo capital</th>
+                            <th>Recaudo interés</th>
+                            <th>Recaudo mora</th>
+                            <th>Total recaudado (Caja)</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for fila in datos_sedes %}
+                        {% for fila in datos_sedes_flujo %}
                         <tr>
                             <td><strong>{{ fila.sede }}</strong></td>
-                            <td>{{ fila.total_creditos }}</td>
-                            <td>{{ fila.saldo_actual | cop }}</td>
-                            <td>{{ fila.recaudo_mes | cop }}</td>
-                            <td>{{ fila.en_mora }}</td>
-                            <td>{{ fila.al_dia }}</td>
-                            <td>{{ fila.cancelados }}</td>
+                            <td>{{ fila.total_prestado | cop }}</td>
+                            <td>{{ fila.recaudo_capital | cop }}</td>
+                            <td>{{ fila.recaudo_interes | cop }}</td>
+                            <td>{{ fila.recaudo_mora | cop }}</td>
+                            <td style="color: #15803d; font-weight: bold;">{{ fila.recaudo_total | cop }}</td>
                         </tr>
                         {% endfor %}
                         <tr class="fila-total">
-                            <td><strong>TOTALES</strong></td>
-                            <td><strong>{{ kpis.cartera_activa + kpis.creditos_cancelados }}</strong></td>
-                            <td><strong>{{ kpis.saldo_total | cop }}</strong></td>
-                            <td><strong>{{ kpis.recaudo_mes | cop }}</strong></td>
-                            <td><strong>{{ kpis.creditos_en_mora }}</strong></td>
-                            <td><strong>{{ kpis.creditos_al_dia }}</strong></td>
-                            <td><strong>{{ kpis.creditos_cancelados }}</strong></td>
+                            <td><strong>TOTALES PERÍODO</strong></td>
+                            <td><strong>{{ flujo.total_prestado | cop }}</strong></td>
+                            <td><strong>{{ flujo.recaudo_capital | cop }}</strong></td>
+                            <td><strong>{{ flujo.recaudo_interes | cop }}</strong></td>
+                            <td><strong>{{ flujo.recaudo_mora | cop }}</strong></td>
+                            <td style="color: #15803d;"><strong>{{ flujo.recaudo_total | cop }}</strong></td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
+        <!-- PESTAÑA 2: COMPARATIVOS DE EVOLUCIÓN (MoM / PERÍODO ANTERIOR) -->
         <div class="seccion seccion-dashboard oculto" id="seccionComparativos">
-            <h2>Comparativos gerenciales</h2>
+            <h2>Comparativos gerenciales y evolución</h2>
+            <div class="subtitulo-tabla">Análisis comparativo del desempeño de caja frente al período anterior.</div>
 
-            <h3>Resumen consolidado</h3>
             <div class="tabla-wrapper">
                 <table>
                     <thead>
                         <tr>
-                            <th>Indicador</th>
-                            <th>Valor</th>
+                            <th>Indicador operativo</th>
+                            <th>Período actual ({{ comparativo.periodo_actual_label }})</th>
+                            <th>Período anterior ({{ comparativo.periodo_prev_label }})</th>
+                            <th>Diferencia ($)</th>
+                            <th>Variación (%)</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td><strong>Cartera activa</strong></td>
-                            <td>{{ kpis.cartera_activa }}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Saldo total por cobrar</strong></td>
-                            <td>{{ kpis.saldo_total | cop }}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Recaudo del mes</strong></td>
-                            <td>{{ kpis.recaudo_mes | cop }}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Créditos en mora</strong></td>
-                            <td>{{ kpis.creditos_en_mora }}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Créditos al día</strong></td>
-                            <td>{{ kpis.creditos_al_dia }}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Créditos cancelados</strong></td>
-                            <td>{{ kpis.creditos_cancelados }}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Mora acumulada</strong></td>
-                            <td>{{ kpis.mora_acumulada | cop }}</td>
+                            <td><strong>Recaudo Total Ingresado a Caja</strong></td>
+                            <td style="font-weight: bold; color: #15803d;">{{ comparativo.recaudo_actual | cop }}</td>
+                            <td>{{ comparativo.recaudo_prev | cop }}</td>
+                            <td style="font-weight: bold;" class="{% if comparativo.diff_recaudo >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ comparativo.diff_recaudo | cop }}
+                            </td>
+                            <td>
+                                <span class="badge-variacion {% if comparativo.pct_recaudo >= 0 %}badge-pos{% else %}badge-neg{% endif %}">
+                                    {% if comparativo.pct_recaudo >= 0 %}+{% endif %}{{ comparativo.pct_recaudo }}%
+                                </span>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- PESTAÑA 3: GRÁFICAS DE GESTIÓN DEL PERÍODO -->
+        <div class="seccion seccion-dashboard oculto" id="seccionGraficas">
+            <h2>Gráficas gerenciales de gestión</h2>
+
+            <div class="grid-graficas">
+                <div class="grafica-box">
+                    <h3>Recaudo total por sede en el período</h3>
+                    <div class="canvas-container">
+                        <canvas id="graficaRecaudoSede"></canvas>
+                    </div>
+                </div>
+
+                <div class="grafica-box">
+                    <h3>Total prestado / desembolsado por sede en el período</h3>
+                    <div class="canvas-container">
+                        <canvas id="graficaPrestadoSede"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
 
     </div>
 
+    <!-- SCRIPT DE CONFIGURACIÓN DE GRÁFICAS Y NAVEGACIÓN -->
     <script>
-        const labelsSedes = {{ labels_sedes | tojson }};
-        const saldosSedes = {{ saldos_sedes | tojson }};
-        const recaudoMesSedes = {{ recaudo_mes_sedes | tojson }};
-        const moraSedes = {{ mora_sedes | tojson }};
-        const alDiaSedes = {{ al_dia_sedes | tojson }};
-        const canceladosSedes = {{ cancelados_sedes | tojson }};
+        // Extracción de datos dinámicos enviadas desde Python
+        const datosFlujo = {{ datos_sedes_flujo | tojson }};
+        
+        const labelsSedes = datosFlujo.map(d => d.sede);
+        const recaudosSedes = datosFlujo.map(d => d.recaudo_total);
+        const prestadosSedes = datosFlujo.map(d => d.total_prestado);
 
-        new Chart(document.getElementById('graficaSaldoSede'), {
-            type: 'bar',
-            data: {
-                labels: labelsSedes,
-                datasets: [{
-                    label: 'Saldo actual',
-                    data: saldosSedes,
-                    backgroundColor: '#1677ff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'bottom' }
-                },
-                scales: {
-                    y: { beginAtZero: true }
-                }
-            }
-        });
-
+        // Gráfica 1: Recaudo por Sede
         new Chart(document.getElementById('graficaRecaudoSede'), {
             type: 'bar',
             data: {
                 labels: labelsSedes,
                 datasets: [{
-                    label: 'Recaudo del mes',
-                    data: recaudoMesSedes,
+                    label: 'Recaudo Total ($)',
+                    data: recaudosSedes,
                     backgroundColor: '#198754'
                 }]
             },
@@ -668,27 +661,16 @@
             }
         });
 
-        new Chart(document.getElementById('graficaEstadoSede'), {
+        // Gráfica 2: Total Prestado por Sede
+        new Chart(document.getElementById('graficaPrestadoSede'), {
             type: 'bar',
             data: {
                 labels: labelsSedes,
-                datasets: [
-                    {
-                        label: 'En mora',
-                        data: moraSedes,
-                        backgroundColor: '#dc3545'
-                    },
-                    {
-                        label: 'Al día',
-                        data: alDiaSedes,
-                        backgroundColor: '#0ea5e9'
-                    },
-                    {
-                        label: 'Cancelados',
-                        data: canceladosSedes,
-                        backgroundColor: '#7c3aed'
-                    }
-                ]
+                datasets: [{
+                    label: 'Total Prestado ($)',
+                    data: prestadosSedes,
+                    backgroundColor: '#1677ff'
+                }]
             },
             options: {
                 responsive: true,
@@ -702,6 +684,7 @@
             }
         });
 
+        // Función JavaScript de cambio de pestañas
         function mostrarSeccionDashboard(idSeccion, boton) {
             const secciones = document.querySelectorAll('.seccion-dashboard');
             const botones = document.querySelectorAll('.btn-nav-reporte');

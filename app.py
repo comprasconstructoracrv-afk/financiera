@@ -5877,6 +5877,30 @@ def exportar_reporte_pdf():
         mimetype="application/pdf"
     )
 
+import calendar
+from collections import defaultdict
+from datetime import date, datetime, timedelta
+from flask import redirect, render_template, request, session
+from sqlalchemy.orm import joinedload
+
+
+def fecha_solo_fecha(val):
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val.date()
+    return val
+
+
+def sede_normalizada(sede):
+    if not sede:
+        return 'CRV'
+    sede = str(sede).strip().upper()
+    if sede == 'SAS':
+        return 'CRV'
+    return sede
+
+
 @app.route('/dashboard_gerencial')
 def dashboard_gerencial():
     if 'user' not in session:
@@ -5886,213 +5910,640 @@ def dashboard_gerencial():
     anio_actual = hoy.year
     mes_actual = hoy.month
 
-    anio_seleccionado = request.args.get('anio', type=int) or anio_actual
-    mes_seleccionado = request.args.get('mes', type=int) or mes_actual
-    sede_seleccionada = request.args.get('sede', default='TODAS', type=str).strip().upper()
+    # 1. PARSEO Y NORMALIZACIÓN DE FILTROS
+    raw_anio = str(
+        request.args.get('anio', default=anio_actual)
+    ).strip().upper()
+    raw_mes = str(
+        request.args.get('mes', default=mes_actual)
+    ).strip().upper()
+    sede_seleccionada = str(
+        request.args.get('sede', default='TODAS')
+    ).strip().upper()
 
-    sedes_db = db.session.query(Credito.sede).filter(Credito.sede.isnot(None)).distinct().all()
-    sedes = sorted([s[0] for s in sedes_db if s[0]])
+    filtro_anio = None
+    if raw_anio not in ['TODOS', 'NONE', '']:
+        try:
+            filtro_anio = int(raw_anio)
+        except (ValueError, TypeError):
+            filtro_anio = None
 
-    if sede_seleccionada == 'TODAS':
-        sedes_filtradas = sedes
-    else:
-        sedes_filtradas = [sede_seleccionada]
+    filtro_mes = None
+    if raw_mes not in ['TODOS', 'NONE', '']:
+        meses_map = {
+            'ENERO': 1,
+            'FEBRERO': 2,
+            'MARZO': 3,
+            'ABRIL': 4,
+            'MAYO': 5,
+            'JUNIO': 6,
+            'JULIO': 7,
+            'AGOSTO': 8,
+            'SEPTIEMBRE': 9,
+            'OCTUBRE': 10,
+            'NOVIEMBRE': 11,
+            'DICIEMBRE': 12,
+        }
+        filtro_mes = (
+            int(raw_mes) if raw_mes.isdigit() else meses_map.get(raw_mes, None)
+        )
 
+    anio_seleccionado = 'TODOS' if filtro_anio is None else filtro_anio
+    mes_seleccionado = 'TODOS' if filtro_mes is None else filtro_mes
+
+    # Mapeo de nombres de meses
     meses_nombres = {
-        1: 'ENERO', 2: 'FEBRERO', 3: 'MARZO', 4: 'ABRIL',
-        5: 'MAYO', 6: 'JUNIO', 7: 'JULIO', 8: 'AGOSTO',
-        9: 'SEPTIEMBRE', 10: 'OCTUBRE', 11: 'NOVIEMBRE', 12: 'DICIEMBRE'
+        'TODOS': 'TODOS LOS MESES',
+        1: 'ENERO',
+        2: 'FEBRERO',
+        3: 'MARZO',
+        4: 'ABRIL',
+        5: 'MAYO',
+        6: 'JUNIO',
+        7: 'JULIO',
+        8: 'AGOSTO',
+        9: 'SEPTIEMBRE',
+        10: 'OCTUBRE',
+        11: 'NOVIEMBRE',
+        12: 'DICIEMBRE',
     }
 
-    kpis = {
-        'cartera_activa': 0,
-        'saldo_total': 0,
-        'recaudo_mes': 0,
-        'creditos_en_mora': 0,
-        'creditos_al_dia': 0,
-        'creditos_cancelados': 0,
-        'mora_acumulada': 0,
-        'sede_mayor_mora': 'SIN DATOS',
-        'sede_mas_al_dia': 'SIN DATOS',
-        'dso': 0,
-        'cei': 0,
-        'indice_morosidad': 0,
-        'clientes_2_cuotas_vencidas': 0,
-        'clientes_mas_3_cuotas_vencidas': 0,
-        'cartera_critica': 0,
-        'tasa_incobrabilidad': 0
+    # 2. SEDES DISPONIBLES
+    sedes_db = db.session.query(Credito.sede).distinct().all()
+    sedes_base = sorted(
+        list(set([sede_normalizada(s[0]) for s in sedes_db if s[0]]))
+    )
+    if not sedes_base:
+        sedes_base = ['CRV']
+
+    sedes_filtradas = (
+        sedes_base
+        if sede_seleccionada in ['TODAS', 'TODOS', '']
+        else [sede_seleccionada]
+    )
+
+    creditos = Credito.query.all()
+    creditos_filtrados = [
+        c for c in creditos if sede_normalizada(c.sede) in sedes_filtradas
+    ]
+    ids_creditos_filtrados = [c.id for c in creditos_filtrados]
+    creditos_map = {c.id: c for c in creditos_filtrados}
+
+    # -------------------------------------------------------------------------
+    # 3. PRECARGA MASIVA DE INYECCIONES Y ABONOS
+    # -------------------------------------------------------------------------
+    inyecciones_query = db.session.query(
+        InyeccionCapital.credito_id,
+        db.extract('year', InyeccionCapital.fecha).label('anio'),
+        db.extract('month', InyeccionCapital.fecha).label('mes'),
+        db.func.sum(InyeccionCapital.valor),
+    )
+    if ids_creditos_filtrados:
+        inyecciones_query = inyecciones_query.filter(
+            InyeccionCapital.credito_id.in_(ids_creditos_filtrados)
+        )
+
+    inyecciones_rows = inyecciones_query.group_by(
+        InyeccionCapital.credito_id,
+        db.extract('year', InyeccionCapital.fecha),
+        db.extract('month', InyeccionCapital.fecha),
+    ).all()
+
+    inyecciones_map = defaultdict(float)
+    inyecciones_map_global = defaultdict(float)
+    for cid, anio_i, mes_i, val in inyecciones_rows:
+        v = float(val or 0)
+        inyecciones_map_global[cid] += v
+        if anio_i and mes_i:
+            inyecciones_map[(cid, int(anio_i), int(mes_i))] += v
+        if anio_i:
+            inyecciones_map[(cid, int(anio_i), None)] += v
+
+    def total_inyecciones_credito(credito_id, anio=None, mes=None):
+        a_int = int(anio) if anio and str(anio).upper() != 'TODOS' else None
+        m_int = int(mes) if mes and str(mes).upper() != 'TODOS' else None
+        if a_int and m_int:
+            return round(inyecciones_map.get((credito_id, a_int, m_int), 0.0), 2)
+        elif a_int:
+            return round(inyecciones_map.get((credito_id, a_int, None), 0.0), 2)
+        return round(inyecciones_map_global.get(credito_id, 0.0), 2)
+
+    abonos_query = db.session.query(
+        AbonoCapital.credito_id,
+        db.extract('year', AbonoCapital.fecha).label('anio'),
+        db.extract('month', AbonoCapital.fecha).label('mes'),
+        db.func.sum(AbonoCapital.valor),
+    ).filter(AbonoCapital.activo == True)
+
+    if hasattr(AbonoCapital, 'reversado'):
+        abonos_query = abonos_query.filter(AbonoCapital.reversado == False)
+    if ids_creditos_filtrados:
+        abonos_query = abonos_query.filter(
+            AbonoCapital.credito_id.in_(ids_creditos_filtrados)
+        )
+
+    abonos_rows = abonos_query.group_by(
+        AbonoCapital.credito_id,
+        db.extract('year', AbonoCapital.fecha),
+        db.extract('month', AbonoCapital.fecha),
+    ).all()
+
+    abonos_map = defaultdict(float)
+    abonos_map_global = defaultdict(float)
+    for cid, anio_a, mes_a, val in abonos_rows:
+        v = float(val or 0)
+        abonos_map_global[cid] += v
+        if anio_a and mes_a:
+            abonos_map[(cid, int(anio_a), int(mes_a))] += v
+        if anio_a:
+            abonos_map[(cid, int(anio_a), None)] += v
+
+    def total_abonos_credito(credito_id, anio=None, mes=None):
+        a_int = int(anio) if anio and str(anio).upper() != 'TODOS' else None
+        m_int = int(mes) if mes and str(mes).upper() != 'TODOS' else None
+        if a_int and m_int:
+            return round(abonos_map.get((credito_id, a_int, m_int), 0.0), 2)
+        elif a_int:
+            return round(abonos_map.get((credito_id, a_int, None), 0.0), 2)
+        return round(abonos_map_global.get(credito_id, 0.0), 2)
+
+    cuotas_por_credito_dict = defaultdict(list)
+    if ids_creditos_filtrados:
+        todas_cuotas = Cuota.query.filter(
+            Cuota.credito_id.in_(ids_creditos_filtrados)
+        ).all()
+        for q in todas_cuotas:
+            cuotas_por_credito_dict[q.credito_id].append(q)
+
+    # -------------------------------------------------------------------------
+    # 4. EXCLUSIÓN DE REESTRUCTURADOS
+    # -------------------------------------------------------------------------
+    ids_reest_creditos = {
+        c.id
+        for c in creditos_filtrados
+        if str(getattr(c, 'estado', '')).strip().upper() == 'REESTRUCTURADO'
+        or getattr(c, 'reestructurado', False)
     }
+    ids_reest_cuotas = set()
+    if ids_creditos_filtrados:
+        ids_reest_cuotas = {
+            row[0]
+            for row in db.session.query(Cuota.credito_id)
+            .join(Credito, Cuota.credito_id == Credito.id)
+            .filter(
+                db.func.upper(Cuota.estado) == 'REESTRUCTURADO',
+                Credito.id.in_(ids_creditos_filtrados),
+            )
+            .distinct()
+            .all()
+        }
+    ids_reest_set = ids_reest_creditos.union(ids_reest_cuotas)
+    ids_operativos = [
+        cid for cid in ids_creditos_filtrados if cid not in ids_reest_set
+    ]
+    set_operativos = set(ids_operativos)
 
-    datos_sedes = []
+    # -------------------------------------------------------------------------
+    # 5. PAGOS Y CUOTAS DEL PERÍODO
+    # -------------------------------------------------------------------------
+    pagos_query = (
+        db.session.query(Pago)
+        .options(joinedload(Pago.cuota).joinedload(Cuota.credito))
+        .join(Cuota, Pago.cuota_id == Cuota.id)
+        .filter(
+            Pago.activo == True,
+            Cuota.credito_id.in_(ids_operativos) if ids_operativos else False,
+        )
+    )
+    if hasattr(Pago, 'reversado'):
+        pagos_query = pagos_query.filter(Pago.reversado == False)
+    if filtro_anio is not None:
+        pagos_query = pagos_query.filter(
+            db.extract('year', Pago.fecha) == filtro_anio
+        )
+    if filtro_mes is not None:
+        pagos_query = pagos_query.filter(
+            db.extract('month', Pago.fecha) == filtro_mes
+        )
+    pagos_anio = pagos_query.distinct(Pago.id).all()
 
-    mayor_mora_valor = 0
-    mayor_al_dia_valor = 0
-    deuda_vencida_total = 0
+    cuotas_query = (
+        db.session.query(Cuota, Credito)
+        .join(Credito, Cuota.credito_id == Credito.id)
+        .filter(Credito.id.in_(ids_operativos) if ids_operativos else False)
+    )
+    if filtro_anio is not None:
+        cuotas_query = cuotas_query.filter(
+            db.extract('year', Cuota.fecha_pago) == filtro_anio
+        )
+    if filtro_mes is not None:
+        cuotas_query = cuotas_query.filter(
+            db.extract('month', Cuota.fecha_pago) == filtro_mes
+        )
+    cuotas_anio = cuotas_query.all()
 
+    # -------------------------------------------------------------------------
+    # 6. CÁLCULO DE TOTAL PRESTADO, RECAUDADO Y SALDO ACTUAL
+    # -------------------------------------------------------------------------
+    query_prestado = db.session.query(
+        db.func.coalesce(db.func.sum(Credito.monto_financiado), 0)
+    ).filter(Credito.id.in_(ids_operativos) if ids_operativos else False)
+    if filtro_anio:
+        query_prestado = query_prestado.filter(
+            db.extract('year', Credito.fecha_creacion) == filtro_anio
+        )
+    if filtro_mes and filtro_anio:
+        query_prestado = query_prestado.filter(
+            db.extract('month', Credito.fecha_creacion) == filtro_mes
+        )
+
+    total_prestado_creditos = query_prestado.scalar() or 0
+    total_inyecciones = sum(
+        total_inyecciones_credito(cid, anio_seleccionado, mes_seleccionado)
+        for cid in ids_operativos
+    )
+    total_prestado_global = round(
+        float(total_prestado_creditos) + float(total_inyecciones), 2
+    )
+
+    def capital_recaudado_global_filtrado(lista_ids, anio=None, mes=None):
+        if not lista_ids:
+            return 0.0
+        es_historico = not filtro_anio and not filtro_mes
+        if es_historico:
+            valor_cuotas_cap = (
+                db.session.query(
+                    db.func.coalesce(db.func.sum(Cuota.capital), 0)
+                )
+                .filter(
+                    Cuota.credito_id.in_(lista_ids),
+                    Cuota.estado.in_(['PAGADA', 'LIQUIDADA']),
+                )
+                .scalar()
+                or 0.0
+            )
+            abonos = sum(abonos_map_global[cid] for cid in lista_ids)
+            return round(float(valor_cuotas_cap) + float(abonos), 2)
+        else:
+            query_pagos_cap = (
+                db.session.query(
+                    db.func.coalesce(db.func.sum(Cuota.capital), 0)
+                )
+                .join(Pago, Pago.cuota_id == Cuota.id)
+                .filter(
+                    Cuota.credito_id.in_(lista_ids), Pago.activo == True
+                )
+            )
+            if hasattr(Pago, 'reversado'):
+                query_pagos_cap = query_pagos_cap.filter(Pago.reversado == False)
+            if filtro_anio:
+                query_pagos_cap = query_pagos_cap.filter(
+                    db.extract('year', Pago.fecha) == filtro_anio
+                )
+            if filtro_mes:
+                query_pagos_cap = query_pagos_cap.filter(
+                    db.extract('month', Pago.fecha) == filtro_mes
+                )
+
+            total_abonos_periodo = sum(
+                total_abonos_credito(cid, anio, mes) for cid in lista_ids
+            )
+            return round(
+                (query_pagos_cap.scalar() or 0.0) + float(total_abonos_periodo),
+                2,
+            )
+
+    recaudo_capital_global = capital_recaudado_global_filtrado(
+        ids_operativos, anio_seleccionado, mes_seleccionado
+    )
+
+    interes_recaudado_global = round(
+        sum(
+            p.valor_aplicado_interes or 0
+            for p in pagos_anio
+            if getattr(p, 'cuota', None)
+            and p.cuota.credito_id not in ids_reest_set
+        ),
+        2,
+    )
+
+    mora_recaudada_global = round(
+        sum(
+            p.valor_aplicado_mora or 0
+            for p in pagos_anio
+            if getattr(p, 'cuota', None)
+            and p.cuota.credito_id not in ids_reest_set
+        ),
+        2,
+    )
+
+    total_recaudado_global = round(
+        recaudo_capital_global
+        + interes_recaudado_global
+        + mora_recaudada_global,
+        2,
+    )
+
+    saldo_actual_total = round(
+        db.session.query(
+            db.func.coalesce(db.func.sum(Credito.saldo_actual), 0)
+        )
+        .filter(Credito.id.in_(ids_operativos))
+        .scalar()
+        if ids_operativos
+        else 0,
+        2,
+    )
+
+    # -------------------------------------------------------------------------
+    # 7. CONSTRUCCIÓN DE RESUMEN DE FLUJO POR SEDE (IGUAL AL REPORTE FINANCIERO)
+    # -------------------------------------------------------------------------
+    creditos_por_sede_map = defaultdict(list)
+    creditos_mes_por_sede_map = defaultdict(list)
+    for c in creditos_filtrados:
+        if str(getattr(c, 'estado', 'ACTIVO')).strip().upper() != 'REESTRUCTURADO':
+            s_norm = sede_normalizada(c.sede)
+            creditos_por_sede_map[s_norm].append(c)
+
+            f_c = fecha_solo_fecha(
+                getattr(c, 'fecha_inicio', None)
+                or getattr(c, 'fecha_creacion', None)
+                or getattr(c, 'fecha', None)
+            )
+            if f_c and f_c.year == filtro_anio:
+                if filtro_mes is None or f_c.month == filtro_mes:
+                    creditos_mes_por_sede_map[s_norm].append(c)
+
+    datos_sedes_flujo = []
     for sede in sedes_filtradas:
-        creditos = Credito.query.filter_by(sede=sede).all()
+        s_norm = sede_normalizada(sede)
+        creditos_sede = creditos_por_sede_map.get(sede, [])
+        creditos_sede_validos = [
+            c for c in creditos_sede if getattr(c, 'id', None) in set_operativos
+        ]
+        ids_operativos_sede = [c.id for c in creditos_sede_validos]
 
-        creditos_en_mora = 0
-        creditos_cancelados = 0
-        creditos_al_dia = 0
-        recaudo_mes_sede = 0
-        mora_acumulada_sede = 0
-        saldo_actual_sede = 0
-        cartera_critica_sede = 0
-        clientes_2_cuotas_sede = 0
-        clientes_mas_3_cuotas_sede = 0
-        deuda_vencida_sede = 0
+        if filtro_anio is None and filtro_mes is None:
+            creditos_sede_mes = creditos_sede
+        else:
+            creditos_sede_mes = creditos_mes_por_sede_map.get(sede, [])
+            if not creditos_sede_mes and filtro_anio is None:
+                creditos_sede_mes = creditos_sede
 
-        creditos_ids = [c.id for c in creditos]
+        creditos_sede_mes_validos = [
+            c for c in creditos_sede_mes if getattr(c, 'id', None) in set_operativos
+        ]
 
-        if creditos_ids:
-            cuotas = Cuota.query.filter(Cuota.credito_id.in_(creditos_ids)).all()
-            cuotas_ids = [q.id for q in cuotas]
+        prestado_sede = round(
+            sum(
+                float(getattr(c, 'monto_financiado', 0) or 0)
+                for c in creditos_sede_mes_validos
+            )
+            + sum(
+                total_inyecciones_credito(c.id, filtro_anio, filtro_mes)
+                for c in creditos_sede_mes_validos
+            ),
+            2,
+        )
 
-            for credito in creditos:
-                #actualizar_mora_credito(credito, hoy)
+        recaudo_cap_sede = capital_recaudado_global_filtrado(
+            ids_operativos_sede, filtro_anio, filtro_mes
+        )
 
-                cuotas_credito = [q for q in cuotas if q.credito_id == credito.id]
+        recaudo_int_sede = round(
+            sum(
+                float(getattr(p, 'valor_aplicado_interes', 0) or 0)
+                for p in pagos_anio
+                if (
+                    getattr(p, 'credito_id', None)
+                    or getattr(getattr(p, 'cuota', None), 'credito_id', None)
+                )
+                in set(ids_operativos_sede)
+            ),
+            2,
+        )
 
-                if not cuotas_credito:
-                    continue
+        recaudo_mora_sede = round(
+            sum(
+                float(getattr(p, 'valor_aplicado_mora', 0) or 0)
+                for p in pagos_anio
+                if (
+                    getattr(p, 'credito_id', None)
+                    or getattr(getattr(p, 'cuota', None), 'credito_id', None)
+                )
+                in set(ids_operativos_sede)
+            ),
+            2,
+        )
 
-                cuotas_activas = [
-                    q for q in cuotas_credito
-                    if q.estado not in ['PAGADA', 'LIQUIDADA']
-                ]
+        recaudo_tot_sede = round(
+            recaudo_cap_sede + recaudo_int_sede + recaudo_mora_sede, 2
+        )
 
-                if not cuotas_activas:
-                    creditos_cancelados += 1
-                    continue
-
-                kpis['cartera_activa'] += 1
-
-                saldo_credito = round(sum(
-                    (q.saldo_pendiente or 0) + (q.interes_mora or 0)
-                    for q in cuotas_activas
-                ), 2)
-
-                saldo_actual_sede += saldo_credito
-
-                cuotas_mora = [
-                    q for q in cuotas_credito
-                    if q.estado == 'EN MORA'
-                ]
-
-                cuotas_vencidas = len(cuotas_mora)
-
-                if cuotas_vencidas > 0:
-                    creditos_en_mora += 1
-
-                    deuda_vencida_credito = round(sum(
-                        (q.saldo_pendiente or 0) + (q.interes_mora or 0)
-                        for q in cuotas_mora
-                    ), 2)
-
-                    deuda_vencida_sede += deuda_vencida_credito
-
-                    if cuotas_vencidas == 2:
-                        clientes_2_cuotas_sede += 1
-
-                    if cuotas_vencidas > 3:
-                        clientes_mas_3_cuotas_sede += 1
-                        cartera_critica_sede += deuda_vencida_credito
-
-                else:
-                    creditos_al_dia += 1
-
-            mora_acumulada_sede = round(sum(
-                q.interes_mora or 0
-                for q in cuotas
-            ), 2)
-
-            if cuotas_ids:
-                pagos_mes_sede_lista = Pago.query.filter(
-                    Pago.cuota_id.in_(cuotas_ids),
-                    Pago.activo == True,
-                    Pago.reversado == False,
-                    db.extract('year', Pago.fecha) == anio_seleccionado,
-                    db.extract('month', Pago.fecha) == mes_seleccionado
-                ).all()
-
-                recaudo_mes_sede = round(sum(p.valor or 0 for p in pagos_mes_sede_lista), 2)
-
-        kpis['saldo_total'] += saldo_actual_sede
-        kpis['recaudo_mes'] += recaudo_mes_sede
-        kpis['creditos_en_mora'] += creditos_en_mora
-        kpis['creditos_cancelados'] += creditos_cancelados
-        kpis['creditos_al_dia'] += creditos_al_dia
-        kpis['mora_acumulada'] += mora_acumulada_sede
-        kpis['clientes_2_cuotas_vencidas'] += clientes_2_cuotas_sede
-        kpis['clientes_mas_3_cuotas_vencidas'] += clientes_mas_3_cuotas_sede
-        kpis['cartera_critica'] += cartera_critica_sede
-
-        deuda_vencida_total += deuda_vencida_sede
-
-        if mora_acumulada_sede > mayor_mora_valor:
-            mayor_mora_valor = mora_acumulada_sede
-            kpis['sede_mayor_mora'] = sede
-
-        if creditos_al_dia > mayor_al_dia_valor:
-            mayor_al_dia_valor = creditos_al_dia
-            kpis['sede_mas_al_dia'] = sede
-
-        datos_sedes.append({
+        datos_sedes_flujo.append({
             'sede': sede,
-            'total_creditos': len(creditos),
-            'saldo_actual': round(saldo_actual_sede, 2),
-            'recaudo_mes': recaudo_mes_sede,
-            'en_mora': creditos_en_mora,
-            'al_dia': creditos_al_dia,
-            'cancelados': creditos_cancelados
+            'total_prestado': prestado_sede,
+            'recaudo_capital': recaudo_cap_sede,
+            'recaudo_interes': recaudo_int_sede,
+            'recaudo_mora': recaudo_mora_sede,
+            'recaudo_total': recaudo_tot_sede,
         })
 
-    if kpis['recaudo_mes'] > 0:
-        kpis['dso'] = round((kpis['saldo_total'] / kpis['recaudo_mes']) * 30, 1)
+    # -------------------------------------------------------------------------
+    # 8. CONSTRUCCIÓN DE ESTRUCTURAS FINALES PARA EL DASHBOARD
+    # -------------------------------------------------------------------------
+    stock = {
+        'cartera_activa': 0,
+        'saldo_total_cobrar': saldo_actual_total,  
+        'creditos_al_dia': 0,
+        'creditos_en_mora': 0,
+        'creditos_reestructurados': len(ids_reest_set),
+        'creditos_cancelados': 0,
+        'clientes_2_cuotas': 0,
+        'clientes_mas_3_cuotas': 0,
+        'cartera_critica_monto': 0.0,
+        'mora_acumulada_hoy': 0.0,
+        'indice_morosidad': 0.0,
+        'tasa_incobrabilidad': 0.0,
+        'sede_mayor_mora': 'SIN DATOS',
+        'sede_mas_al_dia': 'SIN DATOS',
+    }
 
-    base_cobranza = kpis['recaudo_mes'] + deuda_vencida_total
+    mora_por_sede_map = {}
+    al_dia_por_sede_map = {}
+    creditos_operativos = [c for c in creditos_filtrados if c.id in set_operativos]
+
+    for c in creditos_operativos:
+        c_cuotas = cuotas_por_credito_dict.get(c.id, [])
+        if not c_cuotas:
+            continue
+
+        cuotas_activas = [
+            q
+            for q in c_cuotas
+            if str(getattr(q, 'estado', '')).strip().upper()
+            not in ['PAGADA', 'LIQUIDADA', 'REESTRUCTURADO']
+        ]
+
+        if not cuotas_activas:
+            stock['creditos_cancelados'] += 1
+            continue
+
+        stock['cartera_activa'] += 1
+
+        mora_c = sum(
+            float(getattr(q, 'interes_mora', 0) or 0) for q in cuotas_activas
+        )
+        stock['mora_acumulada_hoy'] += mora_c
+
+        sede_c = c.sede or 'SIN SEDE'
+        mora_por_sede_map[sede_c] = mora_por_sede_map.get(sede_c, 0.0) + mora_c
+
+        cuotas_vencidas_list = []
+        for q in c_cuotas:
+            est = str(getattr(q, 'estado', '')).strip().upper()
+            if est in ['PAGADA', 'LIQUIDADA', 'REESTRUCTURADO']:
+                continue
+
+            f_venc = fecha_solo_fecha(
+                getattr(q, 'fecha_vencimiento', None)
+                or getattr(q, 'fecha_pago', None)
+            )
+            if est == 'EN MORA' or (f_venc and f_venc < hoy):
+                cuotas_vencidas_list.append(q)
+
+        num_vencidas = len(cuotas_vencidas_list)
+
+        if num_vencidas > 0:
+            stock['creditos_en_mora'] += 1
+            deuda_vencida = round(
+                sum(
+                    (float(getattr(q, 'saldo_pendiente', 0) or 0))
+                    + (float(getattr(q, 'interes_mora', 0) or 0))
+                    for q in cuotas_vencidas_list
+                ),
+                2,
+            )
+
+            if num_vencidas == 2:
+                stock['clientes_2_cuotas'] += 1
+            elif num_vencidas >= 3:
+                stock['clientes_mas_3_cuotas'] += 1
+                stock['cartera_critica_monto'] += deuda_vencida
+        else:
+            stock['creditos_al_dia'] += 1
+            al_dia_por_sede_map[sede_c] = (
+                al_dia_por_sede_map.get(sede_c, 0) + 1
+            )
+
+    if mora_por_sede_map:
+        stock['sede_mayor_mora'] = max(
+            mora_por_sede_map, key=mora_por_sede_map.get
+        )
+
+    if al_dia_por_sede_map:
+        stock['sede_mas_al_dia'] = max(
+            al_dia_por_sede_map, key=al_dia_por_sede_map.get
+        )
+
+    if stock['cartera_activa'] > 0:
+        stock['indice_morosidad'] = round(
+            (stock['creditos_en_mora'] / stock['cartera_activa']) * 100, 1
+        )
+
+    if stock['saldo_total_cobrar'] > 0:
+        stock['tasa_incobrabilidad'] = round(
+            (stock['cartera_critica_monto'] / stock['saldo_total_cobrar'])
+            * 100,
+            1,
+        )
+
+    flujo = {
+        'total_prestado': total_prestado_global,  # $671.906.670 sincronizado
+        'recaudo_capital': recaudo_capital_global,  # $62.932.687 sincronizado
+        'recaudo_interes': interes_recaudado_global,  # $25.680.133 sincronizado
+        'recaudo_mora': mora_recaudada_global,  # $869.691 sincronizado
+        'recaudo_total': total_recaudado_global,  # $89.482.511 sincronizado
+        'cei': 0.0,
+        'dso': 0.0,
+    }
+
+    base_cobranza = flujo['recaudo_total'] + stock['cartera_critica_monto']
     if base_cobranza > 0:
-        kpis['cei'] = round((kpis['recaudo_mes'] / base_cobranza) * 100, 1)
+        flujo['cei'] = round((flujo['recaudo_total'] / base_cobranza) * 100, 1)
 
-    total_activos = kpis['creditos_en_mora'] + kpis['creditos_al_dia']
-    if total_activos > 0:
-        kpis['indice_morosidad'] = round((kpis['creditos_en_mora'] / total_activos) * 100, 1)
+    if flujo['recaudo_total'] > 0:
+        flujo['dso'] = round(
+            (stock['saldo_total_cobrar'] / flujo['recaudo_total']) * 30, 1
+        )
 
-    if kpis['saldo_total'] > 0:
-        kpis['tasa_incobrabilidad'] = round((kpis['cartera_critica'] / kpis['saldo_total']) * 100, 1)
+    # -------------------------------------------------------------------------
+    # 9. COMPARATIVO CON PERÍODO ANTERIOR (MoM)
+    # -------------------------------------------------------------------------
+    anio_prev = None
+    mes_prev = None
 
-    for clave in kpis:
-        if isinstance(kpis[clave], float):
-            kpis[clave] = round(kpis[clave], 2)
+    if isinstance(filtro_mes, int):
+        if filtro_mes == 1:
+            anio_prev = (filtro_anio - 1) if isinstance(filtro_anio, int) else None
+            mes_prev = 12
+        else:
+            anio_prev = filtro_anio
+            mes_prev = filtro_mes - 1
+    elif isinstance(filtro_anio, int) and filtro_mes is None:
+        anio_prev = filtro_anio - 1
+        mes_prev = None
 
-    labels_sedes = [d['sede'] for d in datos_sedes]
-    saldos_sedes = [d['saldo_actual'] for d in datos_sedes]
-    recaudo_mes_sedes = [d['recaudo_mes'] for d in datos_sedes]
-    mora_sedes = [d['en_mora'] for d in datos_sedes]
-    al_dia_sedes = [d['al_dia'] for d in datos_sedes]
-    cancelados_sedes = [d['cancelados'] for d in datos_sedes]
+    recaudo_prev = 0.0
+    if ids_operativos and (anio_prev is not None or mes_prev is not None):
+        q_prev = db.session.query(Pago).join(Cuota, Pago.cuota_id == Cuota.id).filter(
+            Pago.activo == True,
+            Cuota.credito_id.in_(ids_operativos)
+        )
+        if hasattr(Pago, 'reversado'):
+            q_prev = q_prev.filter(Pago.reversado == False)
+        if anio_prev is not None:
+            q_prev = q_prev.filter(db.extract('year', Pago.fecha) == anio_prev)
+        if mes_prev is not None:
+            q_prev = q_prev.filter(db.extract('month', Pago.fecha) == mes_prev)
 
-    #db.session.commit()
+        pagos_prev_list = q_prev.distinct(Pago.id).all()
+        for p in pagos_prev_list:
+            v_c = float(getattr(p, 'valor_aplicado_capital', 0) or getattr(p, 'capital', 0) or 0)
+            v_i = float(getattr(p, 'valor_aplicado_interes', 0) or getattr(p, 'interes', 0) or 0)
+            v_m = float(getattr(p, 'valor_aplicado_mora', 0) or getattr(p, 'mora', 0) or 0)
+            recaudo_prev += (v_c + v_i + v_m)
+
+    diff_recaudo = round(flujo['recaudo_total'] - recaudo_prev, 2)
+    pct_recaudo = round(((diff_recaudo / recaudo_prev) * 100), 1) if recaudo_prev > 0 else (100.0 if flujo['recaudo_total'] > 0 else 0.0)
+
+    nombre_mes_actual_str = meses_nombres.get(mes_seleccionado, str(mes_seleccionado))
+    nombre_mes_prev_str = meses_nombres.get(mes_prev, str(mes_prev)) if mes_prev else ('AÑO ANTERIOR' if anio_prev else 'N/A')
+
+    comparativo = {
+        'periodo_actual_label': f"{nombre_mes_actual_str} {anio_seleccionado}",
+        'periodo_prev_label': f"{nombre_mes_prev_str} {anio_prev}" if anio_prev else "N/A",
+        'recaudo_actual': flujo['recaudo_total'],
+        'recaudo_prev': round(recaudo_prev, 2),
+        'diff_recaudo': diff_recaudo,
+        'pct_recaudo': pct_recaudo
+    }
 
     return render_template(
         'dashboard_gerencial.html',
-        kpis=kpis,
-        datos_sedes=datos_sedes,
-        labels_sedes=labels_sedes,
-        saldos_sedes=saldos_sedes,
-        recaudo_mes_sedes=recaudo_mes_sedes,
-        mora_sedes=mora_sedes,
-        al_dia_sedes=al_dia_sedes,
-        cancelados_sedes=cancelados_sedes,
+        stock=stock,
+        flujo=flujo,
+        datos_sedes_flujo=datos_sedes_flujo,
+        comparativo=comparativo,
+        hoy=hoy,
         anio_actual=anio_actual,
         mes_actual=mes_actual,
         anio_seleccionado=anio_seleccionado,
         mes_seleccionado=mes_seleccionado,
         sede_seleccionada=sede_seleccionada,
-        anios_disponibles=list(range(2024, anio_actual + 2)),
+        anios_disponibles=['TODOS'] + list(range(2024, anio_actual + 2)),
         meses_disponibles=meses_nombres,
-        sedes_disponibles=['TODAS'] + sedes
+        sedes_disponibles=['TODAS'] + sedes_base
     )
 
 @app.route('/extracto_credito/<int:credito_id>')

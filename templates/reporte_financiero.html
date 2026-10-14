@@ -169,7 +169,7 @@
         .card {
             border-radius: 18px;
             padding: 18px;
-            color: white;
+            color: #282829;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -190,13 +190,7 @@
             line-height: 1.2;
         }
 
-        .card-1 { background: linear-gradient(135deg, #1677ff, #0d47a1); }
-        .card-2 { background: linear-gradient(135deg, #198754, #0f5132); }
-        .card-3 { background: linear-gradient(135deg, #f59e0b, #b45309); }
-        .card-4 { background: linear-gradient(135deg, #7c3aed, #4c1d95); }
-        .card-5 { background: linear-gradient(135deg, #0ea5e9, #075985); }
-        .card-6 { background: linear-gradient(135deg, #dc3545, #7f1d1d); }
-        .card-7 { background: linear-gradient(135deg, #334155, #0f172a); }
+        .card-1 { background: linear-gradient(135deg, #e9eef0, #eef1f1); }
 
         /* Estilos para los bloques de estado de cartera */
         .estado-box {
@@ -498,47 +492,47 @@
                     <div class="valor">{{ resumen_general.total_prestado | cop }}</div>
                 </div>
 
-                <div class="card card-2">
+                <div class="card card-1">
                     <div class="label">Total recaudado</div>
                     <div class="valor">{{ resumen_general.total_recaudado | cop }}</div>
                 </div>
 
-                <div class="card card-3">
+                <div class="card card-1">
                     <div class="label">Saldo actual total</div>
                     <div class="valor">{{ resumen_general.saldo_actual_total | cop }}</div>
                 </div>
 
-                <div class="card card-4">
+                <div class="card card-1">
                     <div class="label">Interés corriente causado</div>
                     <div class="valor">{{ resumen_general.interes_corriente_causado | cop }}</div>
                 </div>
 
-                <div class="card card-5">
+                <div class="card card-1">
                     <div class="label">Interés corriente recaudado</div>
                     <div class="valor">{{ resumen_general.interes_corriente_recaudado | cop }}</div>
                 </div>
 
-                <div class="card card-6">
+                <div class="card card-1">
                     <div class="label">Mora causada</div>
                     <div class="valor">{{ resumen_general.mora_causada | cop }}</div>
                 </div>
 
-                <div class="card card-7">
+                <div class="card card-1">
                     <div class="label">Mora recaudada</div>
                     <div class="valor">{{ resumen_general.mora_recaudada | cop }}</div>
                 </div>
 
-                <div class="card card-3">
+                <div class="card card-1">
                     <div class="label">Diferencia interés corriente</div>
                     <div class="valor">{{ resumen_general.diferencia_interes_corriente | cop }}</div>
                 </div>
 
-                <div class="card card-6">
+                <div class="card card-1">
                     <div class="label">Diferencia mora</div>
                     <div class="valor">{{ resumen_general.diferencia_mora | cop }}</div>
                 </div>
 
-                <div class="card card-7">
+                <div class="card card-1">
                     <div class="label">Diferencia total</div>
                     <div class="valor">{{ resumen_general.diferencia_total | cop }}</div>
                 </div>
