@@ -284,6 +284,17 @@
                     <td>
                         <a href="/extracto_credito/{{ item.credito.id }}" class="btn-extracto">Extracto</a>
                     </td>
+                    <td>
+                        {% if session.get('rol') == 'admin' %}
+                        <form action="{{ url_for('reversar_reestructuracion', credito_id=item.credito.id) }}" method="POST"
+                            onsubmit="return confirm('¿Seguro que deseas reversar la reestructuración de este crédito? Las cuotas congeladas volverán a estar activas (EN MORA o PENDIENTE).');">
+                            <input type="hidden" name="origen" value="reestructurados">
+                            <button type="submit" class="btn-editar">Reversar</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                
+
                 </tr>
                 {% else %}
                 <tr>
@@ -307,6 +318,8 @@ function filtrarTablaReestructurados() {
         filas[i].style.display = textoFila.includes(filtro) ? "" : "none";
     }
 }
+
+
 </script>
 
 </body>

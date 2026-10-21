@@ -2747,6 +2747,79 @@ def reestructurar_credito(credito_id):
         cuotas_activas=cuotas_activas
     )
 
+from flask import flash, redirect, url_for, session, request
+from datetime import datetime
+
+@app.route('/reversar_reestructuracion/<int:credito_id>', methods=['POST'])
+def reversar_reestructuracion(credito_id):
+    if 'user' not in session:
+        return redirect('/login')
+
+    credito = Credito.query.get_or_404(credito_id)
+
+    # Buscar las cuotas reestructuradas pertenecientes a este crédito
+    cuotas_reestructuradas = Cuota.query.filter(
+        Cuota.credito_id == credito.id,
+        Cuota.estado == 'REESTRUCTURADO'
+    ).order_by(Cuota.numero).all()
+
+    if not cuotas_reestructuradas:
+        flash('No se encontraron cuotas reestructuradas en este crédito.', 'warning')
+        return redirect(url_for('ver_creditos_reestructurados', sede=credito.sede))
+
+    hoy = datetime.utcnow().date()
+    saldo_acumulado = 0
+
+    # Reactivar cuotas congeladas/reestructuradas
+    for cuota in cuotas_reestructuradas:
+        # Calcular/restaurar el saldo de la cuota (monto menos abonos previa)
+        monto_cuota = getattr(cuota, 'monto', 0) or getattr(cuota, 'valor', 0) or getattr(cuota, 'valor_cuota', 0)
+        monto_abonado = getattr(cuota, 'monto_abonado', 0) or getattr(cuota, 'abono', 0) or 0
+        
+        saldo_cuota = max(monto_cuota - monto_abonado, 0)
+        cuota.saldo_pendiente = saldo_cuota
+        cuota.total_cobro = saldo_cuota
+        
+        # Resetear mora si aplica
+        cuota.dias_mora = 0
+        cuota.interes_mora = 0
+
+        # Evaluar la fecha de vencimiento para definir si pasa a EN MORA o PENDIENTE
+        f_venc = getattr(cuota, 'fecha_vencimiento', None) or getattr(cuota, 'fecha', None)
+        if hasattr(f_venc, 'date'):
+            f_venc = f_venc.date()
+
+        if f_venc and f_venc <= hoy:
+            cuota.estado = 'EN MORA'
+        else:
+            cuota.estado = 'PENDIENTE'
+
+        saldo_acumulado += saldo_cuota
+
+    # Actualizar estado y saldo global del crédito
+    if hasattr(credito, 'estado'):
+        credito.estado = 'ACTIVO'
+
+    credito.saldo_actual = saldo_acumulado
+
+    # Registrar la traza en las observaciones
+    usuario_actual = session.get('user', 'ADMIN')
+    nota_registro = f"REVERSIÓN DE REESTRUCTURACIÓN por {usuario_actual} el {hoy.strftime('%d/%m/%Y')}"
+    if hasattr(credito, 'observacion') and credito.observacion:
+        credito.observacion += f" | {nota_registro}"
+    elif hasattr(credito, 'observacion'):
+        credito.observacion = nota_registro
+
+    db.session.commit()
+
+    # Si tu aplicación usa una función para recalcular moras e intereses:
+    if 'actualizar_mora_credito' in globals():
+        actualizar_mora_credito(credito, hoy)
+        db.session.commit()
+
+    flash(f'La reestructuración del crédito con pagaré #{credito.numero_pagare or credito.id} fue reversada exitosamente.', 'success')
+    return redirect(url_for('ver_creditos_reestructurados', sede=credito.sede))
+
 @app.route('/ver_cuotas/<int:credito_id>')
 def ver_cuotas(credito_id):
     if 'user' not in session:
