@@ -6717,9 +6717,9 @@ def extracto_credito(credito_id):
     abonos_directos = AbonoCapital.query.filter_by(credito_id=credito.id, activo=True, reversado=False).all() if 'AbonoCapital' in globals() else []
     total_abonos_directos = round(sum(a.valor or 0 for a in abonos_directos), 2)
 
-    # CÁLCULO DE SUMATORIAS SOLAMENTE CON PAGOS VÁLIDOS
-    total_interes_pagado = round(sum(p.valor_aplicado_interes or 0 for p in pagos), 2)
-    total_capital_pagado = round(sum(p.valor_aplicado_capital or 0 for p in pagos), 2)
+    cuotas_pagadas = [c for c in cuotas if c.estado in ['PAGADA', 'PAGADO', 'LIQUIDADA']]
+    total_interes_pagado = round(sum(c.interes or 0 for c in cuotas_pagadas), 2)
+    total_capital_pagado = round(sum(c.capital or 0 for c in cuotas_pagadas), 2)
     total_mora_pagada = round(sum(p.valor_aplicado_mora or 0 for p in pagos), 2)
     total_prepago_capital = round(sum(p.valor_aplicado_prepago_capital or 0 for p in pagos) + total_abonos_directos, 2)
 
