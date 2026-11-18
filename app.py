@@ -3106,7 +3106,14 @@ def pagar_cuota(cuota_id):
         actualizar_mora_credito(credito, fecha_pago)
         db.session.commit()
 
-        resultado_correo = enviar_recibo_cuota_por_correo(pago_id=pago.id, mora_aplicada=pago.mora_generada_al_pago, saldo_pendiente=cuota.saldo_restante)
+        siguiente_cuota = Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.numero > cuota.numero
+        ).order_by(Cuota.numero.asc()).first()
+
+        saldo_siguiente = siguiente_cuota.saldo_inicial if siguiente_cuota else 0
+
+        resultado_correo = enviar_recibo_cuota_por_correo(pago_id=pago.id, mora_aplicada=pago.mora_generada_al_pago, saldo_pendiente=saldo_siguiente)
         flash(resultado_correo, 'estado_correo')
 
         db.session.refresh(credito)
@@ -3239,7 +3246,7 @@ def enviar_recibo_cuota_por_correo(pago_id, mora_aplicada=0, saldo_pendiente=0):
 
         nombre_cliente = getattr(credito, 'cliente', 'Cliente')
         mora_aplicada = getattr(pago, 'mora_generada_al_pago', None) or getattr(cuota, 'mora_generada_al_pago', 0) or 0
-        saldo_pendiente = saldo_pendiente if saldo_pendiente else (getattr(credito, 'saldo_actual', 0) or 0)
+        saldo_pendiente = saldo_pendiente if saldo_pendiente is not None else (getattr(credito, 'saldo_actual', 0) or 0)
 
         # 1. Renderizar HTML del recibo
         html_recibo = render_template(
@@ -3480,6 +3487,24 @@ def enviar_recibo_deuda_por_correo(credito_id, pagos_ids, observacion_param=""):
 
         nombre_cliente = getattr(credito, 'cliente', 'Cliente')
 
+        # Obtener el saldo real de capital pendiente desde la primera cuota abierta
+        primera_cuota_abierta = Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.estado.notin_(['PAGADA', 'LIQUIDADA', 'CANCELADA']),
+            Cuota.saldo_pendiente > 0
+        ).order_by(Cuota.numero.asc()).first()
+
+        if primera_cuota_abierta:
+            pagos_cuota_abierta = Pago.query.filter(
+                Pago.cuota_id == primera_cuota_abierta.id,
+                Pago.activo == True
+            ).all()
+            capital_abonado = sum((p.valor_aplicado_capital or 0) for p in pagos_cuota_abierta)
+            saldo_real_credito = round(max((primera_cuota_abierta.saldo_inicial or 0) - capital_abonado, 0), 2)
+        else:
+            saldo_real_credito = 0
+
+
         # 1. Renderizar HTML del recibo PNG con las variables correctas
         html_recibo = render_template(
             'recibo_deuda_fecha.html', 
@@ -3543,7 +3568,7 @@ def enviar_recibo_deuda_por_correo(credito_id, pagos_ids, observacion_param=""):
                 pagos=pagos,
                 pago=pago_resumen_correo,
                 mora_aplicada=mora_total_calc,
-                saldo_pendiente=getattr(credito, 'saldo_actual', 0)
+                saldo_pendiente=saldo_real_credito
             ),
             sender={
                 "name": "Financiera CRV", 
@@ -6774,7 +6799,11 @@ def ver_recibo_pago(pago_id):
         saldo_pendiente_credito = round((credito.saldo_actual or 0), 2)
 
     elif cuota.estado in ['PAGADA', 'LIQUIDADA'] or pago.valor_aplicado_capital > 0:
-        saldo_pendiente_credito = round((cuota.saldo_restante or 0), 2)
+        siguiente_cuota = Cuota.query.filter(
+            Cuota.credito_id == credito.id,
+            Cuota.numero > cuota.numero
+        ).order_by(Cuota.numero.asc()).first()
+        saldo_pendiente_credito = round((siguiente_cuota.saldo_inicial or 0), 2) if siguiente_cuota else 0
 
     else:
         saldo_pendiente_credito = round((credito.saldo_actual or 0), 2)
